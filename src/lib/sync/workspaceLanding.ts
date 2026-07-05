@@ -1,10 +1,8 @@
 import {
   usePageStore,
   isFullPageDatabaseHomePage,
-  isProtectedDatabaseBlockPage,
 } from "../../store/pageStore";
 import { useSettingsStore } from "../../store/settingsStore";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../scheduler/scope";
 import type { PageMap } from "../../types/page";
 
 /**
@@ -17,12 +15,6 @@ function pageBelongsToWorkspace(
 ): boolean {
   if (!page) return false;
   if (page.workspaceId && page.workspaceId !== workspaceId) return false;
-  if (
-    workspaceId !== LC_SCHEDULER_WORKSPACE_ID &&
-    isProtectedDatabaseBlockPage(page)
-  ) {
-    return false;
-  }
   return true;
 }
 
@@ -40,7 +32,7 @@ export function clearCrossWorkspaceLanding(): void {
 }
 
 // 진입 landing 에서 활성/마지막 페이지로 복원해도 안전한지 — 유령 페이지(풀페이지 DB 홈)·
-// 보호 DB 블록·타 워크스페이스 페이지를 배제한다. pageBelongsToWorkspace 가 후자 둘을 거른다.
+// 타 워크스페이스 페이지를 배제한다.
 function isRestorableLandingPage(
   page: PageMap[string] | undefined,
   workspaceId: string,
@@ -97,7 +89,7 @@ export function applyWorkspaceLanding(
   }
 
   // 워크스페이스 전환/재진입: 직전에 보던 페이지를 복원하되, 유령 페이지를 만드는 탭만 무력화한다.
-  // - 안전한 일반 페이지(현재 WS 소속·DB 탭/풀페이지 DB 홈/보호 DB 블록 아님)면 그대로 유지해
+  // - 안전한 일반 페이지(현재 WS 소속·DB 탭/풀페이지 DB 홈 아님)면 그대로 유지해
   //   사용자가 보던 위치를 복원한다.
   // - DB 탭/풀페이지 DB 홈을 활성 탭으로 복원하면 ensureFullPagePageForDatabase 가 홈을 재생성(유령)하므로
   //   마지막 방문 페이지(안전 시) 또는 첫 인덱스 페이지로 대체한다. (유령 방지 가드 유지)

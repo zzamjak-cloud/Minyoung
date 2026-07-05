@@ -183,10 +183,9 @@ export type ColumnDef = {
      * select/multiSelect/status 컬럼 — 옵션을 퀵노트 내부 엔티티 store에서 미러링.
      * - `"organization"` : organizationStore.organizations
      * - `"team"`         : teamStore.teams
-     * - `"project"`      : schedulerProjectsStore.projects
      * 셀값에는 해당 엔티티 id가 저장된다.
      */
-    linkedScope?: "organization" | "team" | "project";
+    linkedScope?: "organization" | "team";
     /**
      * itemFetch 컬럼 — 다른 DB의 특정 컬럼값이 현재 행 제목과 일치하는 행 페이지를 자동으로 불러온다.
      * pageLink 타입 컬럼이 matchColumnId 이면 현재 행의 pageId가 배열에 포함되는지로 비교.
@@ -200,31 +199,6 @@ export type ColumnDef = {
 export type DateRangeValue = {
   start?: string;
   end?: string;
-};
-
-export type TemplateAutomationWeekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
-
-export type DatabaseTemplateAutomationConfig = {
-  /** 자동화별 고정 ID. 서버 EventBridge Scheduler 이름과 실행 원장 키의 기준값이다. */
-  id: string;
-  /** false 이면 서버 스케줄러 대상에서 제거된다. */
-  enabled: boolean;
-  /** 0=일요일, 6=토요일. EventBridge Scheduler cron 요일로 변환해 사용한다. */
-  weekdays: TemplateAutomationWeekday[];
-  /** HH:mm, 자동 생성 시각. 초 단위 정밀도는 지원하지 않는다. */
-  time: string;
-  /** IANA timezone. 예: Asia/Seoul */
-  timezone: string;
-  /** 비어 있으면 템플릿 제목을 사용한다. */
-  titlePrefix?: string;
-  /** 날짜 컬럼 수동 지정. 없으면 타임라인 날짜 컬럼, 그 다음 첫 date 컬럼을 사용한다. */
-  dateColumnId?: string | null;
-  /** 서버/스케줄러가 허용할 최대 재시도 횟수. */
-  maxAttempts?: number;
-  /** 이 날짜 이후에는 스케줄을 만들지 않는다. YYYY-MM-DD */
-  endDate?: string | null;
-  /** UI/서버 충돌 해소와 스케줄 갱신 감지를 위한 갱신 시각(epoch ms). */
-  updatedAt?: number;
 };
 
 export type FileCellItem = {
@@ -346,15 +320,6 @@ export type DatabasePanelState = {
   filterPresets?: FilterPreset[];
   /** 현재 활성화된 프리셋 ID. null이면 전역 filterRules/sortRules 사용. */
   activePresetId?: string | null;
-  /** LC 스케줄러 피처 모드에서 표시할 마일스톤 항목 ID. null이면 전체 표시. */
-  schedulerFeatureMilestoneIds?: string[] | null;
-  /**
-   * LC 스케줄러 구성원 탭/타임라인 표시 순서. 작업 DB(LC_SCHEDULER_DATABASE_ID) panelState 에 저장해
-   * 워크스페이스 전 사용자에게 공유 동기화한다(개인 설정 아님).
-   */
-  schedulerMemberOrder?: string[];
-  /** LC 스케줄러 구성원 순서의 field-level LWW 타임스탬프(epoch ms). */
-  schedulerMemberOrderUpdatedAt?: number;
 };
 
 /** DB 템플릿 — 새 행 생성 시 기본 셀 값을 미리 지정. */
@@ -365,8 +330,6 @@ export type DatabaseTemplate = {
   cells: Record<string, CellValue>;
   /** 템플릿 전용 페이지 ID — 페이지로 이동해 속성·내용을 편집. */
   pageId?: string;
-  /** 이 템플릿으로 행을 자동 생성하는 EventBridge Scheduler 설정. */
-  automation?: DatabaseTemplateAutomationConfig;
 };
 
 export type DatabaseRowPreset = {
@@ -380,12 +343,6 @@ export type DatabaseRowPreset = {
   requiredColumnIds: string[];
   visibleColumnIds: string[];
   hiddenColumnIds: string[];
-  schedulerDefaults?: {
-    durationDays?: number;
-    color?: string;
-    titlePrefix?: string;
-    assigneeIds?: string[];
-  };
   createdAt: number;
   updatedAt: number;
 };
@@ -413,14 +370,9 @@ export function defaultMinWidthForType(type: ColumnType): number {
 
 /**
  * 표시 UI(뷰·표시설정·속성 패널)에서 항상 숨기는 내부 전용 컬럼 id.
- * LC 스케줄러의 카드 색상·메타 컬럼은 우클릭 프리셋 메뉴 등 내부 로직에서만 사용하므로
- * 사용자가 볼 수 있는 어떤 화면에서도 노출/선택되지 않는다.
- * (scheduler/database.ts 의 LC_SCHEDULER_COLUMN_IDS.color / .meta 와 동일 — 순환 import 방지용 인라인 상수)
+ * 현재는 해당 컬럼이 없다 — 내부 전용 컬럼이 다시 생기면 여기에 등록한다.
  */
-const INTERNAL_HIDDEN_COLUMN_IDS = new Set<string>([
-  "lc-scheduler:color",
-  "lc-scheduler:meta",
-]);
+const INTERNAL_HIDDEN_COLUMN_IDS = new Set<string>([]);
 
 /** 사용자 화면에서 항상 숨겨야 하는 내부 전용 컬럼인지 판별. */
 export function isInternalHiddenColumnId(id: string): boolean {

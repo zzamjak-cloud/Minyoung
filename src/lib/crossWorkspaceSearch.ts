@@ -9,7 +9,6 @@ import { EMPTY_DOC } from "../store/pageStore/helpers";
 import { parseAwsJson, gqlOrderNumber, isoToMs, gqlPageToLocalPage } from "./sync/storeApply/helpers";
 import { tryParseSerializedColumns } from "./database/schema/normalizeDatabase";
 import { readWorkspaceSnapshotPages } from "./sync/workspaceSwitch";
-import { LC_SCHEDULER_WORKSPACE_ID } from "./scheduler/scope";
 import { createLocalDeletionFilter } from "./sync/localDeleteGuards";
 
 export type CrossWorkspaceDatabaseCandidate = {
@@ -31,7 +30,6 @@ function isFresh(loadedAt: number, ttl: number): boolean {
 }
 
 export function isPublicCrossWorkspace(workspace: WorkspaceSummary): boolean {
-  if (workspace.workspaceId === LC_SCHEDULER_WORKSPACE_ID) return false;
   if (workspace.type !== "shared" || workspace.removedAt) return false;
   return Boolean(
     workspace.access?.some(

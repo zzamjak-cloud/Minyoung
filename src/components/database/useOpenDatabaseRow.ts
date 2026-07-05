@@ -5,7 +5,6 @@ import { usePageStore } from "../../store/pageStore";
 import { useUiStore } from "../../store/uiStore";
 import { useWorkspaceStore } from "../../store/workspaceStore";
 import { ensurePageContentLoaded } from "../../lib/sync/pageContentLoad";
-import { resolveDatabaseRowRemoteKey } from "../../lib/sync/externalProtectedDatabaseLoad";
 import type { FilterRule } from "../../types/database";
 
 export type OpenDatabaseRowOptions = {
@@ -20,10 +19,7 @@ export function useEnsureDatabaseRowContent(databaseId: string) {
   const databaseWorkspaceId = useDatabaseStore(
     (s) => s.databases[databaseId]?.meta.workspaceId ?? null,
   );
-  const rowIndexKey = useMemo(
-    () => resolveDatabaseRowRemoteKey(databaseId, currentWorkspaceId),
-    [currentWorkspaceId, databaseId],
-  );
+  const rowIndexKey = useMemo(() => databaseId || null, [databaseId]);
   const rowIndexRows = useDatabaseRowIndexStore(
     (s) => (rowIndexKey ? s.snapshotsByKey[rowIndexKey]?.rows ?? [] : []),
   );

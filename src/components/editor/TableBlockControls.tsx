@@ -485,7 +485,7 @@ export function TableBlockControls({ editor }: { editor: Editor | null }) {
       const target = resolvePointerTargetElement(el);
       if (target) measureFromTarget(target, x, y);
     };
-    const scheduleRefresh = () => {
+    const queueRefresh = () => {
       if (refreshRaf != null) return;
       refreshRaf = window.requestAnimationFrame(() => {
         refreshRaf = null;
@@ -494,12 +494,12 @@ export function TableBlockControls({ editor }: { editor: Editor | null }) {
     };
     // window 전체를 감지해야 "+" 버튼(에디터 외부 fixed)에 접근해도 ui가 유지됨
     window.addEventListener("mousemove", onMove);
-    window.addEventListener("scroll", scheduleRefresh, true);
-    window.addEventListener("resize", scheduleRefresh);
+    window.addEventListener("scroll", queueRefresh, true);
+    window.addEventListener("resize", queueRefresh);
     return () => {
       window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("scroll", scheduleRefresh, true);
-      window.removeEventListener("resize", scheduleRefresh);
+      window.removeEventListener("scroll", queueRefresh, true);
+      window.removeEventListener("resize", queueRefresh);
       if (refreshRaf != null) window.cancelAnimationFrame(refreshRaf);
     };
   }, [editor, measureFromTarget]);

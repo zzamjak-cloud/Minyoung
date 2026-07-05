@@ -6,13 +6,6 @@ import type { Page, PageMap } from "../../types/page";
 import type { PageSnapshot } from "../../types/history";
 import { enqueueAsync } from "../../lib/sync/runtime";
 import { toUpsertPageInput } from "../../lib/sync/mappers/upsertPageInput";
-import {
-  isLCSchedulerDatabaseId,
-  isLCMilestoneDatabaseId,
-  isLCFeatureDatabaseId,
-  LC_SCHEDULER_DATABASE_ID,
-} from "../../lib/scheduler/database";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
 import { useAuthStore } from "../authStore";
 import { useMemberStore } from "../memberStore";
 import { useWorkspaceStore } from "../workspaceStore";
@@ -36,17 +29,11 @@ export function getCurrentWorkspaceId(): string {
 }
 
 function resolvePageWorkspaceId(p: Page): string {
-  const dbId = p.databaseId;
-  if (isLCSchedulerDatabaseId(dbId) || isLCMilestoneDatabaseId(dbId) || isLCFeatureDatabaseId(dbId)) {
-    return LC_SCHEDULER_WORKSPACE_ID;
-  }
   return p.workspaceId ?? getCurrentWorkspaceId();
 }
 
 function normalizePageDatabaseId(databaseId: string | null | undefined): string | null {
-  if (!databaseId) return null;
-  if (isLCSchedulerDatabaseId(databaseId)) return LC_SCHEDULER_DATABASE_ID;
-  return databaseId;
+  return databaseId ?? null;
 }
 
 // 클라이언트 number(epoch ms) → GraphQL 경계 string/ISO 변환.

@@ -6,34 +6,28 @@ import type { DatabaseBundle } from "../../types/database";
 import type { Page } from "../../types/page";
 import type { Organization } from "../../store/organizationStore";
 import type { Team } from "../../store/teamStore";
-import type { SchedulerProject } from "../../store/schedulerProjectsStore";
 
 /** 퀵노트 내부 엔티티 컨텍스트 — linkedScope 옵션 미러링 시 필요 */
 export type ScopeOptionsCtx = {
   organizations: Organization[];
   teams: Team[];
-  projects: SchedulerProject[];
 };
 
-/** linkedScope 가 지정된 컬럼의 옵션을 organization/team/project store에서 생성. */
+/** linkedScope 가 지정된 컬럼의 옵션을 organization/team store에서 생성. */
 function resolveLinkedScopeOptions(
-  scope: "organization" | "team" | "project",
+  scope: "organization" | "team",
   ctx: ScopeOptionsCtx | undefined,
 ): SelectOption[] {
   if (!ctx) return [];
   if (scope === "organization") {
     return ctx.organizations.map((o) => ({ id: o.organizationId, label: o.name }));
   }
-  if (scope === "team") {
-    return ctx.teams.map((t) => ({ id: t.teamId, label: t.name }));
-  }
-  return ctx.projects.map((p) => ({ id: p.id, label: p.name, color: p.color }));
+  return ctx.teams.map((t) => ({ id: t.teamId, label: t.name }));
 }
 
 /**
  * sourceFromDb가 가리키는 원본 컬럼을 찾아 옵션 목록 반환.
  * 원본 컬럼이 다시 linkedScope/sourceFromDb 로 외부 미러링 중인 경우 재귀적으로 해석한다.
- * (예: 피처의 프로젝트 컬럼 → 마일스톤의 프로젝트 컬럼 → schedulerProjectsStore)
  */
 export function resolveSyncedOptions(
   column: ColumnDef,

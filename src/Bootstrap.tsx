@@ -5,7 +5,6 @@ import { useAuthStore } from "./store/authStore";
 import {
   startSubscriptions,
 } from "./lib/sync";
-import type { GqlProject } from "./lib/sync/graphql/operations";
 import { getSyncEngine, shutdownSyncEngine } from "./lib/sync/runtime";
 import {
   applyRemotePageMetasToStore,
@@ -28,7 +27,6 @@ import { resolveWorkspaceRemoteFetchMode } from "./lib/sync/workspaceFetchMode";
 import { useWorkspaceStore } from "./store/workspaceStore";
 import { useCustomIconStore } from "./store/customIconStore";
 import { useSyncWatermarkStore } from "./store/syncWatermarkStore";
-import { useSchedulerViewStore } from "./store/schedulerViewStore";
 import { usePageStore } from "./store/pageStore";
 import { useMemberStore } from "./store/memberStore";
 import { useWorkspaceOptionsStore } from "./store/workspaceOptionsStore";
@@ -44,24 +42,15 @@ import { useTeamStore } from "./store/teamStore";
 import { useOrganizationStore } from "./store/organizationStore";
 import { useUiStore } from "./store/uiStore";
 import { useNotificationStore } from "./store/notificationStore";
-import { LC_SCHEDULER_WORKSPACE_ID } from "./lib/scheduler/scope";
-import {
-  isLCSchedulerDatabaseId,
-} from "./lib/scheduler/database";
-import { useSchedulerStore } from "./store/schedulerStore";
-import { useSchedulerProjectsStore } from "./store/schedulerProjectsStore";
 import { resetWorkspaceLocalCaches } from "./lib/sync/resetWorkspaceLocalCaches";
 import { consumeOfflineGapMs, reconnectStrategyForGap } from "./lib/sync/offlineGap";
-import { refreshWorkspaceMeta } from "./lib/sync/workspaceMetaCache";
 import { tryRecoverQuarantine } from "./lib/migrations/quarantineRecovery";
-import { createLCSchedulerRootPageRepairGate } from "./lib/sync/lcSchedulerWorkspaceRepair";
 
 // 2026-06-11: PageMeta 스키마 필드 누락으로 listPageMetas 가 전량 실패하던 빌드에서
 // 워터마크만 전진해 페이지 누락이 고착된 캐시를 일괄 재기준선한다.
 const WORKSPACE_CACHE_REPAIR_REVISION = "2026-06-11-pagemeta-lasteditedby-schema-repair";
 const workspaceCacheRepairKey = (workspaceId: string): string =>
   `quicknote.workspace.cacheRepair.${WORKSPACE_CACHE_REPAIR_REVISION}:${workspaceId}`;
-const lcSchedulerRootPageRepairGate = createLCSchedulerRootPageRepairGate();
 
 function needsWorkspaceCacheRepair(workspaceId: string): boolean {
   if (typeof window === "undefined") return false;
@@ -124,10 +113,9 @@ function useSyncBootstrap(): void {
         setMe(me);
         // WorkspaceSummary[]로 캐스트 (options는 스토어 밖에서만 사용)
         setWorkspaces(workspaces as Parameters<typeof setWorkspaces>[0]);
-        preloadWorkspaceSnapshots([
-          ...workspaces.map((workspace) => workspace.workspaceId),
-          LC_SCHEDULER_WORKSPACE_ID,
-        ]);
+        preloadWorkspaceSnapshots(
+          workspaces.map((workspace) => workspace.workspaceId),
+        );
 
         // 현재 워크스페이스의 options를 WorkspaceOptionsStore에 동기화
         const currentWs =
@@ -141,12 +129,7 @@ function useSyncBootstrap(): void {
         // memberId 확정 직후 즐겨찾기를 서버로 올리고 flush(워크스페이스 부트와 무관)
         await flushClientPrefsToServerNow();
 
-        await refreshWorkspaceMeta(LC_SCHEDULER_WORKSPACE_ID).catch((error) => {
-          console.warn("[sync] LC 워크스페이스 메타 동기화 실패", error);
-        });
-        if (cancelled) return;
-
-        // 알림 초기 로드는 스케줄러 첫 화면과 무관하므로 뒤에서 갱신한다.
+        // 알림 초기 로드는 첫 화면과 무관하므로 뒤에서 갱신한다.
         void import("./lib/sync/notificationApi")
           .then(({ fetchMyNotificationsApi }) => fetchMyNotificationsApi())
           .then((notifications) => {
@@ -334,11 +317,7 @@ function useSyncBootstrap(): void {
           setHold(null);
         }
         const oneTimeWorkspaceCacheRepair = needsWorkspaceCacheRepair(currentWorkspaceId);
-        const rootPageCacheRepair = lcSchedulerRootPageRepairGate.shouldAttempt(
-          currentWorkspaceId,
-          usePageStore.getState().pages,
-        );
-        const repairWorkspaceCache = oneTimeWorkspaceCacheRepair || rootPageCacheRepair;
+        const repairWorkspaceCache = oneTimeWorkspaceCacheRepair;
         if (repairWorkspaceCache) {
           // 캐시 비움 + 워터마크 리셋은 항상 짝 — 단일 헬퍼로 강제(누락 시 데이터 유실).
           resetWorkspaceLocalCaches(currentWorkspaceId);
@@ -358,38 +337,16 @@ function useSyncBootstrap(): void {
         if (!cancelled && oneTimeWorkspaceCacheRepair) {
           markWorkspaceCacheRepaired(currentWorkspaceId);
         }
-        // LC 스케줄러 워크스페이스 데이터는 CAT 등 다른 워크스페이스 진입 시 미리 끌어오지 않는다.
         // 외부 DB/row page 는 사용자가 실제로 열 때 캐시 결손만 보정해야 한다.
 
         if (cancelled) return;
-        const refreshSchedulerPage = (pageId: string) => {
-          useSchedulerStore
-            .getState()
-            .refreshSchedulePageFromLocal(pageId, LC_SCHEDULER_WORKSPACE_ID);
-        };
-        const applySchedulerProject = (project: GqlProject) => {
-          if (project.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
-            useSchedulerProjectsStore.getState().applyRemote(project);
-          }
-        };
         unsub = startSubscriptions(currentWorkspaceId, {
           onPage: (p) => {
-            const isSchedulerPage = isLCSchedulerDatabaseId(
-              p.databaseId ?? usePageStore.getState().pages[p.id]?.databaseId ?? null,
-            );
             applyRemotePageMetasToStore([p]);
-            if (isSchedulerPage) {
-              refreshSchedulerPage(p.id);
-            }
           },
           onDatabase: (d) => {
             applyRemoteDatabaseToStore(d);
           },
-          ...(currentWorkspaceId === LC_SCHEDULER_WORKSPACE_ID
-            ? {
-                onProject: applySchedulerProject,
-              }
-            : {}),
           onWorkspace: () => {
             // 접근권한 변경 신호 → 본인 기준 워크스페이스 목록/권한 재페치(회수 시 setWorkspaces 가 자동 전환).
             void listMyWorkspacesApi()
@@ -403,8 +360,6 @@ function useSyncBootstrap(): void {
               });
           },
         });
-        // LC 스케줄러 구독은 스케줄러 팝업이 열려 있을 때만 유지한다(#8 — 아래 별도 effect).
-        // 닫혀 있는 동안의 변경분은 모달 진입 시 fetchSchedules/refreshWorkspaceMeta(증분)로 보정된다.
 
         const engine = await getSyncEngine();
         await engine.flush();
@@ -498,47 +453,6 @@ function useSyncBootstrap(): void {
       }
     };
   }, [authStatus, authSub, currentWorkspaceId]);
-
-  // LC 스케줄러 구독은 스케줄러 팝업이 열려 있을 때만 유지한다(#8).
-  // 공용 워크스페이스라 상시 구독하면 미사용 세션에서도 AppSync WebSocket 연결 시간이 과금된다.
-  // 닫혀 있는 동안의 변경분은 모달 진입 시 fetchSchedules·refreshWorkspaceMeta(증분)로 보정된다.
-  const schedulerOpen = useSchedulerViewStore((s) => s.schedulerOpen);
-  useEffect(() => {
-    if (authStatus !== "authenticated" || !authSub || !currentWorkspaceId) return;
-    if (!schedulerOpen) return;
-    // 현재 워크스페이스가 이미 LC 스케줄러면 메인 구독이 커버하므로 중복 구독하지 않는다.
-    if (currentWorkspaceId === LC_SCHEDULER_WORKSPACE_ID) return;
-    const refreshSchedulerPage = (pageId: string) => {
-      useSchedulerStore
-        .getState()
-        .refreshSchedulePageFromLocal(pageId, LC_SCHEDULER_WORKSPACE_ID);
-    };
-    const applySchedulerProject = (project: GqlProject) => {
-      if (project.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
-        useSchedulerProjectsStore.getState().applyRemote(project);
-      }
-    };
-    const unsubLc = startSubscriptions(LC_SCHEDULER_WORKSPACE_ID, {
-      onPage: (p) => {
-        const isSchedulerPage = isLCSchedulerDatabaseId(
-          p.databaseId ?? usePageStore.getState().pages[p.id]?.databaseId ?? null,
-        );
-        applyRemotePageMetasToStore([p]);
-        if (isSchedulerPage) refreshSchedulerPage(p.id);
-      },
-      onDatabase: (d) => {
-        applyRemoteDatabaseToStore(d);
-      },
-      onProject: applySchedulerProject,
-    });
-    return () => {
-      try {
-        unsubLc();
-      } catch (err) {
-        console.error("[sync] LC scheduler unsubscribe failed", err);
-      }
-    };
-  }, [authStatus, authSub, currentWorkspaceId, schedulerOpen]);
 
   // 온라인 복귀 시 원격 데이터 재페치 + outbox flush.
   // 오프라인 동안 다른 클라이언트가 만든 변경을 즉시 반영하고

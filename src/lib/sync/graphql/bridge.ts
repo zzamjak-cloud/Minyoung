@@ -8,7 +8,6 @@ import {
 } from "./operations";
 import { UPDATE_MY_CLIENT_PREFS } from "../queries/member";
 import type { GqlBridge } from "../engine";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../../scheduler/scope";
 
 const FORCE_DELETE_UPDATED_AT = "9999-12-31T23:59:59.999Z";
 const META_ONLY_PAGE_UPSERT_FLAG = "__metaOnly";
@@ -196,13 +195,6 @@ export const realGqlBridge: GqlBridge = {
     } catch (error) {
       const message = getGraphQLErrorMessage(error);
       if (isResourceGoneError(message)) return;
-      if (
-        workspaceId !== LC_SCHEDULER_WORKSPACE_ID &&
-        message.includes("The conditional request failed")
-      ) {
-        await softDeletePageWithForceRetry(id, LC_SCHEDULER_WORKSPACE_ID, updatedAt);
-        return;
-      }
       throw error;
     }
   },

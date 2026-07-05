@@ -4,8 +4,6 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import type { Member, Tables } from "./member";
 import type { Organization } from "./organization";
-import type { ProjectRecord } from "./project";
-import { listProjects } from "./project";
 import type { Team } from "./team";
 
 type MemberTeamLink = {
@@ -22,7 +20,6 @@ export type WorkspaceMeta = {
   members: Member[];
   teams: Team[];
   organizations: Organization[];
-  projects: ProjectRecord[];
 };
 
 async function scanAll<T>(
@@ -73,7 +70,6 @@ export async function getWorkspaceMeta(args: {
     organizationRows,
     memberTeamLinks,
     memberOrganizationLinks,
-    projects,
   ] = await Promise.all([
     scanAll<Member>(args.doc, args.tables.Members),
     scanAll<Omit<Team, "members">>(args.doc, args.tables.Teams),
@@ -84,12 +80,6 @@ export async function getWorkspaceMeta(args: {
     args.tables.MemberOrganizations
       ? scanAll<MemberOrganizationLink>(args.doc, args.tables.MemberOrganizations)
       : Promise.resolve([]),
-    listProjects({
-      doc: args.doc,
-      tables: args.tables,
-      caller: args.caller,
-      workspaceId: args.workspaceId,
-    }),
   ]);
 
   const membersById = activeMemberById(members);
@@ -126,6 +116,5 @@ export async function getWorkspaceMeta(args: {
     members,
     teams,
     organizations,
-    projects,
   };
 }

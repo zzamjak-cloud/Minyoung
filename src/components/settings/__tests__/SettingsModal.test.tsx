@@ -50,7 +50,6 @@ describe("SettingsModal role tabs", () => {
 
     render(<SettingsModal open onClose={() => {}} />);
     expect(screen.getByText("구성원")).toBeTruthy();
-    expect(screen.getByText("프로젝트")).toBeTruthy();
     expect(screen.getByText("팀")).toBeTruthy();
     expect(screen.getByText("워크스페이스")).toBeTruthy();
   });

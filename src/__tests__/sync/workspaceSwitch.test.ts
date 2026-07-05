@@ -1,10 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   applyWorkspaceSwitch,
-  cacheBelongsToWorkspace,
-  clearWorkspaceScopedStores,
   refreshWorkspaceSnapshot,
-  workspaceCacheNeedsPrepaintClear,
   workspaceHasPageContentCache,
   workspaceHasStructureCache,
 } from "../../lib/sync/workspaceSwitch";
@@ -12,7 +9,6 @@ import { usePageStore } from "../../store/pageStore";
 import { usePageMetaRemoteStore } from "../../store/pageMetaRemoteStore";
 import { useDatabaseStore } from "../../store/databaseStore";
 import { useSettingsStore } from "../../store/settingsStore";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
 import { markLocallyDeletedEntity } from "../../lib/sync/localDeleteGuards";
 
 // runtime.getSyncEngine 을 mock 하여 outbox 상태(peekPending)를 제어한다.
@@ -161,21 +157,21 @@ describe("applyWorkspaceSwitch", () => {
     });
   });
 
-  it("LC 스케줄러 워크스페이스도 일반 페이지와 스케줄러 페이지/DB 스냅샷을 복원한다", async () => {
+  it("워크스페이스 스냅샷은 일반 페이지·DB 홈 링크 페이지·행 페이지·DB 를 모두 복원한다", async () => {
     usePageStore.setState({
-      cacheWorkspaceId: LC_SCHEDULER_WORKSPACE_ID,
-      activePageId: "lc-page-1",
+      cacheWorkspaceId: "ws-lc",
+      activePageId: "home-page-1",
       pages: {
-        "lc-page-1": {
-          id: "lc-page-1",
-          title: "LC 스케줄러",
+        "home-page-1": {
+          id: "home-page-1",
+          title: "DB 홈",
           doc: {
             type: "doc",
             content: [
               {
                 type: "databaseBlock",
                 attrs: {
-                  databaseId: "lc-scheduler-db:lc-scheduler-global",
+                  databaseId: "db-lc:global",
                   layout: "inline",
                 },
               },
@@ -186,34 +182,34 @@ describe("applyWorkspaceSwitch", () => {
           createdAt: 0,
           updatedAt: 0,
         },
-        "scheduler-row-1": {
-          id: "scheduler-row-1",
+        "row-1": {
+          id: "row-1",
           title: "일정",
           doc: { type: "doc", content: [{ type: "paragraph" }] },
           parentId: null,
           order: 1,
-          databaseId: "lc-scheduler-db:lc-scheduler-global",
+          databaseId: "db-lc:global",
           createdAt: 0,
           updatedAt: 0,
         },
       },
     });
     useDatabaseStore.setState({
-      cacheWorkspaceId: LC_SCHEDULER_WORKSPACE_ID,
+      cacheWorkspaceId: "ws-lc",
       databases: {
-        "lc-scheduler-db:lc-scheduler-global": {
+        "db-lc:global": {
           meta: {
-            id: "lc-scheduler-db:lc-scheduler-global",
-            title: "LC스케줄러",
+            id: "db-lc:global",
+            title: "작업 DB",
             createdAt: 0,
             updatedAt: 0,
           },
           columns: [],
-          rowPageOrder: ["scheduler-row-1"],
+          rowPageOrder: ["row-1"],
         },
       },
     });
-    refreshWorkspaceSnapshot(LC_SCHEDULER_WORKSPACE_ID);
+    refreshWorkspaceSnapshot("ws-lc");
 
     usePageStore.setState({
       cacheWorkspaceId: "ws-1",
@@ -222,73 +218,12 @@ describe("applyWorkspaceSwitch", () => {
     });
     useDatabaseStore.setState({ cacheWorkspaceId: "ws-1", databases: {} });
 
-    const result = await applyWorkspaceSwitch("ws-1", LC_SCHEDULER_WORKSPACE_ID);
+    const result = await applyWorkspaceSwitch("ws-1", "ws-lc");
     expect(result.reason).toBe("restored-snapshot");
-    expect(usePageStore.getState().pages["lc-page-1"]).toBeDefined();
-    expect(usePageStore.getState().activePageId).toBe("lc-page-1");
-    expect(usePageStore.getState().pages["scheduler-row-1"]).toBeDefined();
-    expect(useDatabaseStore.getState().databases["lc-scheduler-db:lc-scheduler-global"]).toBeDefined();
-  });
-
-  it("LC 스케줄러 전환 클리어 시 현재 열린 스케줄러 행 페이지는 유지한다", () => {
-    usePageStore.setState({
-      cacheWorkspaceId: "ws-1",
-      activePageId: "scheduler-row-1",
-      pages: {
-        "normal-page": {
-          id: "normal-page",
-          title: "일반 페이지",
-          doc: { type: "doc", content: [{ type: "paragraph" }] },
-          parentId: null,
-          order: 0,
-          createdAt: 0,
-          updatedAt: 0,
-        },
-        "scheduler-row-1": {
-          id: "scheduler-row-1",
-          title: "일정",
-          doc: { type: "doc", content: [{ type: "paragraph" }] },
-          parentId: null,
-          order: 1,
-          databaseId: "lc-scheduler-db:lc-scheduler-global",
-          createdAt: 0,
-          updatedAt: 0,
-        },
-      },
-    });
-    useSettingsStore.setState({
-      tabs: [{ pageId: "scheduler-row-1" }],
-      activeTabIndex: 0,
-    });
-    useDatabaseStore.setState({
-      cacheWorkspaceId: "ws-1",
-      databases: {
-        "normal-db": {
-          meta: { id: "normal-db", title: "일반 DB", createdAt: 0, updatedAt: 0 },
-          columns: [],
-          rowPageOrder: [],
-        },
-        "lc-scheduler-db:lc-scheduler-global": {
-          meta: {
-            id: "lc-scheduler-db:lc-scheduler-global",
-            title: "LC스케줄러",
-            createdAt: 0,
-            updatedAt: 0,
-          },
-          columns: [],
-          rowPageOrder: ["scheduler-row-1"],
-        },
-      },
-    });
-
-    clearWorkspaceScopedStores(LC_SCHEDULER_WORKSPACE_ID);
-
-    expect(usePageStore.getState().pages["normal-page"]).toBeUndefined();
-    expect(usePageStore.getState().pages["scheduler-row-1"]).toBeDefined();
-    expect(usePageStore.getState().activePageId).toBe("scheduler-row-1");
-    expect(useSettingsStore.getState().tabs).toEqual([{ pageId: "scheduler-row-1" }]);
-    expect(useDatabaseStore.getState().databases["normal-db"]).toBeUndefined();
-    expect(useDatabaseStore.getState().databases["lc-scheduler-db:lc-scheduler-global"]).toBeDefined();
+    expect(usePageStore.getState().pages["home-page-1"]).toBeDefined();
+    expect(usePageStore.getState().activePageId).toBe("home-page-1");
+    expect(usePageStore.getState().pages["row-1"]).toBeDefined();
+    expect(useDatabaseStore.getState().databases["db-lc:global"]).toBeDefined();
   });
 
   it("outbox pending 이 0 이면 다른 워크스페이스 전환 시 클리어를 fetch 적용 시점으로 미룬다", async () => {
@@ -321,75 +256,6 @@ describe("applyWorkspaceSwitch", () => {
     expect(result.cleared).toBe(false);
     expect(result.reason).toBe("pending-outbox");
     expect(Object.keys(usePageStore.getState().pages).length).toBe(1);
-  });
-
-  it("LC 스케줄러 공용 캐시만 있으면 현재 워크스페이스 prepaint 차단 대상으로 보지 않는다", () => {
-    usePageStore.setState({
-      cacheWorkspaceId: "lc-scheduler-global",
-      pages: {
-        "row-1": {
-          id: "row-1",
-          title: "일정",
-          doc: { type: "doc", content: [{ type: "paragraph" }] },
-          parentId: null,
-          order: 1,
-          databaseId: "lc-scheduler-db:lc-scheduler-global",
-          createdAt: 0,
-          updatedAt: 0,
-        },
-      },
-    });
-    useDatabaseStore.setState({
-      cacheWorkspaceId: "lc-scheduler-global",
-      databases: {
-        "lc-scheduler-db:lc-scheduler-global": {
-          meta: {
-            id: "lc-scheduler-db:lc-scheduler-global",
-            title: "LC스케줄러",
-            createdAt: 0,
-            updatedAt: 0,
-          },
-          columns: [],
-          rowPageOrder: ["row-1"],
-        },
-      },
-    });
-
-    expect(workspaceCacheNeedsPrepaintClear("ws-1")).toBe(false);
-  });
-
-  it("LC 스케줄러 루트 페이지만 남아 있으면 일반 워크스페이스 구조 캐시로 보지 않는다", () => {
-    usePageStore.setState({
-      cacheWorkspaceId: LC_SCHEDULER_WORKSPACE_ID,
-      pages: {
-        "lc-root": {
-          id: "lc-root",
-          workspaceId: LC_SCHEDULER_WORKSPACE_ID,
-          title: "마일스톤",
-          icon: null,
-          doc: { type: "doc", content: [{ type: "paragraph" }] },
-          parentId: null,
-          order: 0,
-          createdAt: 0,
-          updatedAt: 0,
-          contentLoaded: false,
-        },
-      },
-    });
-
-    expect(cacheBelongsToWorkspace("cat-workspace")).toBe(false);
-    expect(workspaceCacheNeedsPrepaintClear("cat-workspace")).toBe(false);
-  });
-
-  it("LC 스케줄러 공용 outbox 만 있으면 캐시 클리어 보류 사유에서 제외한다", async () => {
-    usePageStore.getState().createPage("a");
-    usePageStore.setState({ cacheWorkspaceId: "ws-1" });
-    setSnapshot([{ workspaceId: "lc-scheduler-global" }]);
-
-    const result = await applyWorkspaceSwitch("ws-1", "ws-2");
-    expect(result.cleared).toBe(false);
-    expect(result.reason).toBe("deferred-switch");
-    expect(result.pending).toBe(0);
   });
 
   it("DB 캐시만 남아 있으면 페이지 콘텐츠 캐시로 보지 않는다", () => {

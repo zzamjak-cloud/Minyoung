@@ -31,29 +31,18 @@ import { DatabaseBlockBinding } from "./DatabaseBlockBinding";
 import { DatabaseBlockDataArea } from "./DatabaseBlockDataArea";
 import { DatabaseBlockFullPageHeader } from "./DatabaseBlockFullPageHeader";
 import { DatabaseBlockInlineHeader } from "./DatabaseBlockInlineHeader";
-import { isProtectedDatabaseId } from "../../lib/scheduler/database";
 import { DatabaseDeleteConfirmDialog } from "./DatabaseDeleteConfirmDialog";
 import { useWorkspaceStore } from "../../store/workspaceStore";
-import {
-  ensureDatabaseRowsLoaded,
-  loadMoreDatabaseRows,
-  resolveDatabaseRowRemoteKey,
-  resolveExternalProtectedDatabaseId,
-} from "../../lib/sync/externalProtectedDatabaseLoad";
 import { refreshWorkspaceSnapshot } from "../../lib/sync/workspaceSwitch";
 import { DatabaseBlockHistoryDialog } from "./DatabaseBlockHistoryDialog";
 import { DatabaseBlockLinkExistingDialog } from "./DatabaseBlockLinkExistingDialog";
 import { useMemberStore } from "../../store/memberStore";
-import { useUiStore } from "../../store/uiStore";
 import {
   makeInlineControlsPrefsKey,
   useDatabaseInlineUiPrefsStore,
 } from "../../store/databaseInlineUiPrefsStore";
-import { useDatabaseRowRemoteStore } from "../../store/databaseRowRemoteStore";
-import { useDatabaseRowIndexStore } from "../../store/databaseRowIndexStore";
 import {
   DEFAULT_DATABASE_VISIBLE_ROW_LIMIT,
-  resolveDatabaseInitialRowLimit,
   resolveDatabaseVisibleRowLimit,
 } from "./databaseRowLimit";
 import { useIsMobile } from "../../hooks/useViewport";
@@ -70,7 +59,7 @@ export function DatabaseBlockView(props: NodeViewProps) {
   const { editor, node, getPos, updateAttributes, deleteNode } = props;
   const isMobile = useIsMobile();
   const databaseId = String(node.attrs.databaseId ?? "");
-  const viewDatabaseId = resolveExternalProtectedDatabaseId(databaseId) ?? databaseId;
+  const viewDatabaseId = databaseId;
   const layout = (node.attrs.layout ?? "inline") as DatabaseLayout;
   const rawView = String(node.attrs.view ?? "table");
   const view = rawView as ViewKind;
@@ -86,42 +75,17 @@ export function DatabaseBlockView(props: NodeViewProps) {
   panelStateRef.current = panelState;
 
   const bundle = useDatabaseStore((s) => s.databases[viewDatabaseId]);
-  // 번들이 아직 없으면(타 워크스페이스 페이지를 피크/멘션으로 열어 인라인 DB 가 콜드 로드되는 경우)
-  // 세션 현재 워크스페이스로 폴백하면 DB 를 엉뚱한 워크스페이스에서 찾아 영영 못 불러온다(연결 끊김).
-  // 인라인 DB 의 실제 워크스페이스는 그것을 담은 호스트 페이지(피크 중이면 peek, 아니면 active)의
-  // 워크스페이스이므로 이를 우선 폴백으로 사용해 올바른 워크스페이스에서 번들을 적재한다.
-  const peekPageId = useUiStore((s) => s.peekPageId);
   const activePageId = usePageStore((s) => s.activePageId);
-  const hostPageId = isInsidePeek ? peekPageId : activePageId;
-  const hostPageWorkspaceId = usePageStore((s) =>
-    hostPageId ? s.pages[hostPageId]?.workspaceId ?? null : null,
-  );
-  const databaseWorkspaceId =
-    bundle?.meta.workspaceId ?? hostPageWorkspaceId ?? currentWorkspaceId;
 
   const hasDatabaseId = databaseId.length > 0;
   const needsBinding = !hasDatabaseId;
   const bundleGone = hasDatabaseId && !bundle;
-  const isProtectedDatabase = isProtectedDatabaseId(databaseId);
-  const rowPageOrder = bundle?.rowPageOrder;
-  const remoteRowKey = resolveDatabaseRowRemoteKey(databaseId, databaseWorkspaceId);
-  const remoteRowNextToken = useDatabaseRowRemoteStore(
-    (s) => (remoteRowKey ? s.nextTokenByDatabaseId[remoteRowKey] : null) ?? null,
-  );
-  const remoteRowsLoading = useDatabaseRowRemoteStore(
-    (s) => (remoteRowKey ? s.loadingByDatabaseId[remoteRowKey] : false) ?? false,
-  );
-  const rowIndexRowCount = useDatabaseRowIndexStore(
-    (s) => (remoteRowKey ? s.snapshotsByKey[remoteRowKey]?.rows.length ?? 0 : 0),
-  );
 
   const setDatabaseTitle = useDatabaseStore((s) => s.setDatabaseTitle);
   const deleteDatabaseFromStore = useDatabaseStore((s) => s.deleteDatabase);
   const renamePage = usePageStore((s) => s.renamePage);
   const setActivePageNav = usePageStore((s) => s.setActivePage);
   const setCurrentTabDatabase = useSettingsStore((s) => s.setCurrentTabDatabase);
-
-  const inlineTitleLocked = isProtectedDatabase;
 
   // 내비게이션 히스토리 (인라인→전체 DB 전환 시 뒤로가기 지원).
   const pushBack = useNavigationHistoryStore((s) => s.pushBack);
@@ -182,7 +146,6 @@ export function DatabaseBlockView(props: NodeViewProps) {
     : false;
 
   const openDeleteDatabaseModal = () => {
-    if (isProtectedDatabase) return;
     setDeletePhraseDraft("");
     setDeleteModalOpen(true);
   };
@@ -197,24 +160,8 @@ export function DatabaseBlockView(props: NodeViewProps) {
     window.setTimeout(() => refreshWorkspaceSnapshot(currentWorkspaceId), 0);
   }, [currentWorkspaceId]);
 
-  useEffect(() => {
-    if (!hasDatabaseId || !databaseWorkspaceId) return;
-    let cancelled = false;
-    void ensureDatabaseRowsLoaded({
-      databaseId,
-      currentWorkspaceId: databaseWorkspaceId,
-      cancelled: () => cancelled,
-      rowLimit: resolveDatabaseInitialRowLimit(layout, panelState.itemLimit),
-      source: "database-block",
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [databaseWorkspaceId, databaseId, hasDatabaseId, layout, panelState.itemLimit, rowPageOrder]);
-
   const executeDeleteDatabasePermanently = () => {
     if (!hasDatabaseId) return;
-    if (isProtectedDatabase) return;
     if (normalizeConfirmPhrase(deletePhraseDraft) !== deleteConfirmPhrase) {
       alert(
         `다음 문구를 정확히 입력하세요:\n「${deleteConfirmPhrase}」`,
@@ -234,7 +181,7 @@ export function DatabaseBlockView(props: NodeViewProps) {
   };
 
   const deleteDatabaseFromHistoryDialog = useCallback(() => {
-    if (!hasDatabaseId || isProtectedDatabase) return;
+    if (!hasDatabaseId) return;
     deleteDatabaseFromStore(databaseId);
     if (layout === "fullPage" && activePageId) {
       usePageStore.getState().deletePage(activePageId);
@@ -248,7 +195,6 @@ export function DatabaseBlockView(props: NodeViewProps) {
     deleteDatabaseFromStore,
     deleteNode,
     hasDatabaseId,
-    isProtectedDatabase,
     layout,
     refreshSnapshotAfterDatabaseDelete,
   ]);
@@ -385,7 +331,16 @@ export function DatabaseBlockView(props: NodeViewProps) {
       setLinkPickerQuery("");
       setLinkPickerHighlight(0);
     },
-    [databaseCandidates, layout, activePageId, updateInlineBindingAttributes, renamePage],
+    [
+      databaseCandidates,
+      layout,
+      activePageId,
+      updateInlineBindingAttributes,
+      renamePage,
+      setLinkOpen,
+      setLinkPickerQuery,
+      setLinkPickerHighlight,
+    ],
   );
 
   const createNewDatabaseAndBind = useCallback(() => {
@@ -398,7 +353,15 @@ export function DatabaseBlockView(props: NodeViewProps) {
     setLinkOpen(false);
     setLinkPickerQuery("");
     setLinkPickerHighlight(0);
-  }, [layout, activePageId, updateInlineBindingAttributes, renamePage]);
+  }, [
+    layout,
+    activePageId,
+    updateInlineBindingAttributes,
+    renamePage,
+    setLinkOpen,
+    setLinkPickerQuery,
+    setLinkPickerHighlight,
+  ]);
 
   const onLinkPickerKeyDown = useCallback(
     (e: KeyboardEvent<HTMLInputElement>) => {
@@ -432,7 +395,7 @@ export function DatabaseBlockView(props: NodeViewProps) {
         if (row) bindToExistingDatabase(row.id);
       }
     },
-    [linkPickerCandidates, linkPickerHighlight, bindToExistingDatabase],
+    [linkPickerCandidates, linkPickerHighlight, bindToExistingDatabase, setLinkPickerHighlight],
   );
 
   const onInlineTitleDragStart = useCallback(
@@ -466,10 +429,7 @@ export function DatabaseBlockView(props: NodeViewProps) {
   // - extraRows 는 컴포넌트 state 이므로 페이지 재진입 시 자동으로 초기화됨.
   const defaultLimit = DEFAULT_VISIBLE_ROW_LIMIT;
   const explicitLimit = layout === "inline" ? panelState.itemLimit ?? null : null;
-  const totalRowsForLimit = Math.max(bundle?.rowPageOrder.length ?? 0, rowIndexRowCount);
-  const remoteRowsHasMore =
-    Boolean(currentWorkspaceId) &&
-    Boolean(remoteRowNextToken);
+  const totalRowsForLimit = bundle?.rowPageOrder.length ?? 0;
   const visibleRowLimit = resolveDatabaseVisibleRowLimit({
     layout,
     itemLimit: panelState.itemLimit,
@@ -538,7 +498,6 @@ export function DatabaseBlockView(props: NodeViewProps) {
               <DatabaseBlockInlineHeader
                 displayDbTitle={displayDbTitle}
                 onTitleCommit={commitDbTitle}
-                inlineTitleLocked={inlineTitleLocked}
                 dbHomePageId={null}
                 onOpenDbHomePage={openDbHomePage}
                 onOpenDbHistory={() => setDbHistoryDialogOpen(true)}
@@ -568,10 +527,10 @@ export function DatabaseBlockView(props: NodeViewProps) {
               <DatabaseBlockFullPageHeader
                 displayDbTitle={displayDbTitle}
                 onTitleCommit={commitDbTitle}
-                titleLocked={isProtectedDatabase}
+                titleLocked={false}
                 onOpenDbHistory={() => setDbHistoryDialogOpen(true)}
                 onOpenDeleteModal={openDeleteDatabaseModal}
-                deleteDisabled={isProtectedDatabase}
+                deleteDisabled={false}
               />
             )}
 
@@ -587,39 +546,26 @@ export function DatabaseBlockView(props: NodeViewProps) {
               />
             ) : null}
 
-            <DatabaseBlockDataArea bundleGone={bundleGone && !isProtectedDatabase}>
+            <DatabaseBlockDataArea bundleGone={bundleGone}>
               <Suspense fallback={null}>
                 {activeViewComponent}
               </Suspense>
             </DatabaseBlockDataArea>
 
             {/* 더보기 버튼 — 표시 설정의 항목 수만큼 추가 노출한다. */}
-            {bundle && (visibleRowLimit != null || remoteRowsHasMore) && (() => {
+            {bundle && visibleRowLimit != null && (() => {
               const limit = visibleRowLimit ?? totalRowsForLimit;
               const totalRows = totalRowsForLimit;
               const localRemaining = Math.max(0, totalRows - limit);
-              if (localRemaining <= 0 && !remoteRowsHasMore) return null;
-              const remaining = totalRows - limit;
-              const remoteStep = explicitLimit ?? defaultLimit;
-              const localStep = Math.min(remoteStep, Math.max(0, remaining));
-              const step = localStep > 0 ? localStep : remoteStep;
+              if (localRemaining <= 0) return null;
+              const stepSize = explicitLimit ?? defaultLimit;
+              const step = Math.min(stepSize, localRemaining);
               return (
                 <button
                   type="button"
-                  disabled={remoteRowsLoading}
-                  onClick={async (e) => {
+                  onClick={(e) => {
                     const btn = e.currentTarget;
-                    if (localStep > 0) {
-                      setExtraRows((prev) => prev + localStep);
-                    } else if (remoteRowsHasMore) {
-                      const loaded = await loadMoreDatabaseRows({
-                        databaseId,
-                        currentWorkspaceId: databaseWorkspaceId,
-                        rowLimit: remoteStep,
-                        source: "database-block-more",
-                      });
-                      if (loaded) setExtraRows((prev) => prev + remoteStep);
-                    }
+                    setExtraRows((prev) => prev + step);
                     // 추가된 항목 영역 만큼 자동 스크롤 — 사용자가 새로 노출된 항목을 인지하도록.
                     // 버튼 위쪽 (= 새 항목들이 들어가는 위치) 으로 step * 행 추정 높이만큼 스크롤.
                     const ROUGH_ROW_PX = 34;
@@ -642,7 +588,7 @@ export function DatabaseBlockView(props: NodeViewProps) {
                   }}
                   className="mt-1 ml-auto block rounded-md border-transparent bg-transparent px-2 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:cursor-wait disabled:opacity-60 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 >
-                  {remoteRowsLoading ? "불러오는 중" : `+ ${step}개 더보기`}
+                  {`+ ${step}개 더보기`}
                 </button>
               );
             })()}
@@ -664,7 +610,7 @@ export function DatabaseBlockView(props: NodeViewProps) {
         databaseId={viewDatabaseId}
         layout={layout}
         isInsidePeek={isInsidePeek}
-        isProtectedDatabase={isProtectedDatabase}
+        isProtectedDatabase={false}
         onClose={() => setDbHistoryDialogOpen(false)}
         onDeletePermanently={deleteDatabaseFromHistoryDialog}
       />

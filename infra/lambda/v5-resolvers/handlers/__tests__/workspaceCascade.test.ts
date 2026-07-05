@@ -10,7 +10,7 @@ import type { Member } from "../_auth";
 import type { Tables } from "../member";
 
 // 회귀: deleteWorkspace 가 위성 데이터(Page·DatabaseHistory/CustomIcons/
-// Holidays/Projects/MmEntries/AssetUsage)를 정리하지 않아 고아 행이 축적되던 문제.
+// AssetUsage)를 정리하지 않아 고아 행이 축적되던 문제.
 // (없으면 고아 AssetUsage 가 자산을 영구 "사용 중"으로 만들어 image-gc 오염)
 
 const WS = "ws-1";
@@ -22,9 +22,6 @@ const TABLES: Tables = {
   Pages: "T_Pages",
   Databases: "T_Databases",
   Notifications: "T_Notifications",
-  Projects: "T_Projects",
-  Holidays: "T_Holidays",
-  MmEntries: "T_MmEntries",
   AssetUsage: "T_AssetUsage",
   CustomIcons: "T_CustomIcons",
   PageHistory: "T_PageHistory",
@@ -57,12 +54,6 @@ function makeFakeDoc() {
         return [{ pageId: "p1", historyId: "h1", workspaceId: WS }];
       case TABLES.DatabaseHistory:
         return [{ databaseId: "d1", historyId: "h1", workspaceId: WS }];
-      case TABLES.Holidays:
-        return [{ id: "ho1", workspaceId: WS }];
-      case TABLES.Projects:
-        return [{ id: "pr1", workspaceId: WS }];
-      case TABLES.MmEntries:
-        return [{ id: "mm1", workspaceId: WS }];
       case TABLES.AssetUsage:
         // asset.ts cascadeDeletePageAssetUsage 의 byPage 조회
         return [{ assetId: "a1", sk: "p1#b1" }];
@@ -115,9 +106,6 @@ describe("deleteWorkspace cascade", () => {
       TABLES.CustomIcons,
       TABLES.PageHistory,
       TABLES.DatabaseHistory,
-      TABLES.Holidays,
-      TABLES.Projects,
-      TABLES.MmEntries,
       TABLES.AssetUsage,
       TABLES.Workspaces,
     ]) {
@@ -135,7 +123,6 @@ describe("deleteWorkspace cascade", () => {
       pageId: "p1",
       historyId: "h1",
     });
-    expect(deletedByTable[TABLES.Holidays as string][0]).toEqual({ id: "ho1", workspaceId: WS });
     expect(deletedByTable[TABLES.AssetUsage as string][0]).toEqual({ assetId: "a1", sk: "p1#b1" });
   });
 });

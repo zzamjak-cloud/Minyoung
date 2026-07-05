@@ -5,10 +5,6 @@ import { useHistoryStore } from "../../store/historyStore";
 import { useServerTrashedDatabaseStore } from "../../store/serverTrashedDatabaseStore";
 import { usePageStore } from "../../store/pageStore";
 import { useSettingsStore } from "../../store/settingsStore";
-import { isLCSchedulerDatabaseId, isProtectedDatabaseId, ensureLCSchedulerDatabase } from "../../lib/scheduler/database";
-import { ensureLCMilestoneDatabase } from "../../lib/scheduler/milestoneDatabase";
-import { ensureLCFeatureDatabase } from "../../lib/scheduler/featureDatabase";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
 import { useWorkspaceStore } from "../../store/workspaceStore";
 import { useUiStore } from "../../store/uiStore";
 import { permanentlyDeleteDatabaseRemote } from "../../lib/sync/trashApi";
@@ -73,19 +69,6 @@ export function DatabaseManagerDialog({ open, onClose }: Props) {
     setPendingBulkDelete(false);
   }, [open]);
 
-  // DB Manager 열릴 때 보호 DB(작업·마일스톤·피처) 자동 시드 — 한번도 진입한 적 없는 워크스페이스 대응
-  useEffect(() => {
-    if (!open) return;
-    const wsId = currentWorkspaceId ?? "";
-    void Promise.all([
-      ensureLCSchedulerDatabase(wsId),
-      ensureLCMilestoneDatabase(wsId),
-      ensureLCFeatureDatabase(wsId),
-    ]).catch((err) => {
-      console.warn("[db-manager] 보호 DB 시드 실패", err);
-    });
-  }, [open, currentWorkspaceId]);
-
   // 삭제된 DB 보기 진입 시 서버에서 휴지통 목록을 가져온다.
   useEffect(() => {
     if (!open || !showDeleted || !currentWorkspaceId) return;
@@ -97,29 +80,21 @@ export function DatabaseManagerDialog({ open, onClose }: Props) {
     [dbList],
   );
   const q = query.trim().toLowerCase();
-  // 보호 DB(작업·마일스톤·피처) 는 LC 워크스페이스 DB 관리 화면에서만 표시.
-  // (인라인 DB 블록 연결 등 다른 경로에서는 어디서나 사용 가능)
-  const inLCWorkspace = currentWorkspaceId === LC_SCHEDULER_WORKSPACE_ID;
   const visibleActive = dbList
     .filter((d) => {
-      // 보호 DB(작업·마일스톤·피처)는 LC 워크스페이스에서만 노출.
-      if (isProtectedDatabaseId(d.id) && !inLCWorkspace) return false;
       // 워크스페이스의 모든 DB를 노출한다. 과거에는 "행이 로컬에 로드됨 또는 참조됨"이 아닌 DB를
       // 숨겼는데(빈 고아 DB 정리 목적), 콜드(신규) 클라이언트에선 인라인 DB의 행·본문이 아직
       // 로드되지 않아 정상 DB가 전부 숨겨졌다(기기마다 목록 불일치 — listPageMetas 는 DB 행 제외).
       // 관리 UI 목적상 빈 DB도 보이는 게 맞으므로 로컬 로드 상태로 숨기지 않는다.
       return koreanIncludes(d.meta.title.toLowerCase(), q);
     })
-    .sort((a, b) => {
-      const aScheduler = isLCSchedulerDatabaseId(a.id);
-      const bScheduler = isLCSchedulerDatabaseId(b.id);
-      if (aScheduler !== bScheduler) return aScheduler ? -1 : 1;
+    .sort((a, b) =>
       // 이름(제목) 기준 알파벳·가나다 순 정렬
-      return a.meta.title.localeCompare(b.meta.title, "ko-KR", {
+      a.meta.title.localeCompare(b.meta.title, "ko-KR", {
         numeric: true,
         sensitivity: "base",
-      });
-    });
+      }),
+    );
   const visibleDeleted = trashedDatabases
     .filter((d) => !activeDbIds.has(d.id))
     .filter((d) => !hiddenDeletedDbIds.has(d.id))
@@ -250,14 +225,13 @@ export function DatabaseManagerDialog({ open, onClose }: Props) {
     }
   };
 
-  // 체크된 활성 DB 를 일괄 삭제(휴지통으로 이동)한다. 보호 DB 는 store 에서 자동 제외.
+  // 체크된 활성 DB 를 일괄 삭제(휴지통으로 이동)한다.
   const confirmBulkDelete = () => {
     setPendingBulkDelete(false);
     const ids = Array.from(selectedActiveIds);
     if (ids.length === 0) return;
     let deleted = 0;
     for (const id of ids) {
-      if (isProtectedDatabaseId(id)) continue;
       deleteDatabase(id);
       deleted += 1;
     }
@@ -360,7 +334,7 @@ export function DatabaseManagerDialog({ open, onClose }: Props) {
                 key={d.id}
                 className="flex items-center justify-between gap-3 border-b border-zinc-100 px-3 py-2.5 text-lg last:border-b-0 dark:border-zinc-800"
               >
-                {activeCheckboxMode && !isProtectedDatabaseId(d.id) && (
+                {activeCheckboxMode && (
                   <input
                     type="checkbox"
                     className="h-4 w-4 shrink-0 rounded"
@@ -388,11 +362,6 @@ export function DatabaseManagerDialog({ open, onClose }: Props) {
                         {fullPageTitle}
                       </span>
                     </>
-                  ) : null}
-                  {isProtectedDatabaseId(d.id) ? (
-                    <span className="shrink-0 rounded bg-zinc-100 px-2 py-0.5 text-sm font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300">
-                      고정
-                    </span>
                   ) : null}
                 </span>
                 <button

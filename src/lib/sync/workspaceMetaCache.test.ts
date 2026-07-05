@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../scheduler/scope";
 import { useMemberStore } from "../../store/memberStore";
 import { useOrganizationStore } from "../../store/organizationStore";
-import { useSchedulerProjectsStore } from "../../store/schedulerProjectsStore";
 import { useTeamStore } from "../../store/teamStore";
 import { isWorkspaceMetaCacheFresh, refreshWorkspaceMeta } from "./workspaceMetaCache";
+
+const WS = "ws-1";
 
 const apiMocks = vi.hoisted(() => ({
   getWorkspaceMetaApi: vi.fn(),
@@ -29,27 +29,22 @@ describe("workspace metadata cache", () => {
     const fetchedAt = Date.now();
     useMemberStore.setState({
       members: [],
-      cacheWorkspaceId: LC_SCHEDULER_WORKSPACE_ID,
+      cacheWorkspaceId: WS,
       lastFetchedAt: fetchedAt,
     });
     useTeamStore.setState({
       teams: [],
-      cacheWorkspaceId: LC_SCHEDULER_WORKSPACE_ID,
+      cacheWorkspaceId: WS,
       lastFetchedAt: fetchedAt,
     });
     useOrganizationStore.setState({
       organizations: [],
-      cacheWorkspaceId: LC_SCHEDULER_WORKSPACE_ID,
-      lastFetchedAt: fetchedAt,
-    });
-    useSchedulerProjectsStore.setState({
-      projects: [],
-      workspaceId: LC_SCHEDULER_WORKSPACE_ID,
+      cacheWorkspaceId: WS,
       lastFetchedAt: fetchedAt,
     });
 
-    expect(isWorkspaceMetaCacheFresh(LC_SCHEDULER_WORKSPACE_ID)).toBe(true);
-    await expect(refreshWorkspaceMeta(LC_SCHEDULER_WORKSPACE_ID)).resolves.toBe(false);
+    expect(isWorkspaceMetaCacheFresh(WS)).toBe(true);
+    await expect(refreshWorkspaceMeta(WS)).resolves.toBe(false);
     expect(apiMocks.getWorkspaceMetaApi).not.toHaveBeenCalled();
   });
 });

@@ -6,7 +6,6 @@ import { useDatabaseStore } from "../../store/databaseStore";
 import { usePageStore } from "../../store/pageStore";
 import { useOrganizationStore } from "../../store/organizationStore";
 import { useTeamStore } from "../../store/teamStore";
-import { useSchedulerProjectsStore } from "../../store/schedulerProjectsStore";
 import { useMemberStore } from "../../store/memberStore";
 import { useWorkspaceStore } from "../../store/workspaceStore";
 import { useDatabaseRowIndexStore } from "../../store/databaseRowIndexStore";
@@ -16,7 +15,6 @@ import {
   resolveDerivedCellValue,
   shouldUseManualCellValueForAutomation,
 } from "../../lib/database/columnSource";
-import { resolveDatabaseRowRemoteKey } from "../../lib/sync/externalProtectedDatabaseLoad";
 import { createLocalDeletionFilter } from "../../lib/sync/localDeleteGuards";
 import {
   resolveFilterableCellValue,
@@ -42,13 +40,9 @@ export function useProcessedRows(
   const bundle = useDatabaseStore((s) => s.databases[databaseId]);
   const organizations = useOrganizationStore((s) => s.organizations);
   const teams = useTeamStore((s) => s.teams);
-  const projects = useSchedulerProjectsStore((s) => s.projects);
   const members = useMemberStore((s) => s.members);
   const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
-  const rowIndexKey = useMemo(
-    () => resolveDatabaseRowRemoteKey(databaseId, currentWorkspaceId),
-    [currentWorkspaceId, databaseId],
-  );
+  const rowIndexKey = useMemo(() => databaseId || null, [databaseId]);
   const hydrateRowIndex = useDatabaseRowIndexStore((s) => s.hydrateIndex);
   useEffect(() => {
     if (!rowIndexKey) return;
@@ -205,7 +199,7 @@ export function useProcessedRows(
       databases,
       pages,
       members,
-      scopeCtx: { organizations, teams, projects },
+      scopeCtx: { organizations, teams },
     });
     const rows = applyFilterSortSearch(
       ordered,
@@ -215,7 +209,7 @@ export function useProcessedRows(
       queryState.sortRules,
     );
     return { rows, columns: bundle.columns };
-  }, [bundle, columnPlan, databases, rowSources, databaseId, members, organizations, pages, queryState, projects, teams]);
+  }, [bundle, columnPlan, databases, rowSources, databaseId, members, organizations, pages, queryState, teams]);
 
   return { bundle, rows: processed.rows, columns: processed.columns };
 }

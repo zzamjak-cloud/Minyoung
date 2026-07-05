@@ -6,14 +6,10 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import {
   badRequest,
-  forbidden,
-  getLCSchedulerWorkspaceIdFromDatabaseId,
-  isLCSchedulerDatabaseId,
   requireWorkspaceAccess,
   type Member,
 } from "../_auth";
 import type { Tables } from "../member";
-import { reconcileTemplateAutomationSchedules } from "../templateAutomationScheduler";
 import {
   type Connection,
   isPlainObject,
@@ -151,34 +147,6 @@ function normalizeDatabaseAwsJsonFields(input: Record<string, unknown>): void {
   normalizeAwsJsonStringField(input, "templates", "templates");
 }
 
-const MAX_SYNCED_SCHEDULER_MEMBER_ORDER = 1000;
-const MAX_SYNCED_ID_CHARS = 128;
-
-function parsePanelStateObject(raw: unknown): Record<string, unknown> | null {
-  if (raw == null || raw === "") return null;
-  if (typeof raw === "string") {
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      return isPlainObject(parsed) ? parsed : null;
-    } catch {
-      return null;
-    }
-  }
-  return isPlainObject(raw) ? raw : null;
-}
-
-function sanitizeSyncedStringArray(raw: unknown): string[] | null {
-  if (!Array.isArray(raw)) return null;
-  if (raw.length > MAX_SYNCED_SCHEDULER_MEMBER_ORDER) {
-    badRequest("동기화 목록 최대 개수 초과");
-  }
-  const result = raw.map(String);
-  for (const id of result) {
-    if (id.length > MAX_SYNCED_ID_CHARS) badRequest("동기화 ID 길이 초과");
-  }
-  return result;
-}
-
 function parseJsonArray(raw: unknown): unknown[] | null {
   if (raw == null || raw === "") return null;
   if (Array.isArray(raw)) return raw;
@@ -239,38 +207,6 @@ function mergeStaleDatabaseTemplates(
   };
 }
 
-function mergeStaleSchedulerMemberOrderPanelState(
-  databaseId: string,
-  input: Record<string, unknown>,
-  existingItem: Record<string, unknown>,
-): Record<string, unknown> | null {
-  if (!isLCSchedulerDatabaseId(databaseId)) return null;
-
-  const incomingPanelState = parsePanelStateObject(input.panelState);
-  if (!incomingPanelState) return null;
-  const incomingUpdatedAt = Number(incomingPanelState.schedulerMemberOrderUpdatedAt);
-  if (!Number.isFinite(incomingUpdatedAt) || incomingUpdatedAt < 0) return null;
-
-  const existingPanelState = parsePanelStateObject(existingItem.panelState) ?? {};
-  const existingUpdatedAt = Number(existingPanelState.schedulerMemberOrderUpdatedAt);
-  const currentUpdatedAt = Number.isFinite(existingUpdatedAt) ? existingUpdatedAt : -1;
-  const incomingOrder = sanitizeSyncedStringArray(incomingPanelState.schedulerMemberOrder) ?? [];
-  const existingOrder = sanitizeSyncedStringArray(existingPanelState.schedulerMemberOrder) ?? [];
-  const shouldMerge =
-    incomingUpdatedAt > currentUpdatedAt ||
-    (incomingUpdatedAt === currentUpdatedAt && !jsonEqual(incomingOrder, existingOrder));
-  if (!shouldMerge) return null;
-
-  return {
-    ...existingItem,
-    panelState: JSON.stringify({
-      ...existingPanelState,
-      schedulerMemberOrder: incomingOrder,
-      schedulerMemberOrderUpdatedAt: incomingUpdatedAt,
-    }),
-  };
-}
-
 export async function upsertDatabase(args: {
   doc: DynamoDBDocumentClient;
   tables: Tables;
@@ -280,10 +216,6 @@ export async function upsertDatabase(args: {
   if (!args.tables.Databases) badRequest("Databases table 미설정");
   const id = typeof args.input.id === "string" ? args.input.id : "";
   const workspaceId = typeof args.input.workspaceId === "string" ? args.input.workspaceId : "";
-  const schedulerWorkspaceId = getLCSchedulerWorkspaceIdFromDatabaseId(id);
-  if (schedulerWorkspaceId && schedulerWorkspaceId !== workspaceId) {
-    badRequest("LC스케줄러 DB ID와 워크스페이스가 일치하지 않습니다");
-  }
   // rowPageOrder 는 Database 레코드에 저장하지 않는다(클라가 페이지의 databaseId 로 역추적).
   // 히스토리 스냅샷에만 싣기 위해 input 에서 분리·제거한 뒤, 아래 after 스냅샷에만 합친다.
   const incomingRowPageOrder = Array.isArray(args.input.rowPageOrder)
@@ -327,44 +259,6 @@ export async function upsertDatabase(args: {
   // LWW: 들어온 변경이 서버 최신값보다 오래됐거나 같으면 무시하고 기존값을 반환한다.
   // (ISO 8601 문자열은 사전식 비교 = 시간순 비교. 시드의 옛 타임스탬프·중복 echo 를 거른다.)
   if (existingItem && existingUpdatedAt && incomingUpdatedAt && incomingUpdatedAt <= existingUpdatedAt) {
-    const schedulerOrderMerge = mergeStaleSchedulerMemberOrderPanelState(
-      id,
-      args.input,
-      existingItem,
-    );
-    if (schedulerOrderMerge) {
-      try {
-        await args.doc.send(
-          new PutCommand({
-            TableName: tableName,
-            Item: schedulerOrderMerge,
-            ConditionExpression: "updatedAt = :existingUpdatedAt",
-            ExpressionAttributeValues: { ":existingUpdatedAt": existingUpdatedAt },
-          }),
-        );
-        try {
-          await recordDatabaseHistory({
-            doc: args.doc,
-            tables: args.tables,
-            caller: args.caller,
-            before: existingItem,
-            after: schedulerOrderMerge,
-            kind: "database.update",
-          });
-        } catch (err) {
-          console.error("[upsertDatabase] DatabaseHistory 기록 실패 (무시)", err);
-        }
-        return schedulerOrderMerge;
-      } catch (err) {
-        if ((err as { name?: string })?.name === "ConditionalCheckFailedException") {
-          const latest = await args.doc.send(
-            new GetCommand({ TableName: tableName, Key: { id } }),
-          );
-          return (latest.Item ?? existingItem) as Record<string, unknown>;
-        }
-        throw err;
-      }
-    }
     const templatesMerge = mergeStaleDatabaseTemplates(args.input, existingItem);
     if (templatesMerge) {
       console.warn("[QN_TEMPLATE_SYNC] lambda upsertDatabase:staleTemplatesMerge", {
@@ -394,10 +288,6 @@ export async function upsertDatabase(args: {
         } catch (err) {
           console.error("[upsertDatabase] DatabaseHistory 기록 실패 (무시)", err);
         }
-        await reconcileTemplateAutomationSchedules({
-          before: existingItem,
-          after: templatesMerge,
-        });
         return templatesMerge;
       } catch (err) {
         if ((err as { name?: string })?.name === "ConditionalCheckFailedException") {
@@ -408,12 +298,6 @@ export async function upsertDatabase(args: {
         }
         throw err;
       }
-    }
-    if ("templates" in args.input) {
-      await reconcileTemplateAutomationSchedules({
-        before: existingItem,
-        after: existingItem,
-      });
     }
     return existingItem;
   }
@@ -474,10 +358,6 @@ export async function upsertDatabase(args: {
   } catch (err) {
     console.error("[upsertDatabase] DatabaseHistory 기록 실패 (무시)", err);
   }
-  await reconcileTemplateAutomationSchedules({
-    before: existingItem ?? null,
-    after: merged,
-  });
   return merged;
 }
 
@@ -490,9 +370,6 @@ export async function softDeleteDatabase(args: {
   updatedAt: string;
 }): Promise<Record<string, unknown>> {
   if (!args.tables.Databases) badRequest("Databases table 미설정");
-  if (isLCSchedulerDatabaseId(args.id)) {
-    forbidden("LC스케줄러 데이터베이스는 삭제할 수 없습니다");
-  }
   if (args.tables.DatabaseHistory) requireDatabaseHistoryOwnerKey(args.caller);
   const existing = await args.doc.send(
     new GetCommand({ TableName: args.tables.Databases, Key: { id: args.id } }),

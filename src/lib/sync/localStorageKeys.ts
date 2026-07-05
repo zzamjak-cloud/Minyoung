@@ -10,10 +10,7 @@
 //  - 직접 호출이면 본 파일에 상수 추가하고 호출처에서 import.
 
 /** 직접 localStorage.getItem / setItem 호출에 쓰는 키. */
-export const DIRECT_KEYS = {
-  /** 스케줄러 연도 셀렉터 — 사용자가 선택한 연도 목록. */
-  SCHEDULER_AVAILABLE_YEARS: "quicknote.scheduler.available-years",
-} as const;
+export const DIRECT_KEYS = {} as const;
 
 /** 더 이상 사용하지 않는 과거 키. legacyCleanup 에서 일괄 제거 대상. */
 export const LEGACY_KEYS: ReadonlyArray<string> = [

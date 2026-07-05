@@ -4,9 +4,6 @@ import { z } from "zod";
 import type { GqlPage } from "../graphql/operations";
 import type { Page } from "../../../types/page";
 import type { JSONContent } from "@tiptap/react";
-import {
-  isLCSchedulerDatabaseId,
-} from "../../scheduler/database";
 import { stringifyAwsJson } from "../../util/awsJson";
 import { DocEnvelopeSchema, DbCellsSchema } from "../schemas";
 
@@ -65,10 +62,6 @@ export function gqlOrderNumber(p: { order?: string | null; updatedAt: string }):
 
 export function gqlDatabaseId(p: GqlPage): string | null {
   return p.databaseId ?? null;
-}
-
-export function isLCSchedulerPage(p: GqlPage): boolean {
-  return Boolean(p.databaseId && isLCSchedulerDatabaseId(p.databaseId));
 }
 
 export function stringArrayEqual(a: string[], b: string[]): boolean {

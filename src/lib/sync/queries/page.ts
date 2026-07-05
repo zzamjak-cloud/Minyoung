@@ -40,8 +40,8 @@ export const GET_PAGE_BY_ID = `
 `;
 
 export const LIST_DATABASE_ROWS = `
-  query ListDatabaseRows($databaseId: ID!, $workspaceId: ID!, $organizationId: ID, $teamId: ID, $projectId: ID, $assigneeId: ID, $limit: Int, $nextToken: String) {
-    listDatabaseRows(databaseId: $databaseId, workspaceId: $workspaceId, organizationId: $organizationId, teamId: $teamId, projectId: $projectId, assigneeId: $assigneeId, limit: $limit, nextToken: $nextToken) {
+  query ListDatabaseRows($databaseId: ID!, $workspaceId: ID!, $limit: Int, $nextToken: String) {
+    listDatabaseRows(databaseId: $databaseId, workspaceId: $workspaceId, limit: $limit, nextToken: $nextToken) {
       items { ${PAGE_FIELDS} }
       nextToken
     }
@@ -53,8 +53,8 @@ const DATABASE_ROW_INDEX_FIELDS = `
 `;
 
 export const LIST_DATABASE_ROW_INDEX = `
-  query ListDatabaseRowIndex($databaseId: ID!, $workspaceId: ID!, $organizationId: ID, $teamId: ID, $projectId: ID, $assigneeId: ID, $limit: Int, $nextToken: String) {
-    listDatabaseRows(databaseId: $databaseId, workspaceId: $workspaceId, organizationId: $organizationId, teamId: $teamId, projectId: $projectId, assigneeId: $assigneeId, limit: $limit, nextToken: $nextToken) {
+  query ListDatabaseRowIndex($databaseId: ID!, $workspaceId: ID!, $limit: Int, $nextToken: String) {
+    listDatabaseRows(databaseId: $databaseId, workspaceId: $workspaceId, limit: $limit, nextToken: $nextToken) {
       items { ${DATABASE_ROW_INDEX_FIELDS} }
       nextToken
     }

@@ -23,7 +23,7 @@ import {
   mergeContributors,
 } from "../historySession";
 import { type Connection, cloneJson, isPlainObject, jsonEqual, parseJsonLike } from "./_shared";
-import { deriveDatabaseRowScopeKeys, normalizePageOrderField } from "./row";
+import { normalizePageOrderField } from "./row";
 
 export const PAGE_HISTORY_FIELDS = [
   "id",
@@ -717,7 +717,6 @@ export async function restorePageVersion(args: {
   // byDatabaseAndOrder GSI는 NULL 타입 databaseId를 거부 — upsertPage와 동일하게 정제
   if (restored.databaseId == null) delete restored.databaseId;
   normalizePageOrderField(restored);
-  deriveDatabaseRowScopeKeys(restored);
   await args.doc.send(
     new PutCommand({
       TableName: args.tables.Pages,

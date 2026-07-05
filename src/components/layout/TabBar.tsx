@@ -11,21 +11,16 @@ import {
   Undo2,
   X,
 } from "lucide-react";
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePageStore } from "../../store/pageStore";
 import { useDatabaseStore } from "../../store/databaseStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { useUiStore } from "../../store/uiStore";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
-import { useWorkspaceStore } from "../../store/workspaceStore";
-import { useSchedulerViewStore } from "../../store/schedulerViewStore";
 import { PageIconDisplay } from "../common/PageIconDisplay";
 import { POINTER_PRESS_FEEDBACK_CLASS } from "../common/interactionClasses";
 import { buildQuickNotePageUrl } from "../../lib/navigation/quicknoteLinks";
 
-const CLOSE_LC_SCHEDULER_EVENT = "quicknote:close-lc-scheduler";
-const LC_SCHEDULER_HISTORY_FLAG = "qnLCSchedulerModal";
 const TAB_CONTEXT_MENU_WIDTH = 224;
 const TAB_CONTEXT_MENU_HEIGHT = 224;
 const CONTEXT_MENU_PADDING = 8;
@@ -51,74 +46,7 @@ function clampFixedMenuPosition(
   };
 }
 
-type LCSchedulerModalModule = typeof import("../scheduler/LCSchedulerModal");
-
-let lcSchedulerModalPromise: Promise<LCSchedulerModalModule> | null = null;
-
-function preloadLCSchedulerModal(): Promise<LCSchedulerModalModule> {
-  lcSchedulerModalPromise ??= import("../scheduler/LCSchedulerModal");
-  return lcSchedulerModalPromise;
-}
-
-function getHistoryStateRecord(): Record<string, unknown> {
-  const state = window.history.state;
-  return state && typeof state === "object" ? { ...(state as Record<string, unknown>) } : {};
-}
-
-function currentHistoryEntryIsLCScheduler(): boolean {
-  return Boolean(getHistoryStateRecord()[LC_SCHEDULER_HISTORY_FLAG]);
-}
-
-function pushLCSchedulerHistoryEntry(): void {
-  if (currentHistoryEntryIsLCScheduler()) return;
-  try {
-    window.history.pushState(
-      { ...getHistoryStateRecord(), [LC_SCHEDULER_HISTORY_FLAG]: true },
-      "",
-      window.location.href,
-    );
-  } catch {
-    /* noop */
-  }
-}
-
-const LCSchedulerModal = lazy(() =>
-  preloadLCSchedulerModal().then((m) => ({
-    default: m.LCSchedulerModal,
-  })),
-);
-
-function LCSchedulerModalFallback({ onClose }: { onClose: () => void }) {
-  return (
-    <div
-      data-lc-scheduler-modal="true"
-      className="fixed inset-0 z-[500] bg-zinc-50 dark:bg-zinc-950 flex flex-col"
-    >
-      <div className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6 py-3 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-            LC 스케줄러
-          </h1>
-          <span className="text-sm text-zinc-500">일정</span>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
-          aria-label="닫기"
-        >
-          <X size={18} />
-        </button>
-      </div>
-      <div className="flex-1 bg-zinc-50 dark:bg-zinc-950" />
-    </div>
-  );
-}
-
 export function TabBar() {
-  // 스케줄러 열림 상태는 persist 스토어에 저장 → 새로고침 후에도 마지막 상태 유지
-  const schedulerOpen = useSchedulerViewStore((s) => s.schedulerOpen);
-  const setSchedulerOpen = useSchedulerViewStore((s) => s.setSchedulerOpen);
   const [tabMenu, setTabMenu] = useState<{ index: number; x: number; y: number } | null>(null);
   const tabMenuRef = useRef<HTMLDivElement | null>(null);
   const tabs = useSettingsStore((s) => s.tabs);
@@ -138,8 +66,6 @@ export function TabBar() {
   const toggleRightPanel = useUiStore((s) => s.toggleRightPanel);
   const rightPanelOpen = useUiStore((s) => s.rightPanelOpen);
   const rightPanelTab = useUiStore((s) => s.rightPanelTab);
-  const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
-  const setCurrentWorkspaceId = useWorkspaceStore((s) => s.setCurrentWorkspaceId);
   const tocPanelOpen = rightPanelOpen && rightPanelTab === "toc";
   const favoritesPanelOpen = rightPanelOpen && rightPanelTab === "favorites";
 
@@ -177,54 +103,6 @@ export function TabBar() {
       .catch(() => showToast("페이지 링크 복사에 실패했습니다.", { kind: "error" }));
     setTabMenu(null);
   }, [showToast]);
-
-  const openScheduler = useCallback(() => {
-    void preloadLCSchedulerModal();
-    setSchedulerOpen(true);
-  }, [setSchedulerOpen]);
-
-  const closeScheduler = useCallback((options?: { keepSchedulerWorkspace?: boolean }) => {
-    const wasSchedulerOpen = schedulerOpen;
-    setSchedulerOpen(false);
-    if (options?.keepSchedulerWorkspace && wasSchedulerOpen) {
-      if (currentWorkspaceId !== LC_SCHEDULER_WORKSPACE_ID) {
-        setCurrentWorkspaceId(LC_SCHEDULER_WORKSPACE_ID);
-      }
-      return;
-    }
-  }, [currentWorkspaceId, schedulerOpen, setCurrentWorkspaceId, setSchedulerOpen]);
-
-  useEffect(() => {
-    if (!schedulerOpen) return;
-    pushLCSchedulerHistoryEntry();
-    const handleBrowserBack = () => {
-      if (!useSchedulerViewStore.getState().schedulerOpen) return;
-      setSchedulerOpen(false);
-    };
-    window.addEventListener("popstate", handleBrowserBack);
-    return () => window.removeEventListener("popstate", handleBrowserBack);
-  }, [schedulerOpen, setSchedulerOpen]);
-
-  useEffect(() => {
-    const handleCloseScheduler = (event: Event) => {
-      const detail = (event as CustomEvent<{ keepSchedulerWorkspace?: boolean }>).detail;
-      closeScheduler({ keepSchedulerWorkspace: detail?.keepSchedulerWorkspace === true });
-    };
-    window.addEventListener(CLOSE_LC_SCHEDULER_EVENT, handleCloseScheduler);
-    return () => window.removeEventListener(CLOSE_LC_SCHEDULER_EVENT, handleCloseScheduler);
-  }, [closeScheduler]);
-
-  useEffect(() => {
-    const warmup = () => {
-      void preloadLCSchedulerModal();
-    };
-    if ("requestIdleCallback" in window) {
-      const id = window.requestIdleCallback(warmup, { timeout: 2500 });
-      return () => window.cancelIdleCallback(id);
-    }
-    const id = setTimeout(warmup, 1500);
-    return () => clearTimeout(id);
-  }, []);
 
   return (
     <div className="relative z-[350] flex h-9 shrink-0 items-center gap-1 border-b border-zinc-200 bg-zinc-50 px-1 dark:border-zinc-800 dark:bg-zinc-900">
@@ -381,20 +259,6 @@ export function TabBar() {
         </div>,
         document.body,
       ) : null}
-      <button
-        type="button"
-        onClick={openScheduler}
-        onMouseEnter={() => {
-          void preloadLCSchedulerModal();
-        }}
-        onFocus={() => {
-          void preloadLCSchedulerModal();
-        }}
-        style={{ backgroundColor: "#edac46" }}
-        className="ml-1 inline-flex h-6 shrink-0 items-center rounded px-2 text-xs font-semibold text-white hover:opacity-90"
-      >
-        LC 스케줄러
-      </button>
       <div
         className="ml-1 flex items-center gap-1 rounded-md border border-zinc-200 bg-white p-0.5 dark:border-zinc-700 dark:bg-zinc-900"
         role="radiogroup"
@@ -435,13 +299,6 @@ export function TabBar() {
           />
         </button>
       </div>
-      {schedulerOpen && (
-        <Suspense fallback={<LCSchedulerModalFallback onClose={() => closeScheduler()} />}>
-          <LCSchedulerModal
-            onClose={() => closeScheduler()}
-          />
-        </Suspense>
-      )}
     </div>
   );
 }

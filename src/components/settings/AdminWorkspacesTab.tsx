@@ -19,7 +19,6 @@ import {
 import { CreateWorkspaceModal } from "../workspace/CreateWorkspaceModal";
 import { EditWorkspaceModal } from "../workspace/EditWorkspaceModal";
 import { WorkspaceDeleteConfirmDialog } from "../workspace/WorkspaceDeleteConfirmDialog";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
 
 type TabType = "active" | "archived";
 
@@ -74,20 +73,10 @@ export function AdminWorkspacesTab() {
     () => sharedAll.find((w) => w.workspaceId === editingWorkspaceId) ?? null,
     [sharedAll, editingWorkspaceId],
   );
-  const editingWorkspaceLocked =
-    editingWorkspace?.workspaceId === LC_SCHEDULER_WORKSPACE_ID;
 
   const openEditModal = (workspaceId: string) => {
     const target = sharedAll.find((w) => w.workspaceId === workspaceId);
     if (!target) return;
-
-    if (target.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
-      setEditEntries([{ subjectType: "EVERYONE", level: "EDIT" }]);
-      setEditDescription(entityDescriptions[workspaceId] ?? "");
-      setEditingWorkspaceId(workspaceId);
-      setOpenEdit(true);
-      return;
-    }
 
     // 캐시가 있으면 즉시 열기
     const cached = entriesCache[workspaceId];
@@ -341,13 +330,6 @@ export function AdminWorkspacesTab() {
           onClose={closeEditModal}
           onSave={async ({ name, entries, description }) => {
             if (!editingWorkspace) return;
-            if (editingWorkspaceLocked) {
-              showToast(
-                "LC스케줄러는 특수한 워크스페이스로 편집 또는 삭제할 수 없습니다.",
-                { kind: "info" },
-              );
-              return;
-            }
             const updated = await updateWorkspaceApi({
               workspaceId: editingWorkspace.workspaceId,
               name,
@@ -365,13 +347,6 @@ export function AdminWorkspacesTab() {
             showToast("저장되었습니다.", { kind: "success" });
           }}
           onRequestDelete={() => {
-            if (editingWorkspace.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
-              showToast(
-                "LC스케줄러는 특수한 워크스페이스로 편집 또는 삭제할 수 없습니다.",
-                { kind: "info" },
-              );
-              return;
-            }
             void (async () => {
               const archived = await archiveWorkspaceApi(editingWorkspace.workspaceId);
               if (archived) upsertWorkspace(archived);
@@ -379,11 +354,6 @@ export function AdminWorkspacesTab() {
               showToast("보관함으로 이동되었습니다.", { kind: "success" });
             })();
           }}
-          lockedReason={
-            editingWorkspaceLocked
-              ? "LC스케줄러는 특수한 워크스페이스로 편집 또는 삭제할 수 없습니다."
-              : undefined
-          }
         />
       ) : null}
 

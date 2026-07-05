@@ -5,27 +5,11 @@ import { resolveViewColumnOrderState } from "../../types/database";
 import { useDatabaseStore, defaultColumnForType } from "../../store/databaseStore";
 import { usePageStore } from "../../store/pageStore";
 import { useSettingsStore } from "../../store/settingsStore";
-import { useSchedulerStore } from "../../store/schedulerStore";
-import { useOrganizationStore } from "../../store/organizationStore";
-import { useTeamStore } from "../../store/teamStore";
-import { useSchedulerProjectsStore } from "../../store/schedulerProjectsStore";
 import { DatabaseCell } from "./DatabaseCell";
 import { DatabaseColumnMenu } from "./DatabaseColumnMenu";
 import { AppSelect } from "../common/AppSelect";
 import { PageIconDisplay } from "../common/PageIconDisplay";
 import { COLUMN_TYPE_LABELS, defaultColumnIcon } from "./columnTypeIcons";
-import {
-  isLCSchedulerDatabaseId,
-  isLCSchedulerHiddenPropertyColumnId,
-  LC_SCHEDULER_ATTENDANCE_PRESET_ID,
-  LC_SCHEDULER_COLUMN_IDS,
-  LC_SCHEDULER_TASK_PRESET_ID,
-} from "../../lib/scheduler/database";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
-import { rememberSchedulerPropertyValues } from "../../lib/scheduler/lastPropertyMemory";
-import { ANNUAL_LEAVE_COLOR, DEFAULT_SCHEDULE_COLOR } from "../../lib/scheduler/colors";
-import { effectiveOptions } from "../../lib/database/columnSource";
-import { resolveEffectiveCellValueById } from "../../lib/database/effectiveCellValue";
 
 // 속성 패널의 타입 변경 목록(순서 유지). 라벨/아이콘은 단일 레지스트리에서 파생.
 const PROPERTY_COLUMN_TYPE_IDS: ColumnType[] = [
@@ -51,17 +35,6 @@ function scopeLabel(scope: PresetScope): string {
   return "워크스페이스";
 }
 
-function readRowStringCell(cells: Record<string, CellValue> | undefined, columnId: string): string | null {
-  const val = cells?.[columnId];
-  return typeof val === "string" && val.trim() ? val : null;
-}
-
-function hasAssigneeValue(value: CellValue): boolean {
-  if (Array.isArray(value)) return value.some((item) => typeof item === "string" && item.trim().length > 0);
-  if (typeof value === "string") return value.trim().length > 0;
-  return false;
-}
-
 function readPresetIdFromMeta(metaCell: CellValue): string | null {
   if (!metaCell || typeof metaCell !== "object" || Array.isArray(metaCell)) return null;
   const candidate = (metaCell as Record<string, unknown>).presetId;
@@ -85,32 +58,6 @@ function readObjectCell(value: CellValue): Record<string, unknown> {
     : {};
 }
 
-function scopeColumnId(scope: PresetScope): string | null {
-  if (scope === "organization") return LC_SCHEDULER_COLUMN_IDS.organization;
-  if (scope === "team") return LC_SCHEDULER_COLUMN_IDS.team;
-  if (scope === "project") return LC_SCHEDULER_COLUMN_IDS.project;
-  return null;
-}
-
-function resolveSchedulerPresetKind(
-  presetId: string,
-  preset: DatabaseRowPreset | undefined,
-): "task" | "attendance" | null {
-  const name = preset?.name?.trim();
-  if (name === "일정") return "task";
-  if (name === "근태") return "attendance";
-  if (presetId === LC_SCHEDULER_TASK_PRESET_ID) return "task";
-  if (presetId === LC_SCHEDULER_ATTENDANCE_PRESET_ID) return "attendance";
-  return null;
-}
-
-function removeAttendanceMeta(meta: Record<string, unknown>): Record<string, unknown> {
-  const next = { ...meta };
-  delete next.annualLeave;
-  delete next.attendanceValue;
-  return next;
-}
-
 export function DatabasePropertyPanel({
   databaseId,
   pageId,
@@ -127,9 +74,6 @@ export function DatabasePropertyPanel({
   const pages = usePageStore((s) => s.pages);
   const bundle = databases[databaseId];
   const page = pages[pageId];
-  const organizations = useOrganizationStore((s) => s.organizations);
-  const teams = useTeamStore((s) => s.teams);
-  const projects = useSchedulerProjectsStore((s) => s.projects);
   const addColumn = useDatabaseStore((s) => s.addColumn);
   const updateCell = useDatabaseStore((s) => s.updateCell);
   const addPreset = useDatabaseStore((s) => s.addPreset);
@@ -158,12 +102,8 @@ export function DatabasePropertyPanel({
 
   const hasData = Boolean(bundle && page);
   const rowCells = useMemo(() => page?.dbCells ?? {}, [page?.dbCells]);
-  const scopeCtx = useMemo(() => ({ organizations, teams, projects }), [organizations, teams, projects]);
 
-  const isSchedulerDb = isLCSchedulerDatabaseId(databaseId);
-  const propertyPanelMetaCellId = isSchedulerDb
-    ? LC_SCHEDULER_COLUMN_IDS.meta
-    : PROPERTY_PANEL_META_CELL_ID;
+  const propertyPanelMetaCellId = PROPERTY_PANEL_META_CELL_ID;
   // 항목 페이지 속성 패널은 데이터베이스 "표시설정"(viewConfigs)에서 지정한 컬럼 순서를 따른다.
   // 표 뷰를 우선하되, 명시적 순서가 있는 다른 뷰가 있으면 그 순서를 사용한다.
   const allPropertyColumns = useMemo(() => {
@@ -186,56 +126,13 @@ export function DatabasePropertyPanel({
         (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER),
     );
   }, [bundle?.columns, bundle?.panelState?.viewConfigs]);
-  const editableColumns = allPropertyColumns.filter((c) => !isLCSchedulerHiddenPropertyColumnId(c.id));
+  const editableColumns = allPropertyColumns;
   const presets = useMemo(() => bundle?.presets ?? [], [bundle?.presets]);
 
-  const readEffectiveRowStringCell = (columnId: string): string | null => {
-    if (!hasData) return readRowStringCell(rowCells, columnId);
-    return readRowStringCell(
-      {
-        [columnId]: resolveEffectiveCellValueById({
-          databaseId,
-          rowPageId: pageId,
-          columnId,
-          databases,
-          pages,
-        }),
-      },
-      columnId,
-    );
-  };
-  const rowProjectId = readEffectiveRowStringCell(LC_SCHEDULER_COLUMN_IDS.project);
-  const rowOrganizationId = readEffectiveRowStringCell(LC_SCHEDULER_COLUMN_IDS.organization);
-  const rowTeamId = readEffectiveRowStringCell(LC_SCHEDULER_COLUMN_IDS.team);
-  const isSpecialSchedulerCard = isSchedulerDb && !hasAssigneeValue(rowCells[LC_SCHEDULER_COLUMN_IDS.assignees]);
-  const rowScopeIdByType = useMemo<Record<PresetScope, string | null>>(
-    () => ({
-      workspace: null,
-      organization: rowOrganizationId,
-      team: rowTeamId,
-      project: rowProjectId,
-    }),
-    [rowOrganizationId, rowProjectId, rowTeamId],
-  );
+  // 일반 DB에는 조직/팀/프로젝트 범위 컬럼이 없어 대상 옵션이 항상 비어 있다.
+  const saveScopeOptions = useMemo<{ id: string; label: string }[]>(() => [], []);
 
-  const saveScopeOptions = useMemo(() => {
-    if (savePresetScope === "workspace") return [];
-    const columnId = scopeColumnId(savePresetScope);
-    if (!columnId) return [];
-    const column = bundle?.columns.find((c) => c.id === columnId);
-    return column ? effectiveOptions(column, databases, scopeCtx) : [];
-  }, [bundle?.columns, databases, savePresetScope, scopeCtx]);
-
-  const filteredPresets = useMemo(() => {
-    if (!isSchedulerDb) return presets;
-    return presets.filter((preset) => {
-      const scope = preset.scope as PresetScope;
-      if (scope === "workspace") return true;
-      const rowScopeId = rowScopeIdByType[scope];
-      if (!rowScopeId || !preset.scopeId) return false;
-      return rowScopeId === preset.scopeId;
-    });
-  }, [isSchedulerDb, presets, rowScopeIdByType]);
+  const filteredPresets = presets;
 
   useEffect(() => {
     const close = (e: MouseEvent) => {
@@ -271,41 +168,14 @@ export function DatabasePropertyPanel({
   }, [presets, propertyPanelMetaCellId, rowCells, selectedPresetId]);
 
   useEffect(() => {
-    if (!isSchedulerDb) return;
-    const workspaceId = LC_SCHEDULER_WORKSPACE_ID;
-    rememberSchedulerPropertyValues(workspaceId, rowCells);
-    useSchedulerStore.getState().refreshSchedulePageFromLocal(pageId, workspaceId);
-  }, [databaseId, isSchedulerDb, pageId, rowCells]);
-
-  useEffect(() => {
     if (savePresetScope === "workspace") {
       setSavePresetScopeId("");
       return;
     }
-    const rowScopeId = rowScopeIdByType[savePresetScope];
-    if (rowScopeId) {
-      setSavePresetScopeId(rowScopeId);
-      return;
-    }
     setSavePresetScopeId(saveScopeOptions[0]?.id ?? "");
-  }, [rowScopeIdByType, savePresetScope, saveScopeOptions]);
+  }, [savePresetScope, saveScopeOptions]);
 
-  const activeScopeColumnId = rowProjectId
-    ? LC_SCHEDULER_COLUMN_IDS.project
-    : rowTeamId
-      ? LC_SCHEDULER_COLUMN_IDS.team
-      : rowOrganizationId
-        ? LC_SCHEDULER_COLUMN_IDS.organization
-        : null;
-  const effectiveHiddenColumnIds = useMemo(() => {
-    const next = new Set(hiddenColumnIds);
-    if (activeScopeColumnId) next.delete(activeScopeColumnId);
-    if (isSpecialSchedulerCard) {
-      next.add(LC_SCHEDULER_COLUMN_IDS.assignees);
-    }
-    return next;
-  }, [activeScopeColumnId, hiddenColumnIds, isSpecialSchedulerCard]);
-  const visibleColumns = editableColumns.filter((col) => !effectiveHiddenColumnIds.has(col.id));
+  const visibleColumns = editableColumns.filter((col) => !hiddenColumnIds.includes(col.id));
 
   const currentPreset = presets.find((preset) => preset.id === selectedPresetId) ?? null;
 
@@ -320,46 +190,15 @@ export function DatabasePropertyPanel({
 
   function applyPresetToCurrentRow(presetId: string) {
     const previousMeta = readObjectCell(rowCells[propertyPanelMetaCellId]);
-    const previousAssignees = rowCells[LC_SCHEDULER_COLUMN_IDS.assignees];
     const ok = applyPresetToRow(databaseId, pageId, presetId);
     if (!ok) return;
-    if (isSchedulerDb && typeof previousAssignees !== "undefined") {
-      updateCell(databaseId, pageId, LC_SCHEDULER_COLUMN_IDS.assignees, previousAssignees);
-    }
     const preset = presets.find((item) => item.id === presetId);
-    const schedulerPresetKind = isSchedulerDb
-      ? resolveSchedulerPresetKind(presetId, preset)
-      : null;
-    if (schedulerPresetKind === "task") {
-      updateCell(databaseId, pageId, LC_SCHEDULER_COLUMN_IDS.title, "일정");
-      updateCell(databaseId, pageId, LC_SCHEDULER_COLUMN_IDS.status, "todo");
-      updateCell(databaseId, pageId, LC_SCHEDULER_COLUMN_IDS.attendance, null);
-      updateCell(databaseId, pageId, LC_SCHEDULER_COLUMN_IDS.color, DEFAULT_SCHEDULE_COLOR);
-    } else if (schedulerPresetKind === "attendance") {
-      updateCell(databaseId, pageId, LC_SCHEDULER_COLUMN_IDS.title, "연차");
-      updateCell(databaseId, pageId, LC_SCHEDULER_COLUMN_IDS.status, "todo");
-      updateCell(databaseId, pageId, LC_SCHEDULER_COLUMN_IDS.attendance, "annual-leave");
-      updateCell(databaseId, pageId, LC_SCHEDULER_COLUMN_IDS.color, ANNUAL_LEAVE_COLOR);
-    }
     const presetHiddenColumnIds = [...(preset?.hiddenColumnIds ?? [])];
     const latestCells = usePageStore.getState().pages[pageId]?.dbCells ?? rowCells;
-    let baseMeta = {
+    const baseMeta = {
       ...previousMeta,
       ...readObjectCell(latestCells[propertyPanelMetaCellId]),
     };
-    if (schedulerPresetKind === "task") {
-      baseMeta = {
-        ...removeAttendanceMeta(baseMeta),
-        kind: "schedule",
-      };
-    } else if (schedulerPresetKind === "attendance") {
-      baseMeta = {
-        ...baseMeta,
-        kind: "leave",
-        annualLeave: true,
-        attendanceValue: "annual-leave",
-      };
-    }
     updateCell(databaseId, pageId, propertyPanelMetaCellId, {
       ...baseMeta,
       presetId,
@@ -377,7 +216,6 @@ export function DatabasePropertyPanel({
   function buildPresetColumnDefaults(): Record<string, CellValue> {
     const next: Record<string, CellValue> = {};
     for (const col of allPropertyColumns) {
-      if (isSchedulerDb && col.id === LC_SCHEDULER_COLUMN_IDS.assignees) continue;
       const v = rowCells[col.id];
       if (typeof v === "undefined") continue;
       next[col.id] = v;
@@ -415,7 +253,6 @@ export function DatabasePropertyPanel({
       requiredColumnIds: visibleColumns.map((col) => col.id),
       visibleColumnIds: visibleColumns.map((col) => col.id),
       hiddenColumnIds: hiddenColumnIds.filter((id) => editableColumns.some((col) => col.id === id)),
-      schedulerDefaults: currentPreset?.schedulerDefaults,
     });
     setSavePresetName("");
     setSavePresetOpen(false);

@@ -863,14 +863,14 @@ function EditorInner({
         roots.delete(el);
       }
     };
-    const scheduleRender = () => {
+    const queueRender = () => {
       if (frame) return;
       frame = window.requestAnimationFrame(renderCalloutIcons);
     };
-    scheduleRender();
-    editor.on("transaction", scheduleRender);
+    queueRender();
+    editor.on("transaction", queueRender);
     return () => {
-      editor.off("transaction", scheduleRender);
+      editor.off("transaction", queueRender);
       if (frame) window.cancelAnimationFrame(frame);
       for (const root of roots.values()) root.unmount();
       roots.clear();

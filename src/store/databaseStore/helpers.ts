@@ -27,8 +27,6 @@ import { useWorkspaceStore } from "../workspaceStore";
 import { usePageStore } from "../pageStore";
 import { MAX_UPSERT_PAGE_PAYLOAD_BYTES, payloadByteLength } from "../pageStore/helpers";
 import { toUpsertPageInput } from "../../lib/sync/mappers/upsertPageInput";
-import { isLCSchedulerDatabaseId, isLCMilestoneDatabaseId, isLCFeatureDatabaseId } from "../../lib/scheduler/database";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
 import type { DbMap } from "./migrations";
 
 // v5 fallback: 아직 memberStore(me.memberId)와 완전 연동 전이라 auth sub 를 사용.
@@ -41,10 +39,7 @@ export function getCurrentWorkspaceId(): string {
   return useWorkspaceStore.getState().currentWorkspaceId ?? "";
 }
 
-function resolveWorkspaceIdByDatabaseId(databaseId: string | null | undefined): string {
-  if (isLCSchedulerDatabaseId(databaseId) || isLCMilestoneDatabaseId(databaseId) || isLCFeatureDatabaseId(databaseId)) {
-    return LC_SCHEDULER_WORKSPACE_ID;
-  }
+function resolveWorkspaceIdByDatabaseId(_databaseId: string | null | undefined): string {
   return getCurrentWorkspaceId();
 }
 

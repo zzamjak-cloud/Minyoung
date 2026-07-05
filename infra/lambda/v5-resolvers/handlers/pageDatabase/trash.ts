@@ -10,7 +10,6 @@ import {
 import {
   badRequest,
   forbidden,
-  isLCSchedulerDatabaseId,
   notFound,
   requireWorkspaceAccess,
   type Member,
@@ -61,9 +60,6 @@ export async function permanentlyDeleteDatabase(args: {
   workspaceId: string;
 }): Promise<boolean> {
   if (!args.tables.Databases) badRequest("Databases table 미설정");
-  if (isLCSchedulerDatabaseId(args.id)) {
-    forbidden("LC스케줄러 데이터베이스는 영구삭제할 수 없습니다");
-  }
   await requireWorkspaceAccess({
     doc: args.doc,
     memberTeamsTableName: args.tables.MemberTeams,

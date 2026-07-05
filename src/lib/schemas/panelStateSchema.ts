@@ -61,9 +61,6 @@ const databasePanelStatePartialSchema = z
     headerColor: z.string().nullable().optional(),
     filterPresets: z.array(filterPresetSchema).optional(),
     activePresetId: z.string().nullable().optional(),
-    schedulerFeatureMilestoneIds: z.array(z.string()).nullable().optional(),
-    schedulerMemberOrder: z.array(z.string()).optional(),
-    schedulerMemberOrderUpdatedAt: z.number().finite().nonnegative().optional(),
   });
 
 export function parseDatabasePanelStateJson(raw: string): DatabasePanelState {

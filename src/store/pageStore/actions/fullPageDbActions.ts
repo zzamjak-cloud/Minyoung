@@ -4,7 +4,6 @@ import type { Page } from "../../../types/page";
 import { emptyPanelState } from "../../../types/database";
 import { newId } from "../../../lib/id";
 import { recordPageMutation } from "../../historyStore";
-import { isProtectedDatabaseId } from "../../../lib/scheduler/database";
 import {
   enqueueUpsertPage,
   getCurrentWorkspaceId,
@@ -53,7 +52,6 @@ export function createFullPageDbActions(
     ensureFullPagePageForDatabase: (databaseId, title = "데이터베이스", view = "table") => {
       const idWant = databaseId.trim();
       if (!idWant) return null;
-      if (isProtectedDatabaseId(idWant)) return null;
       const existing = get().findFullPagePageIdForDatabase(idWant);
       if (existing) {
         // 레거시·임포트 등으로 태그가 빠진 홈을 발견하면 보강한다(유령 방지, idempotent).

@@ -2,10 +2,8 @@ import { appsyncClient } from "./graphql/client";
 import {
   ON_PAGE_CHANGED,
   ON_DATABASE_CHANGED,
-  ON_PROJECT_CHANGED,
   type GqlPageMeta,
   type GqlDatabase,
-  type GqlProject,
 } from "./graphql/operations";
 import { ON_WORKSPACE_CHANGED } from "./queries/workspace";
 import { ensureFreshTokensForAppSync } from "../auth/apiTokens";
@@ -13,7 +11,6 @@ import { getSyncEngine } from "./runtime";
 import {
   GqlDatabaseSchema,
   GqlPageMetaSchema,
-  GqlProjectSchema,
   parseGqlOne,
 } from "./schemas";
 
@@ -25,7 +22,6 @@ import {
 export type SubscribeHandlers = {
   onPage: (item: GqlPageMeta) => void;
   onDatabase: (item: GqlDatabase) => void;
-  onProject?: (item: GqlProject) => void;
   /** 워크스페이스 접근권한 변경 신호(트리거). 제공 시에만 구독한다. */
   onWorkspace?: (workspaceId: string) => void;
 };
@@ -77,7 +73,7 @@ export function startSubscriptions(
     subs = [];
   };
 
-  const scheduleRetry = () => {
+  const enqueueRetry = () => {
     if (stopped || retryAttempts >= MAX_RETRY_ATTEMPTS) return;
     if (retryTimer) return;
     const delay = Math.min(MAX_RETRY_DELAY_MS, 1000 * 2 ** retryAttempts);
@@ -88,7 +84,7 @@ export function startSubscriptions(
     }, delay);
   };
 
-  const logSubError = (channel: "page" | "database" | "project" | "workspace", error: unknown) => {
+  const logSubError = (channel: "page" | "database" | "workspace", error: unknown) => {
     const msg = getErrorMessage(error);
     const key = `sub:${channel}`;
     const prev = lastErrorByChannel.get(key);
@@ -116,7 +112,7 @@ export function startSubscriptions(
     // 새 동기화 엔티티 구독 추가 시 이 배열에 한 항목만 더하면 된다.
     // enabled=false 인 채널은 건너뛴다(해당 핸들러 미제공 시).
     const channels: Array<{
-      key: "page" | "database" | "project" | "workspace";
+      key: "page" | "database" | "workspace";
       query: string;
       enabled: boolean;
       onNext: (data: Record<string, unknown>) => void;
@@ -140,16 +136,6 @@ export function startSubscriptions(
         },
       },
       {
-        // 워크스페이스 접근권한 변경 구독(트리거). onProject 핸들러가 있을 때만.
-        key: "project",
-        query: ON_PROJECT_CHANGED,
-        enabled: !!handlers.onProject,
-        onNext: (data) => {
-          const parsed = parseGqlOne(data.onProjectChanged, GqlProjectSchema, "onProjectChanged");
-          if (parsed) handlers.onProject?.(parsed as unknown as GqlProject);
-        },
-      },
-      {
         key: "workspace",
         query: ON_WORKSPACE_CHANGED,
         enabled: !!handlers.onWorkspace,
@@ -163,7 +149,7 @@ export function startSubscriptions(
     // 한 채널의 구독 생성 실패가 나머지 채널 구독을 막지 않도록 격리한다.
     // 과거에는 첫 채널(page) throw 시 return 으로 database 까지
     // 미구독 상태가 되어 전체 재연결에만 의존했다. 이제 실패 채널만 건너뛰고
-    // 성공 채널은 구독을 유지하며, 전체 재연결(scheduleRetry)로 실패분을 복구한다.
+    // 성공 채널은 구독을 유지하며, 전체 재연결(enqueueRetry)로 실패분을 복구한다.
     let refreshedTokensThisPass = false;
     for (const channel of channels) {
       if (!channel.enabled) continue;
@@ -181,7 +167,7 @@ export function startSubscriptions(
           refreshedTokensThisPass = true;
           await ensureFreshTokensForAppSync();
         }
-        scheduleRetry();
+        enqueueRetry();
         continue;
       }
       const sub = obs.subscribe({
@@ -198,7 +184,7 @@ export function startSubscriptions(
           if (isUnauthorizedError(e)) {
             void ensureFreshTokensForAppSync();
           }
-          scheduleRetry();
+          enqueueRetry();
         },
       });
       subs.push(sub);

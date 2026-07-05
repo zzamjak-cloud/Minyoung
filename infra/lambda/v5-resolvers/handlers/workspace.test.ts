@@ -102,7 +102,6 @@ describe("workspace handlers", () => {
       },
       { Items: [] },
       { Item: { workspaceId: caller.personalWorkspaceId, name: "P", type: "personal", ownerMemberId: caller.memberId, createdAt: "now" } },
-      {},
       { Item: { workspaceId: "ws-foreign-personal", name: "타인의 개인 워크스페이스", type: "personal", ownerMemberId: "other", createdAt: "now" } },
       { Item: { workspaceId: "ws-shared", name: "Shared", type: "shared", ownerMemberId: "other", createdAt: "now" } },
       { Items: [{ workspaceId: caller.personalWorkspaceId, subjectType: "member", subjectId: caller.memberId, level: "edit" }] },

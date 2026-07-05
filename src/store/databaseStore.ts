@@ -31,15 +31,6 @@ import {
   migrateDatabaseStore,
 } from "./databaseStore/migrations";
 import {
-  LC_SCHEDULER_DATABASE_TITLE,
-  LC_MILESTONE_DATABASE_TITLE,
-  LC_FEATURE_DATABASE_TITLE,
-  isLCSchedulerDatabaseId,
-  isLCMilestoneDatabaseId,
-  isLCFeatureDatabaseId,
-  isProtectedDatabaseId,
-} from "../lib/scheduler/database";
-import {
   allocateUniqueDatabaseTitle,
   createRowPage,
   defaultCellValueForColumn,
@@ -200,8 +191,6 @@ export const useDatabaseStore = create<DatabaseStore>()(
       },
 
       deleteDatabase: (id) => {
-        // 보호 DB(작업·마일스톤·피처) 는 삭제 금지
-        if (isProtectedDatabaseId(id)) return;
         const bundle = get().databases[id];
         const homePageId = usePageStore.getState().findFullPagePageIdForDatabase(id);
         if (bundle) {
@@ -240,15 +229,6 @@ export const useDatabaseStore = create<DatabaseStore>()(
         const state = get();
         const b = state.databases[id];
         if (!b) return false;
-        if (isLCSchedulerDatabaseId(id)) {
-          return normalizeDbTitle(title) === LC_SCHEDULER_DATABASE_TITLE;
-        }
-        if (isLCMilestoneDatabaseId(id)) {
-          return normalizeDbTitle(title) === LC_MILESTONE_DATABASE_TITLE;
-        }
-        if (isLCFeatureDatabaseId(id)) {
-          return normalizeDbTitle(title) === LC_FEATURE_DATABASE_TITLE;
-        }
         const nextTitle = normalizeDbTitle(title);
         if (isDatabaseTitleTaken(state.databases, nextTitle, id, b.meta.workspaceId)) {
           return false;
@@ -322,9 +302,6 @@ export const useDatabaseStore = create<DatabaseStore>()(
           requiredColumnIds: [...(presetPatch?.requiredColumnIds ?? [])],
           visibleColumnIds: [...(presetPatch?.visibleColumnIds ?? [])],
           hiddenColumnIds: [...(presetPatch?.hiddenColumnIds ?? [])],
-          schedulerDefaults: presetPatch?.schedulerDefaults
-            ? structuredClone(presetPatch.schedulerDefaults)
-            : undefined,
           createdAt: t,
           updatedAt: t,
         };
@@ -679,25 +656,12 @@ export const useDatabaseStore = create<DatabaseStore>()(
 export function listDatabases(state: DatabaseStore): { id: string; meta: DatabaseMeta }[] {
   const currentWorkspaceId = useWorkspaceStore.getState().currentWorkspaceId;
   return Object.entries(state.databases)
-    .filter(([id, bundle]) => {
-      // 보호 DB(작업·마일스톤·피처) 는 모든 워크스페이스에서 공유 — 인라인 DB 블록 연결용으로 항상 노출
-      if (isProtectedDatabaseId(id)) return true;
+    .filter(([, bundle]) => {
       const workspaceId = bundle.meta.workspaceId;
       return !currentWorkspaceId || !workspaceId || workspaceId === currentWorkspaceId;
     })
     .map(([id, b]) => ({ id, meta: b.meta }))
-    .sort((a, b) => {
-      // 정렬 순서: 작업 → 마일스톤 → 피처 → 일반(updatedAt desc)
-      const aProtected = isProtectedDatabaseId(a.id);
-      const bProtected = isProtectedDatabaseId(b.id);
-      if (aProtected !== bProtected) return aProtected ? -1 : 1;
-      if (aProtected && bProtected) {
-        const order = (id: string) =>
-          isLCSchedulerDatabaseId(id) ? 0 : isLCMilestoneDatabaseId(id) ? 1 : 2;
-        return order(a.id) - order(b.id);
-      }
-      return b.meta.updatedAt - a.meta.updatedAt;
-    });
+    .sort((a, b) => b.meta.updatedAt - a.meta.updatedAt);
 }
 
 /** 속성 추가 시 타입별 기본 컬럼 정의 */

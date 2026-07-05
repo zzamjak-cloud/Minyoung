@@ -31,9 +31,6 @@ import type { Page } from "../../types/page";
 const MENU_ITEM_ICON =
   "size-4 shrink-0 text-zinc-500 dark:text-zinc-400";
 
-function isLCSchedulerModalOpen(): boolean {
-  return Boolean(document.querySelector("[data-lc-scheduler-modal='true']"));
-}
 
 function isFullPageDatabasePage(page: Page | undefined): boolean {
   const content = page?.doc?.content;
@@ -173,7 +170,6 @@ export function TopBar({ onOpenNav }: { onOpenNav?: () => void } = {}) {
   }, [menuOpen]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isLCSchedulerModalOpen()) return;
       const mod = e.metaKey || e.ctrlKey;
       if (!mod || !activeId) return;
       if (e.key === "l" || e.key === "L") {

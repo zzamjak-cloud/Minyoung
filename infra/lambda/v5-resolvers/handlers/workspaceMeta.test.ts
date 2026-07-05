@@ -10,7 +10,6 @@ const tables: Tables = {
   WorkspaceAccess: "WorkspaceAccess",
   Organizations: "Organizations",
   MemberOrganizations: "MemberOrganizations",
-  Projects: "Projects",
 };
 
 const caller: Member = {
@@ -32,7 +31,7 @@ function mockDoc(...returns: unknown[]) {
 }
 
 describe("getWorkspaceMeta", () => {
-  it("멤버/팀/조직/프로젝트 메타를 한 번에 조합하고 멤버 GetItem 반복을 하지 않는다", async () => {
+  it("멤버/팀/조직 메타를 한 번에 조합하고 멤버 GetItem 반복을 하지 않는다", async () => {
     const doc = mockDoc(
       {
         Items: [
@@ -45,36 +44,19 @@ describe("getWorkspaceMeta", () => {
       { Items: [{ organizationId: "o1", name: "Org", leaderMemberIds: ["m2"], createdAt: "now" }] },
       { Items: [{ memberId: "m1", teamId: "t1" }, { memberId: "m3", teamId: "t1" }] },
       { Items: [{ memberId: "m2", organizationId: "o1" }] },
-      {
-        Items: [
-          {
-            id: "p1",
-            workspaceId: "lc-scheduler-global",
-            name: "Project",
-            color: "#000000",
-            memberIds: ["m1"],
-            leaderMemberIds: [],
-            isHidden: false,
-            createdByMemberId: "m1",
-            createdAt: "now",
-            updatedAt: "now",
-          },
-        ],
-      },
     );
 
     const result = await getWorkspaceMeta({
       doc,
       tables,
       caller,
-      workspaceId: "lc-scheduler-global",
+      workspaceId: "ws-1",
     });
 
     expect(result.members).toHaveLength(3);
     expect(result.teams).toHaveLength(1);
     expect(result.teams[0].members.map((member) => member.memberId)).toEqual(["m1"]);
     expect(result.organizations[0].members.map((member) => member.memberId)).toEqual(["m2"]);
-    expect(result.projects.map((project) => project.id)).toEqual(["p1"]);
-    expect(doc.send).toHaveBeenCalledTimes(6);
+    expect(doc.send).toHaveBeenCalledTimes(5);
   });
 });

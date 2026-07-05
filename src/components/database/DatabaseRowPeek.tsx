@@ -31,8 +31,6 @@ import { SimpleAlertDialog } from "../ui/SimpleAlertDialog";
 import { PAGE_TITLE_DUPLICATE_MESSAGE, preparePageTitleInput } from "../../store/pageStore/helpers";
 import { PageHistoryPreviewDialog } from "../history/PageHistoryPreviewDialog";
 import { PageMoveDialog } from "../layout/PageMoveDialog";
-import { isLCSchedulerDatabaseId, isProtectedDatabaseId } from "../../lib/scheduler/database";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
 import { useWorkspaceStore } from "../../store/workspaceStore";
 import { pageDocToMarkdown } from "../../lib/export/pageToMarkdown";
 import { buildPageHtmlZipBlob } from "../../lib/export/pageHtmlZip";
@@ -56,7 +54,6 @@ const PEEK_WIDTH_KEY = "quicknote.peekWidth.v1";
 const DEFAULT_PEEK_WIDTH = 720;
 const MIN_PEEK_WIDTH = 380;
 const MAX_PEEK_WIDTH_RATIO = 0.9; // 화면 폭의 90%까지 허용
-const CLOSE_LC_SCHEDULER_EVENT = "quicknote:close-lc-scheduler";
 const MENU_ITEM_ICON = "size-4 shrink-0 text-zinc-500 dark:text-zinc-400";
 const PeekEditor = lazy(() =>
   import("../editor/Editor").then((m) => ({ default: m.Editor })),
@@ -94,14 +91,12 @@ export function DatabaseRowPeek() {
   const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
   // 다른 워크스페이스의 페이지를 미리보기로 띄운 경우 — "전체 열기"는 로컬 활성화 대신 해당 워크스페이스로 이동한다.
   const isCrossWorkspacePeek = Boolean(
-    page?.workspaceId &&
-      page.workspaceId !== currentWorkspaceId &&
-      !isProtectedDatabaseId(page.databaseId),
+    page?.workspaceId && page.workspaceId !== currentWorkspaceId,
   );
   const peekDescendantCount = usePageStore((s) =>
     peekPageId ? countPageDescendants(peekPageId, s.pages) : 0,
   );
-  const isPendingPageCreation = Boolean(peekPageId?.startsWith("lc-scheduler:creating:") && !page);
+  const isPendingPageCreation = false;
   const renamePage = usePageStore((s) => s.renamePage);
   const setIcon = usePageStore((s) => s.setIcon);
 
@@ -123,19 +118,6 @@ export function DatabaseRowPeek() {
       return;
     }
     const previousActivePageId = activePageId;
-    if (isLCSchedulerDatabaseId(page.databaseId)) {
-      window.dispatchEvent(new CustomEvent(CLOSE_LC_SCHEDULER_EVENT, {
-        detail: { keepSchedulerWorkspace: true },
-      }));
-    }
-    // 보호 DB(작업·마일스톤·피처) 의 전체 페이지는 LC 워크스페이스 컨텍스트에서만 정상 동작.
-    // 다른 워크스페이스에서 진입한 경우 워크스페이스를 LC 로 전환해 데이터 동기화 불일치를 방지.
-    if (isProtectedDatabaseId(page.databaseId)) {
-      const wsState = useWorkspaceStore.getState();
-      if (wsState.currentWorkspaceId !== LC_SCHEDULER_WORKSPACE_ID) {
-        wsState.setCurrentWorkspaceId(LC_SCHEDULER_WORKSPACE_ID);
-      }
-    }
     if (activePageId) setRowBackTarget(peekPageId, activePageId);
     let attempts = 0;
     const MAX_ATTEMPTS = 24;

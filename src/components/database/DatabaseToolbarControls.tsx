@@ -40,7 +40,6 @@ import { useDatabaseStore } from "../../store/databaseStore";
 import { usePageStore } from "../../store/pageStore";
 import { useOrganizationStore } from "../../store/organizationStore";
 import { useTeamStore } from "../../store/teamStore";
-import { useSchedulerProjectsStore } from "../../store/schedulerProjectsStore";
 import { useMemberStore } from "../../store/memberStore";
 import { effectiveOptions } from "../../lib/database/columnSource";
 import {
@@ -178,7 +177,6 @@ export function DatabaseToolbarControls({
   const databases = useDatabaseStore((s) => s.databases);
   const organizations = useOrganizationStore((s) => s.organizations);
   const teams = useTeamStore((s) => s.teams);
-  const projects = useSchedulerProjectsStore((s) => s.projects);
   const members = useMemberStore((s) => s.members);
   const [rulesExpanded, setRulesExpanded] = useState(false);
   // panelState.searchQuery 는 타입상 string 이지만 부분 panelState(서버 유래)에서
@@ -279,9 +277,9 @@ export function DatabaseToolbarControls({
         databases,
         pages,
         members,
-        scopeCtx: { organizations, teams, projects },
+        scopeCtx: { organizations, teams },
       }),
-    [columns, databases, members, organizations, pages, projects, teams],
+    [columns, databases, members, organizations, pages, teams],
   );
 
   // 속성 타입 기반으로 사용 불가 뷰를 드롭다운 목록에서 제외
@@ -421,7 +419,6 @@ export function DatabaseToolbarControls({
       return effectiveOptions(openFilterColumn, databases, {
         organizations,
         teams,
-        projects,
       })
         .filter((option) => !option.divider)
         .map((option) => ({ value: option.id, label: option.label }));
@@ -435,7 +432,7 @@ export function DatabaseToolbarControls({
           databases,
           pages,
           members,
-          scopeCtx: { organizations, teams, projects },
+          scopeCtx: { organizations, teams },
         }).map((option) => [option.id, option.label]),
       );
       const seen = new Set<string>();
@@ -467,7 +464,7 @@ export function DatabaseToolbarControls({
                 databases,
                 pages,
                 members,
-                scopeCtx: { organizations, teams, projects },
+                scopeCtx: { organizations, teams },
               },
               optionById,
             ),
@@ -517,7 +514,6 @@ export function DatabaseToolbarControls({
     members,
     organizations,
     pages,
-    projects,
     teams,
   ]);
   const filterRuleValueLabel = (rule: FilterRule, column: ColumnDef | undefined): string => {
@@ -531,7 +527,7 @@ export function DatabaseToolbarControls({
       databases,
       pages,
       members,
-      scopeCtx: { organizations, teams, projects },
+      scopeCtx: { organizations, teams },
     };
     const singleLabel = (value: string): string => {
       // id 기반 컬럼(선택·페이지 연결·멤버·DB 연결 등)은 실제 옵션/소스 라벨로 변환.

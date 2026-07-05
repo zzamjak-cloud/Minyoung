@@ -12,6 +12,7 @@ import type { Organization } from "../../store/organizationStore";
 import { useTeamStore } from "../../store/teamStore";
 import type { Team } from "../../store/teamStore";
 import { useWorkspaceOptionsStore } from "../../store/workspaceOptionsStore";
+import { useWorkspaceStore } from "../../store/workspaceStore";
 import { useUiStore } from "../../store/uiStore";
 import {
   parseCsvText,
@@ -36,7 +37,6 @@ import {
   unassignMemberFromOrganizationApi,
 } from "../../lib/sync/organizationApi";
 import { reportNonFatal } from "../../lib/reportNonFatal";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
 import { refreshWorkspaceMeta } from "../../lib/sync/workspaceMetaCache";
 
 type Props = {
@@ -77,6 +77,7 @@ export function CsvImportModal({ open, onClose }: Props) {
   const currentJobCategories = useWorkspaceOptionsStore((s) => s.jobCategories);
   const currentJobDetails = useWorkspaceOptionsStore((s) => s.jobDetails);
   const showToast = useUiStore((s) => s.showToast);
+  const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
 
   if (!open) return null;
 
@@ -228,7 +229,9 @@ export function CsvImportModal({ open, onClose }: Props) {
 
       let serverTeams: Team[] = [];
       try {
-        await refreshWorkspaceMeta(LC_SCHEDULER_WORKSPACE_ID, { force: true });
+        if (currentWorkspaceId) {
+          await refreshWorkspaceMeta(currentWorkspaceId, { force: true });
+        }
         serverTeams = useTeamStore.getState().teams;
         // 로컬 스토어도 최신화 — 후속 diff 가 정확해지도록
         for (const t of serverTeams) upsertTeam(t);
@@ -341,7 +344,9 @@ export function CsvImportModal({ open, onClose }: Props) {
 
       let serverOrgs: Organization[] = [];
       try {
-        await refreshWorkspaceMeta(LC_SCHEDULER_WORKSPACE_ID);
+        if (currentWorkspaceId) {
+          await refreshWorkspaceMeta(currentWorkspaceId);
+        }
         serverOrgs = useOrganizationStore.getState().organizations;
         for (const o of serverOrgs) upsertOrganization(o);
       } catch (err) {

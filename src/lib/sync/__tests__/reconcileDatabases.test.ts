@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { reconcileWorkspaceDatabasesFullSnapshot } from "../storeApply";
 import { useDatabaseStore } from "../../../store/databaseStore";
 import { usePageStore } from "../../../store/pageStore";
-import { LC_SCHEDULER_DATABASE_ID } from "../../scheduler/database";
 import type { DatabaseBundle } from "../../../types/database";
 
 const WS = "ws-1";
@@ -51,11 +50,10 @@ describe("reconcileWorkspaceDatabasesFullSnapshot", () => {
     expect(result.removedDatabaseIds.sort()).toEqual(["db-ghost", "db-ghost-no-ws"]);
   });
 
-  it("outbox 업로드 대기·보호 DB·다른 워크스페이스 DB 는 보존한다", () => {
+  it("outbox 업로드 대기·다른 워크스페이스 DB 는 보존한다", () => {
     useDatabaseStore.setState({
       databases: {
         "db-pending": bundle("db-pending", WS),
-        [LC_SCHEDULER_DATABASE_ID]: bundle(LC_SCHEDULER_DATABASE_ID, WS),
         "db-other-ws": bundle("db-other-ws", "ws-2"),
       },
       cacheWorkspaceId: WS,
@@ -71,7 +69,7 @@ describe("reconcileWorkspaceDatabasesFullSnapshot", () => {
 
     const dbs = useDatabaseStore.getState().databases;
     expect(Object.keys(dbs).sort()).toEqual(
-      ["db-other-ws", "db-pending", LC_SCHEDULER_DATABASE_ID].sort(),
+      ["db-other-ws", "db-pending"].sort(),
     );
     expect(result.removedDatabaseIds).toEqual([]);
   });

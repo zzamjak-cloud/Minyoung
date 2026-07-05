@@ -2,8 +2,6 @@
 // pageStore.ts 에서 분리 — 동작 변경 없음.
 
 import type { Page } from "../../types/page";
-import { isProtectedDatabaseId } from "../../lib/scheduler/database";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
 import type { PageStore } from "../pageStore";
 
 /** 사이드바/트리에서 숨기는 DB 전용 풀페이지 홈 — 랜딩 기본값 계산에도 동일 규칙 적용 */
@@ -22,23 +20,6 @@ export function isFullPageDatabaseHomePage(page: Page): boolean {
   );
 }
 
-function getFirstDatabaseBlockId(page: Page): string | null {
-  const first = page.doc?.content?.[0] as
-    | { type?: string; attrs?: Record<string, unknown> }
-    | undefined;
-  if (first?.type !== "databaseBlock") return null;
-  const databaseId = first.attrs?.databaseId;
-  return typeof databaseId === "string" ? databaseId : null;
-}
-
-export function isProtectedDatabaseBlockPage(page: Page): boolean {
-  if (isProtectedDatabaseId(page.databaseId)) return true;
-  // workspaceId 없는 레거시 LC 루트 페이지는 현재 워크스페이스 판별만으로 거를 수 없다.
-  // 현재 워크스페이스에 속한 일반 페이지의 inline 보호 DB 링크는 사이드바에 남겨야 한다.
-  if (page.workspaceId != null) return false;
-  return isProtectedDatabaseId(getFirstDatabaseBlockId(page));
-}
-
 /**
  * 페이지 자체 또는 조상 중 하나라도 사이드바에서 숨기는 페이지(DB 행 페이지, DB 전용 홈 페이지)
  * 가 있는지 검사. DB 항목 내부에서 생성한 자식 페이지를 사이드바·트리·검색에서 모두 숨기기 위함.
@@ -48,19 +29,13 @@ function isHiddenInSidebar(
   pages: Record<string, Page>,
   currentWorkspaceId: string | null,
 ): boolean {
-  // 다른 워크스페이스(예: LC 스케줄러 공용 워크스페이스) 페이지가 구독/스냅샷으로
-  // 공용 store 에 섞여 들어와도 현재 워크스페이스 사이드바엔 절대 노출하지 않는다.
+  // 다른 워크스페이스 페이지가 구독/스냅샷으로 공용 store 에 섞여 들어와도
+  // 현재 워크스페이스 사이드바엔 절대 노출하지 않는다.
   // workspaceId 가 없는(레거시) 페이지는 안전하게 현재 워크스페이스 소속으로 간주.
   if (
     currentWorkspaceId != null &&
     page.workspaceId != null &&
     page.workspaceId !== currentWorkspaceId
-  ) {
-    return true;
-  }
-  if (
-    currentWorkspaceId !== LC_SCHEDULER_WORKSPACE_ID &&
-    isProtectedDatabaseBlockPage(page)
   ) {
     return true;
   }
@@ -163,12 +138,6 @@ function isHiddenFromSearch(
     currentWorkspaceId != null &&
     page.workspaceId != null &&
     page.workspaceId !== currentWorkspaceId
-  ) {
-    return true;
-  }
-  if (
-    currentWorkspaceId !== LC_SCHEDULER_WORKSPACE_ID &&
-    isProtectedDatabaseBlockPage(page)
   ) {
     return true;
   }

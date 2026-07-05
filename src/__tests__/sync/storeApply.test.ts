@@ -5,7 +5,6 @@ import {
   applyRemoteDatabaseToStore,
   applyRemotePagesToStore,
   applyRemoteDatabasesToStore,
-  reconcileLCSchedulerRemoteSnapshot,
 } from "../../lib/sync/storeApply";
 import { usePageStore } from "../../store/pageStore";
 import { usePageContentLoadStore } from "../../store/pageContentLoadStore";
@@ -14,8 +13,6 @@ import { useDatabaseRowIndexStore } from "../../store/databaseRowIndexStore";
 import { useWorkspaceStore } from "../../store/workspaceStore";
 import { useHistoryStore } from "../../store/historyStore";
 import type { GqlDatabase, GqlPage, GqlPageMeta } from "../../lib/sync/graphql/operations";
-import { makeLCSchedulerDatabaseId } from "../../lib/scheduler/database";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
 import { markLocallyDeletedEntity } from "../../lib/sync/localDeleteGuards";
 
 const GUARDS_KEY = "quicknote.sync.localDeleteGuards.v1";
@@ -398,80 +395,6 @@ describe("storeApply 워크스페이스 가드", () => {
     remote.title = "OtherTitle";
     applyRemotePageToStore(remote);
     expect(usePageStore.getState().pages["pg-1"]?.title).toBe("KeepMe");
-  });
-
-  it("증분 스냅샷에 없는(=변경되지 않은) 로컬 LC 스케줄러 행은 prune 하지 않는다", () => {
-    // scoped/부분 로딩 방향: delta 에 없다고 살아있는 행을 지우면 안 된다.
-    useWorkspaceStore.setState({ currentWorkspaceId: "personal-ws" });
-    const dbId = makeLCSchedulerDatabaseId(LC_SCHEDULER_WORKSPACE_ID);
-    const old = Date.now() - 300_000;
-    usePageStore.setState({
-      pages: {
-        "unchanged-row": {
-          id: "unchanged-row",
-          title: "변경 안 된 일정",
-          icon: null,
-          doc: { type: "doc", content: [{ type: "paragraph" }] },
-          parentId: null,
-          order: 0,
-          databaseId: dbId,
-          dbCells: {},
-          createdAt: old,
-          updatedAt: old,
-        },
-      },
-      activePageId: "unchanged-row",
-      cacheWorkspaceId: "personal-ws",
-    });
-    useDatabaseStore.setState({
-      databases: {
-        [dbId]: {
-          meta: { id: dbId, title: "LC스케줄러", createdAt: old, updatedAt: old },
-          columns: [],
-          rowPageOrder: ["unchanged-row"],
-        },
-      },
-      cacheWorkspaceId: "personal-ws",
-    });
-
-    const result = reconcileLCSchedulerRemoteSnapshot({
-      pages: [],
-      databases: [],
-    });
-
-    expect(result.prunedPageIds).toEqual([]);
-    expect(usePageStore.getState().pages["unchanged-row"]).toBeDefined();
-    expect(useDatabaseStore.getState().databases[dbId]?.rowPageOrder).toEqual(["unchanged-row"]);
-  });
-
-  it("증분 스냅샷의 deletedAt 행은 로컬에서 제거한다(삭제 전파)", () => {
-    const dbId = makeLCSchedulerDatabaseId(LC_SCHEDULER_WORKSPACE_ID);
-    const old = Date.now() - 300_000;
-    usePageStore.setState({
-      pages: {
-        "deleted-row": {
-          id: "deleted-row",
-          title: "삭제된 일정",
-          icon: null,
-          doc: { type: "doc", content: [{ type: "paragraph" }] },
-          parentId: null,
-          order: 0,
-          databaseId: dbId,
-          dbCells: {},
-          createdAt: old,
-          updatedAt: old,
-        },
-      },
-      activePageId: null,
-      cacheWorkspaceId: "personal-ws",
-    });
-
-    const remote = gqlPage(LC_SCHEDULER_WORKSPACE_ID, "deleted-row");
-    remote.databaseId = dbId;
-    remote.deletedAt = new Date().toISOString();
-    reconcileLCSchedulerRemoteSnapshot({ pages: [remote], databases: [] });
-
-    expect(usePageStore.getState().pages["deleted-row"]).toBeUndefined();
   });
 
 });

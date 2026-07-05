@@ -1,4 +1,4 @@
-import { BatchWriteCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { PutCommand } from "@aws-sdk/lib-dynamodb";
 import { describe, expect, it, vi } from "vitest";
 import {
   emptyTrash,
@@ -28,17 +28,6 @@ const tables: Tables = {
   WorkspaceAccess: "WA",
   Pages: "P",
   Databases: "D",
-};
-
-const tablesWithSchedules: Tables = {
-  ...tables,
-  Schedules: "S",
-};
-
-const tablesWithIndexes: Tables = {
-  ...tables,
-  Schedules: "S",
-  DatabaseRowMembers: "DRM",
 };
 
 const caller: Member = {
@@ -247,205 +236,6 @@ describe("page/database handlers", () => {
     const item = putCommand?.input.Item ?? {};
     expect("databaseId" in item).toBe(false);
     expect(item.order).toBe("14");
-  });
-
-  it("upsertPage: LC schedule page 저장 시 Schedules read index를 갱신한다", async () => {
-    const doc = mockDoc(
-      { Item: undefined },
-      { Items: [] },
-      { Items: [{ subjectType: "member", subjectId: "m1", level: "edit" }] },
-      {},
-      {},
-    );
-    await upsertPage({
-      doc,
-      tables: tablesWithSchedules,
-      caller,
-      input: {
-        id: "page-1",
-        workspaceId: "lc-scheduler-global",
-        databaseId: "lc-scheduler-db:lc-scheduler-global",
-        updatedAt: "2026-06-02T00:00:00.000Z",
-        createdAt: "2026-01-01T00:00:00.000Z",
-        title: "일정 A",
-        doc: "{}",
-        order: "a",
-        createdByMemberId: "m1",
-        dbCells: {
-          "lc-scheduler:period": {
-            start: "2026-06-10T00:00:00.000Z",
-            end: "2026-06-12T23:59:59.999Z",
-          },
-          "lc-scheduler:assignees": ["member-a"],
-        },
-      },
-    });
-
-    const sendMock = doc.send as unknown as ReturnType<typeof vi.fn>;
-    const batchCommand = sendMock.mock.calls
-      .map((call) => call[0])
-      .find((command) => command instanceof BatchWriteCommand) as BatchWriteCommand | undefined;
-    expect(batchCommand?.input.RequestItems?.S?.[0]).toMatchObject({
-      PutRequest: {
-        Item: {
-          id: "page-1::member-a",
-          sourcePageId: "page-1",
-        },
-      },
-    });
-  });
-
-  it("upsertPage: 작업 DB row 의 scope 셀을 dbScope* 비정규화 키로 저장한다", async () => {
-    const doc = mockDoc(
-      { Item: undefined }, // 기존 페이지 Get
-      { Items: [] }, // memberTeams
-      { Items: [{ subjectType: "member", subjectId: "m1", level: "edit" }] }, // workspaceAccess
-      {}, // put
-      {}, // schedule index batch (no-op일 수 있음)
-      {}, // member index batch
-    );
-    await upsertPage({
-      doc,
-      tables: tablesWithIndexes,
-      caller,
-      input: {
-        id: "task-1",
-        workspaceId: "lc-scheduler-global",
-        databaseId: "lc-scheduler-db:lc-scheduler-global",
-        updatedAt: "2026-06-02T00:00:00.000Z",
-        createdAt: "2026-01-01T00:00:00.000Z",
-        title: "작업 A",
-        doc: "{}",
-        order: "3",
-        createdByMemberId: "m1",
-        dbCells: {
-          "lc-scheduler:organization": "org-1",
-          "lc-scheduler:team": "team-2",
-          "lc-scheduler:project": "proj-3",
-          "lc-scheduler:assignees": ["member-a"],
-        },
-      },
-    });
-    const sendMock = doc.send as unknown as ReturnType<typeof vi.fn>;
-    const putCommand = sendMock.mock.calls
-      .map((call) => call[0])
-      .find((command) => command instanceof PutCommand) as PutCommand | undefined;
-    const item = putCommand?.input.Item ?? {};
-    expect(item.dbScopeOrg).toBe("lc-scheduler-db:lc-scheduler-global#org-1");
-    expect(item.dbScopeTeam).toBe("lc-scheduler-db:lc-scheduler-global#team-2");
-    expect(item.dbScopeProject).toBe("lc-scheduler-db:lc-scheduler-global#proj-3");
-  });
-
-  it("upsertPage: 작업 DB row 저장 시 구성원 색인(DatabaseRowMembers)을 갱신한다", async () => {
-    const doc = mockDoc(
-      { Item: undefined },
-      { Items: [] },
-      { Items: [{ subjectType: "member", subjectId: "m1", level: "edit" }] },
-      {}, // put
-      {}, // schedule index
-      {}, // member index
-    );
-    await upsertPage({
-      doc,
-      tables: tablesWithIndexes,
-      caller,
-      input: {
-        id: "task-2",
-        workspaceId: "lc-scheduler-global",
-        databaseId: "lc-scheduler-db:lc-scheduler-global",
-        updatedAt: "2026-06-02T00:00:00.000Z",
-        createdAt: "2026-01-01T00:00:00.000Z",
-        title: "작업 B",
-        doc: "{}",
-        order: "4",
-        createdByMemberId: "m1",
-        dbCells: { "lc-scheduler:assignees": ["member-x"] },
-      },
-    });
-    const sendMock = doc.send as unknown as ReturnType<typeof vi.fn>;
-    const memberBatch = sendMock.mock.calls
-      .map((call) => call[0])
-      .find(
-        (command) =>
-          command instanceof BatchWriteCommand &&
-          command.input.RequestItems?.DRM,
-      ) as BatchWriteCommand | undefined;
-    expect(memberBatch?.input.RequestItems?.DRM?.[0]).toMatchObject({
-      PutRequest: {
-        Item: {
-          pk: "lc-scheduler-db:lc-scheduler-global#member-x",
-          pageId: "task-2",
-          memberId: "member-x",
-        },
-      },
-    });
-  });
-
-  it("listDatabaseRows: teamId 지정 시 byDbScopeTeam GSI 를 사용한다", async () => {
-    // workspaceId === lc-scheduler-global 은 requireWorkspaceAccess 가 즉시 "edit" 반환 → 접근 send 없음.
-    const doc = mockDoc(
-      { Items: [{ id: "row-1", workspaceId: "lc-scheduler-global", order: "a" }] },
-    );
-    await listDatabaseRows({
-      doc,
-      tables,
-      caller,
-      databaseId: "lc-scheduler-db:lc-scheduler-global",
-      workspaceId: "lc-scheduler-global",
-      teamId: "team-2",
-    });
-    const sendMock = doc.send as unknown as ReturnType<typeof vi.fn>;
-    const queryArg = sendMock.mock.calls[0]?.[0].input;
-    expect(queryArg.IndexName).toBe("byDbScopeTeam");
-    expect(queryArg.KeyConditionExpression).toBe("dbScopeTeam = :d");
-    expect(queryArg.ExpressionAttributeValues[":d"]).toBe(
-      "lc-scheduler-db:lc-scheduler-global#team-2",
-    );
-  });
-
-  it("listDatabaseRows: assigneeId 지정 시 구성원 색인 + Pages BatchGet 경로를 사용한다", async () => {
-    // lc-scheduler-global → 접근 send 없음. 첫 send 가 member index Query.
-    const doc = mockDoc(
-      {
-        Items: [{ pageId: "row-1" }, { pageId: "row-2" }],
-        LastEvaluatedKey: { pk: "k", pageId: "row-2" },
-      }, // member index Query
-      {
-        Responses: {
-          P: [
-            {
-              id: "row-2",
-              workspaceId: "lc-scheduler-global",
-              databaseId: "lc-scheduler-db:lc-scheduler-global",
-              order: "2",
-            },
-            {
-              id: "row-1",
-              workspaceId: "lc-scheduler-global",
-              databaseId: "lc-scheduler-db:lc-scheduler-global",
-              order: "1",
-            },
-          ],
-        },
-      }, // Pages BatchGet
-    );
-    const result = await listDatabaseRows({
-      doc,
-      tables: tablesWithIndexes,
-      caller,
-      databaseId: "lc-scheduler-db:lc-scheduler-global",
-      workspaceId: "lc-scheduler-global",
-      assigneeId: "member-x",
-    });
-    // order 오름차순 정렬.
-    expect(result.items.map((row) => row.id)).toEqual(["row-1", "row-2"]);
-    expect(result.nextToken).toBe(JSON.stringify({ pk: "k", pageId: "row-2" }));
-    const sendMock = doc.send as unknown as ReturnType<typeof vi.fn>;
-    const indexQuery = sendMock.mock.calls[0]?.[0].input;
-    expect(indexQuery.TableName).toBe("DRM");
-    expect(indexQuery.ExpressionAttributeValues[":pk"]).toBe(
-      "lc-scheduler-db:lc-scheduler-global#member-x",
-    );
   });
 
   it("upsertPage: 본문 로드 전 placeholder doc 이 기존 본문을 덮어쓰지 않는다", async () => {
@@ -1070,7 +860,6 @@ describe("page/database handlers", () => {
         requiredColumnIds: ["status"],
         visibleColumnIds: ["status", "feature"],
         hiddenColumnIds: [],
-        schedulerDefaults: { titlePrefix: "[Feature]" },
         createdAt: 1,
         updatedAt: 2,
       },
@@ -1213,55 +1002,6 @@ describe("page/database handlers", () => {
       | { input?: { Item?: Record<string, unknown> } }
       | undefined;
     expect(putCommand?.input?.Item?.templates).toBe(result.templates);
-  });
-
-  it("upsertDatabase: LC 작업 DB 구성원 순서는 DB updatedAt 이 stale 이어도 field timestamp 가 최신이면 병합한다", async () => {
-    const existingItem = {
-      id: "lc-scheduler-db:lc-scheduler-global",
-      workspaceId: "lc-scheduler-global",
-      title: "작업",
-      columns: "[]",
-      panelState: JSON.stringify({
-        viewConfigs: { timeline: { hiddenColumnIds: ["c1"] } },
-        schedulerMemberOrder: ["old-1", "old-2"],
-        schedulerMemberOrderUpdatedAt: 100,
-      }),
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-06-02T00:00:00.000Z",
-      createdByMemberId: "m1",
-    };
-    const doc = mockDoc(
-      { Item: existingItem },
-      {},
-    );
-
-    const result = await upsertDatabase({
-      doc,
-      tables,
-      caller,
-      input: {
-        id: "lc-scheduler-db:lc-scheduler-global",
-        workspaceId: "lc-scheduler-global",
-        updatedAt: "2026-06-01T00:00:00.000Z",
-        createdAt: "2026-01-01T00:00:00.000Z",
-        title: "작업",
-        columns: "[]",
-        createdByMemberId: "m1",
-        panelState: JSON.stringify({
-          schedulerMemberOrder: ["new-2", "new-1"],
-          schedulerMemberOrderUpdatedAt: 200,
-        }),
-      },
-    });
-
-    const panelState = JSON.parse(result.panelState as string) as Record<string, unknown>;
-    expect(panelState.schedulerMemberOrder).toEqual(["new-2", "new-1"]);
-    expect(panelState.schedulerMemberOrderUpdatedAt).toBe(200);
-    expect(panelState.viewConfigs).toEqual({ timeline: { hiddenColumnIds: ["c1"] } });
-
-    const sendMock = doc.send as unknown as ReturnType<typeof vi.fn>;
-    const putCommand = sendMock.mock.calls.at(-1)?.[0] as { input?: { Item?: Record<string, unknown> } };
-    expect(putCommand.input?.Item?.updatedAt).toBe("2026-06-02T00:00:00.000Z");
   });
 
   it("upsertDatabase: 부분 payload 는 기존 panelState 를 지우지 않고 병합한다", async () => {

@@ -1,7 +1,6 @@
 // 동기화 op 단일 등록점 — OutboxOp 별 엔티티 배선(실행/삭제판정/supersede/tombstone)을 한 곳에 모은다.
 // 새 동기화 엔티티/op 추가 시 이 레지스트리 한 곳만 수정하면 SyncEngine 의 분기들이 따라온다.
 // 주의: flush/retry/백오프 등 엔진 핫로직은 engine.ts 에 그대로 둔다. 여기서는 "어떤 op 가 무엇을 하는가"의 메타만 다룬다.
-import { isLCSchedulerDatabaseId } from "../scheduler/database";
 import type { OutboxEntityType, OutboxOp } from "./outbox/types";
 
 // AppSync 호출 어댑터 계약 — bridge.ts 의 realGqlBridge 가 구현, SyncEngine 에 주입된다.
@@ -92,10 +91,7 @@ export const SYNC_OP_REGISTRY: Record<OutboxOp, SyncOpSpec> = {
     workspaceScoped: true,
     capturesBaseVersion: false,
     warnIfMissingWorkspace: false,
-    execute: (gql, p) => {
-      if (isLCSchedulerDatabaseId(p.id)) return Promise.resolve();
-      return gql.softDeleteDatabase(p.id, p.workspaceId ?? "", p.updatedAt ?? "");
-    },
+    execute: (gql, p) => gql.softDeleteDatabase(p.id, p.workspaceId ?? "", p.updatedAt ?? ""),
   },
   updateMyClientPrefs: {
     entityType: "memberPrefs",

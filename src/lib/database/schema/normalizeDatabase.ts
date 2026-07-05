@@ -256,8 +256,7 @@ function normalizeColumnConfig(value: unknown): ColumnConfig | undefined {
   delete config.linkedScope;
   if (
     value.linkedScope === "organization" ||
-    value.linkedScope === "team" ||
-    value.linkedScope === "project"
+    value.linkedScope === "team"
   ) {
     config.linkedScope = value.linkedScope;
   }
@@ -328,24 +327,6 @@ function normalizeColumnDefaults(value: unknown): Record<string, CellValue> {
   return defaults;
 }
 
-function normalizeSchedulerDefaults(
-  value: unknown,
-): DatabaseRowPreset["schedulerDefaults"] | undefined {
-  if (!isPlainObject(value)) return undefined;
-
-  const defaults: NonNullable<DatabaseRowPreset["schedulerDefaults"]> = {};
-  if (typeof value.durationDays === "number" && Number.isFinite(value.durationDays)) {
-    defaults.durationDays = value.durationDays;
-  }
-  if (typeof value.color === "string") defaults.color = value.color;
-  if (typeof value.titlePrefix === "string") defaults.titlePrefix = value.titlePrefix;
-  if (Array.isArray(value.assigneeIds)) {
-    defaults.assigneeIds = normalizeStringArray(value.assigneeIds);
-  }
-
-  return Object.keys(defaults).length > 0 ? defaults : undefined;
-}
-
 export function normalizeDatabaseRowPreset(
   value: unknown,
   now = Date.now(),
@@ -364,7 +345,6 @@ export function normalizeDatabaseRowPreset(
 
   const createdAt = Number(value.createdAt);
   const updatedAt = Number(value.updatedAt);
-  const schedulerDefaults = normalizeSchedulerDefaults(value.schedulerDefaults);
 
   return {
     id: value.id,
@@ -377,7 +357,6 @@ export function normalizeDatabaseRowPreset(
     requiredColumnIds: normalizeStringArray(value.requiredColumnIds),
     visibleColumnIds: normalizeStringArray(value.visibleColumnIds),
     hiddenColumnIds: normalizeStringArray(value.hiddenColumnIds),
-    ...(schedulerDefaults ? { schedulerDefaults } : {}),
     createdAt: Number.isFinite(createdAt) ? createdAt : now,
     updatedAt: Number.isFinite(updatedAt) ? updatedAt : now,
   };

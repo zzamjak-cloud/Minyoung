@@ -9,24 +9,15 @@ import { usePageContentLoadStore } from "../../../store/pageContentLoadStore";
 import { useDatabaseRowIndexStore } from "../../../store/databaseRowIndexStore";
 import type { Page } from "../../../types/page";
 import { useWorkspaceStore } from "../../../store/workspaceStore";
-import { enqueueAsync, getSyncEngine } from "../runtime";
+import { getSyncEngine } from "../runtime";
 import {
   createLocalDeleteGuardChecker,
   shouldIgnoreRemoteAfterLocalDelete,
 } from "../localDeleteGuards";
-import {
-  LC_SCHEDULER_DATABASE_ID,
-  isLCSchedulerDatabaseId,
-  isLegacyLCSchedulerDatabaseId,
-} from "../../scheduler/database";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../../scheduler/scope";
 import { refreshWorkspaceSnapshot, workspaceHasStructureCache } from "../workspaceSwitch";
-import { isDeletedSchedulePage } from "../../scheduler/deletedSchedulePages";
 import {
   isoToMs,
-  isLCSchedulerPage,
   gqlOrderNumber,
-  toPageInputPayload,
   shouldApplyRemotePageOverwrite,
   gqlPageToLocalPage,
 } from "./helpers";
@@ -37,43 +28,6 @@ import {
   removePageIdFromDatabaseRowOrder,
   ensurePageInDatabaseRowOrder,
 } from "./rowOrder";
-
-function normalizeLCSchedulerPageWorkspace(p: GqlPage): GqlPage {
-  if (!isLCSchedulerPage(p)) return p;
-  if (isLegacyLCSchedulerDatabaseId(p.databaseId)) {
-    if (!p.deletedAt) {
-      queueMicrotask(() => {
-        enqueueAsync("softDeletePage", {
-          id: p.id,
-          workspaceId: p.workspaceId,
-          updatedAt: new Date().toISOString(),
-        });
-      });
-    }
-    return {
-      ...p,
-      workspaceId: LC_SCHEDULER_WORKSPACE_ID,
-      deletedAt: p.deletedAt ?? new Date().toISOString(),
-    };
-  }
-  const nextDatabaseId = isLCSchedulerDatabaseId(p.databaseId)
-    ? LC_SCHEDULER_DATABASE_ID
-    : p.databaseId;
-  const repaired = {
-    ...p,
-    workspaceId: LC_SCHEDULER_WORKSPACE_ID,
-    databaseId: nextDatabaseId,
-  };
-  const changed =
-    repaired.workspaceId !== p.workspaceId ||
-    repaired.databaseId !== p.databaseId;
-  if (!p.deletedAt && changed) {
-    queueMicrotask(() => {
-      enqueueAsync("upsertPage", toPageInputPayload(repaired));
-    });
-  }
-  return repaired;
-}
 
 function shouldApplyRemotePageMetaOverwrite(
   local: Page | undefined,
@@ -128,8 +82,7 @@ export function applyRemotePageToStoreCrossWorkspaceAware(
   const current = useWorkspaceStore.getState().currentWorkspaceId;
   if (
     remotePage.workspaceId &&
-    remotePage.workspaceId !== current &&
-    remotePage.workspaceId !== LC_SCHEDULER_WORKSPACE_ID
+    remotePage.workspaceId !== current
   ) {
     const local = gqlPageToLocalPage(remotePage);
     usePageStore.setState((s) => ({
@@ -144,23 +97,13 @@ export function applyRemotePageToStore(
   remotePage: GqlPage | null | undefined,
 ): void {
   if (!remotePage) return;
-  const p = normalizeLCSchedulerPageWorkspace(remotePage);
+  const p = remotePage;
   if (!shouldApplyRemoteSnapshot(p.workspaceId)) return;
   if (
     !p.deletedAt &&
     shouldIgnoreRemoteAfterLocalDelete("page", p.id, p.workspaceId, p.updatedAt)
   ) {
     if (p.databaseId) removePageIdFromDatabaseRowOrder(p.databaseId, p.id);
-    return;
-  }
-  if (
-    p.workspaceId === LC_SCHEDULER_WORKSPACE_ID &&
-    !p.deletedAt &&
-    p.databaseId &&
-    isLCSchedulerDatabaseId(p.databaseId) &&
-    isDeletedSchedulePage(p.id)
-  ) {
-    removePageIdFromDatabaseRowOrder(p.databaseId, p.id);
     return;
   }
   const deletedDbId = p.deletedAt ? usePageStore.getState().pages[p.id]?.databaseId : null;
@@ -265,7 +208,6 @@ export function applyRemotePagesToStore(
     (remotePage): remotePage is GqlPage => Boolean(remotePage),
   );
   const pages = nonNullRemotePages
-    .map(normalizeLCSchedulerPageWorkspace)
     .filter((p) => shouldApplyRemoteSnapshot(p.workspaceId));
   if (pages.length === 0) return;
 
@@ -292,17 +234,6 @@ export function applyRemotePagesToStore(
         shouldIgnoreLocalDelete("page", p.id, p.workspaceId, p.updatedAt)
       ) {
         if (p.databaseId) affectedDatabaseIds.add(p.databaseId);
-        continue;
-      }
-
-      if (
-        p.workspaceId === LC_SCHEDULER_WORKSPACE_ID &&
-        !p.deletedAt &&
-        p.databaseId &&
-        isLCSchedulerDatabaseId(p.databaseId) &&
-        isDeletedSchedulePage(p.id)
-      ) {
-        affectedDatabaseIds.add(p.databaseId);
         continue;
       }
 

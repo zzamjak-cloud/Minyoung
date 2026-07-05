@@ -13,7 +13,6 @@ import {
   unassignMemberFromOrganizationApi,
   updateOrganizationApi,
 } from "../../lib/sync/organizationApi";
-import { inferLeaderMemberIds } from "../../lib/scheduler/mm/leaderDefaults";
 import { useUiStore } from "../../store/uiStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { sortByKoreanName } from "../../lib/memberSearch";
@@ -127,11 +126,7 @@ export function AdminOrganizationsTab() {
     setEditingOrgName(org?.name ?? "");
     setEditingDescription(entityDescriptions[orgId] ?? "");
     setSelectedMemberIds(org?.members.map((m) => m.memberId) ?? []);
-    const initial =
-      (org?.leaderMemberIds?.length
-        ? org.leaderMemberIds
-        : inferLeaderMemberIds("organization", org?.members ?? [])) ?? [];
-    setLeaderSelection(initial);
+    setLeaderSelection(org?.leaderMemberIds ?? []);
   };
 
   const updateSelectedMembers = (nextIds: string[]) => {

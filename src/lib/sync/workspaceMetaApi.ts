@@ -3,8 +3,6 @@ import { GET_WORKSPACE_META } from "./queries/workspaceMeta";
 import type { Member } from "../../store/memberStore";
 import type { Team } from "../../store/teamStore";
 import type { Organization } from "../../store/organizationStore";
-import type { SchedulerProject } from "../../store/schedulerProjectsStore";
-import type { GqlProject } from "./graphql/operations";
 import {
   type GqlMember,
   normalizeMemberFields,
@@ -12,7 +10,6 @@ import {
 import {
   GqlMemberSchema,
   GqlOrganizationSchema,
-  GqlProjectSchema,
   GqlTeamSchema,
   parseGqlList,
 } from "./schemas";
@@ -29,14 +26,12 @@ type WorkspaceMetaPayload = {
   members?: unknown;
   teams?: unknown;
   organizations?: unknown;
-  projects?: unknown;
 };
 
 export type WorkspaceMeta = {
   members: Member[];
   teams: Team[];
   organizations: Organization[];
-  projects: SchedulerProject[];
 };
 
 function normalizeTeam(team: GqlTeam): Team {
@@ -52,14 +47,6 @@ function normalizeOrganization(organization: GqlOrganization): Organization {
     ...organization,
     leaderMemberIds: organization.leaderMemberIds ?? [],
     members: organization.members.map(normalizeMemberFields),
-  };
-}
-
-function normalizeProject(project: GqlProject): SchedulerProject {
-  return {
-    ...(project as SchedulerProject),
-    memberIds: project.memberIds ?? [],
-    leaderMemberIds: project.leaderMemberIds ?? [],
   };
 }
 
@@ -84,16 +71,10 @@ export async function getWorkspaceMetaApi(workspaceId: string): Promise<Workspac
     GqlOrganizationSchema,
     "getWorkspaceMeta.organizations",
   ).map((organization) => normalizeOrganization(organization as unknown as GqlOrganization));
-  const projects = parseGqlList(
-    payload.projects ?? [],
-    GqlProjectSchema,
-    "getWorkspaceMeta.projects",
-  ).map((project) => normalizeProject(project as unknown as GqlProject));
 
   return {
     members,
     teams,
     organizations,
-    projects,
   };
 }

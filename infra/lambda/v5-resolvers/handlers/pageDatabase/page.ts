@@ -11,14 +11,6 @@ import {
 import type { Tables } from "../member";
 import { syncPageAssetUsage } from "../asset";
 import {
-  removeLCScheduleIndexForPage,
-  syncLCScheduleIndexForPage,
-} from "../lcScheduleIndex";
-import {
-  removeLCDatabaseRowMemberIndexForPage,
-  syncLCDatabaseRowMemberIndexForPage,
-} from "../lcDatabaseRowMemberIndex";
-import {
   type Connection,
   isPlainObject,
   parseJsonLike,
@@ -26,7 +18,7 @@ import {
   upsertRecord,
   softDeleteRecord,
 } from "./_shared";
-import { deriveDatabaseRowScopeKeys, normalizePageOrderField } from "./row";
+import { normalizePageOrderField } from "./row";
 import {
   recordPageHistory,
   recordPageDeleteHistory,
@@ -332,8 +324,6 @@ export async function upsertPage(args: {
   }
   // order 가 null/누락/비문자열이면 createdAt/updatedAt 기반 안정 키로 보정한다.
   normalizePageOrderField(input);
-  // 보호 DB row 의 org/팀/프로젝트 scope 키를 비정규화해 sparse GSI 색인 대상으로 만든다.
-  deriveDatabaseRowScopeKeys(input);
   preserveExistingDocForPlaceholderInput(input, existingPage);
   // dbCells 최후 방어선 — 협업 비-셀 업서트의 null dbCells 가 기존 셀을 비우지 못하게 보존.
   preserveExistingDbCellsForNullInput(input, existingPage);
@@ -387,27 +377,6 @@ export async function upsertPage(args: {
       console.error("[upsertPage] AssetUsage sync 실패 (무시)", err);
     }
   }
-  try {
-    await syncLCScheduleIndexForPage({
-      doc: args.doc,
-      tables: args.tables,
-      before: existingPage,
-      after: saved,
-    });
-  } catch (err) {
-    console.error("[upsertPage] LC schedule index sync failed", err);
-  }
-  // 작업 DB row 의 구성원별 색인 동기화 — listDatabaseRows 의 assigneeId 필터용.
-  try {
-    await syncLCDatabaseRowMemberIndexForPage({
-      doc: args.doc,
-      tables: args.tables,
-      before: existingPage,
-      after: saved,
-    });
-  } catch (err) {
-    console.error("[upsertPage] LC database row member index sync failed", err);
-  }
   return saved;
 }
 
@@ -436,24 +405,6 @@ export async function softDeletePage(args: {
     });
   } catch (err) {
     console.error("[softDeletePage] PageHistory 기록 실패 (무시)", err);
-  }
-  try {
-    await removeLCScheduleIndexForPage({
-      doc: args.doc,
-      tables: args.tables,
-      page: deleted,
-    });
-  } catch (err) {
-    console.error("[softDeletePage] LC schedule index remove failed", err);
-  }
-  try {
-    await removeLCDatabaseRowMemberIndexForPage({
-      doc: args.doc,
-      tables: args.tables,
-      page: deleted,
-    });
-  } catch (err) {
-    console.error("[softDeletePage] LC database row member index remove failed", err);
   }
   return deleted;
 }

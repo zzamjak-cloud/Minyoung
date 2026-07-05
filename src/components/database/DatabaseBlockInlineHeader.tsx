@@ -5,7 +5,6 @@ import type { DragEvent as ReactDragEvent } from "react";
 type Props = {
   displayDbTitle: string;
   onTitleCommit: (draft: string) => boolean;
-  inlineTitleLocked: boolean;
   dbHomePageId: string | null;
   /** 호스트 페이지가 없으면 부모에서 lazy 생성한다. */
   onOpenDbHomePage: (pageId: string | null) => void;
@@ -25,7 +24,6 @@ type Props = {
 export const DatabaseBlockInlineHeader = memo(function DatabaseBlockInlineHeader({
   displayDbTitle,
   onTitleCommit,
-  inlineTitleLocked,
   dbHomePageId,
   onOpenDbHomePage,
   onOpenDbHistory,
@@ -93,15 +91,7 @@ export const DatabaseBlockInlineHeader = memo(function DatabaseBlockInlineHeader
         ) : (
         <div className="flex min-w-0 flex-1 items-center gap-1">
           <Database size={16} className="shrink-0 text-zinc-500" />
-          {inlineTitleLocked ? (
-            <span
-              className="min-w-0 truncate text-left text-2xl font-bold text-zinc-800 dark:text-zinc-200"
-              title={displayDbTitle}
-            >
-              {displayDbTitle}
-            </span>
-          ) : (
-            <input
+          <input
               ref={inputRef}
               type="text"
               defaultValue={displayDbTitle}
@@ -145,8 +135,7 @@ export const DatabaseBlockInlineHeader = memo(function DatabaseBlockInlineHeader
                     ? "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/40"
                     : "border-transparent",
               ].join(" ")}
-            />
-          )}
+          />
         </div>
         )}
         <div className="flex shrink-0 items-center gap-0.5">

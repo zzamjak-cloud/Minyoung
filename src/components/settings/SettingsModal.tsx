@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { Building, Building2, Download, Folder, HardDrive, User, Users, UsersRound, X } from "lucide-react";
+import { Building, Building2, Download, HardDrive, User, Users, UsersRound, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import pkg from "../../../package.json";
 import { useAuthStore } from "../../store/authStore";
@@ -10,8 +10,7 @@ import { AdminMembersTab } from "./AdminMembersTab";
 import { AdminWorkspacesTab } from "./AdminWorkspacesTab";
 import { AdminTeamsTab } from "./AdminTeamsTab";
 import { AdminOrganizationsTab } from "./AdminOrganizationsTab";
-import { ProjectsPanel } from "../scheduler/admin/ProjectsPanel";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
+import { useWorkspaceStore } from "../../store/workspaceStore";
 import { isWorkspaceMetaCacheFresh, refreshWorkspaceMeta } from "../../lib/sync/workspaceMetaCache";
 
 // NotionImportTab 은 ~174KB 청크라 자주·전체 사용자가 쓰지 않으므로 lazy 유지.
@@ -30,7 +29,7 @@ type Props = {
   onClose: () => void;
 };
 
-type TabId = "profile" | "notionImport" | "members" | "projects" | "teams" | "organizations" | "workspaces" | "assets";
+type TabId = "profile" | "notionImport" | "members" | "teams" | "organizations" | "workspaces" | "assets";
 
 type TabDef = { id: TabId; label: string; title: string; icon: LucideIcon };
 
@@ -40,6 +39,7 @@ export function SettingsModal({ open, onClose }: Props) {
   const darkMode = useSettingsStore((s) => s.darkMode);
   const toggleDarkMode = useSettingsStore((s) => s.toggleDarkMode);
   const isAdmin = role === "developer" || role === "owner" || role === "leader" || role === "manager";
+  const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const [tab, setTab] = useState<TabId>("profile");
 
   const tabs = useMemo(() => {
@@ -49,7 +49,6 @@ export function SettingsModal({ open, onClose }: Props) {
     if (isAdmin) {
       list.push(
         { id: "members", label: "구성원", title: "구성원 관리", icon: Users },
-        { id: "projects", label: "프로젝트", title: "프로젝트 관리", icon: Folder },
         { id: "teams", label: "팀", title: "팀 관리", icon: UsersRound },
         { id: "organizations", label: "조직", title: "조직 관리", icon: Building2 },
         { id: "workspaces", label: "워크스페이스", title: "워크스페이스 관리", icon: Building },
@@ -71,11 +70,11 @@ export function SettingsModal({ open, onClose }: Props) {
     let inFlight = false;
 
     const refreshAdminMetadata = async (opts: { force?: boolean } = {}) => {
-      if (cancelled || inFlight) return;
-      if (!opts.force && isWorkspaceMetaCacheFresh(LC_SCHEDULER_WORKSPACE_ID)) return;
+      if (cancelled || inFlight || !currentWorkspaceId) return;
+      if (!opts.force && isWorkspaceMetaCacheFresh(currentWorkspaceId)) return;
       inFlight = true;
       try {
-        await refreshWorkspaceMeta(LC_SCHEDULER_WORKSPACE_ID, opts);
+        await refreshWorkspaceMeta(currentWorkspaceId, opts);
       } catch (error) {
         console.error("[SettingsModal] 조직/팀/프로젝트 동기화 실패", error);
       } finally {
@@ -99,7 +98,7 @@ export function SettingsModal({ open, onClose }: Props) {
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [isAdmin, open]);
+  }, [isAdmin, open, currentWorkspaceId]);
 
   if (!open) return null;
 
@@ -200,7 +199,6 @@ export function SettingsModal({ open, onClose }: Props) {
               {tab === "profile" && <MyProfileSection />}
               {tab === "notionImport" && <NotionImportTab />}
               {tab === "members" && isAdmin && <AdminMembersTab />}
-              {tab === "projects" && isAdmin && <ProjectsPanel />}
               {tab === "teams" && isAdmin && <AdminTeamsTab />}
               {tab === "organizations" && isAdmin && <AdminOrganizationsTab />}
               {tab === "workspaces" && isAdmin && <AdminWorkspacesTab />}

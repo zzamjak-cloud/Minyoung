@@ -8,8 +8,6 @@ import type { WorkspaceSummary } from "../../store/workspaceStore";
 import type { Page } from "../../types/page";
 import { zustandStorage } from "../storage/index";
 import { getSyncEngine } from "./runtime";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../scheduler/scope";
-import { isProtectedDatabaseId } from "../scheduler/database";
 import { createLocalDeleteGuardChecker } from "./localDeleteGuards";
 import { isRecord } from "../util/typeGuards";
 
@@ -22,7 +20,7 @@ type WorkspaceSnapshot = {
 };
 
 const workspaceSnapshotById = new Map<string, WorkspaceSnapshot>();
-// v3: 구버전 clearWorkspaceScopedStores 버그로 LC 스케줄러 루트 페이지가 빠진 채
+// v3: 구버전 clearWorkspaceScopedStores 버그로 일부 루트 페이지가 빠진 채
 // persist 된 스냅샷을 일괄 무효화한다. 키가 바뀌면 부팅 시 복원할 캐시가 없어
 // full 재페치(no-cache)가 강제되어 서버 권위 데이터로 자기복구된다.
 const WORKSPACE_SNAPSHOT_KEY_PREFIX = "quicknote.workspace.snapshot.v3:";
@@ -311,41 +309,17 @@ function persistWorkspaceSnapshot(workspaceId: string, snapshot: WorkspaceSnapsh
 }
 
 function filterPagesForWorkspaceSnapshot(
-  workspaceId: string,
+  _workspaceId: string,
   pages: WorkspaceSnapshot["pages"],
 ): WorkspaceSnapshot["pages"] {
-  if (workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
-    // LC스케줄러 스냅샷은 반드시 LC스케줄러 소속 페이지만 포함.
-    // workspaceId 가 명시적으로 lc-scheduler-global 이거나
-    // databaseId 가 스케줄러 DB인 행 페이지를 허용한다.
-    // 과거 캐시에는 workspaceId 가 없는 일반 LC 페이지가 남아 있을 수 있어 함께 보존한다.
-    return Object.fromEntries(
-      Object.entries(pages).filter(
-        ([, page]) =>
-          isProtectedDatabaseId(page.databaseId) ||
-          page.workspaceId === LC_SCHEDULER_WORKSPACE_ID ||
-          (page.workspaceId == null && !page.databaseId),
-      ),
-    );
-  }
-  // 다른 워크스페이스 스냅샷에는 LC스케줄러 전용 페이지를 포함하지 않는다.
-  return Object.fromEntries(
-    Object.entries(pages).filter(
-      ([, page]) =>
-        !isProtectedDatabaseId(page.databaseId) &&
-        page.workspaceId !== LC_SCHEDULER_WORKSPACE_ID,
-    ),
-  );
+  return { ...pages };
 }
 
 function filterDatabasesForWorkspaceSnapshot(
-  workspaceId: string,
+  _workspaceId: string,
   databases: WorkspaceSnapshot["databases"],
 ): WorkspaceSnapshot["databases"] {
-  if (workspaceId === LC_SCHEDULER_WORKSPACE_ID) return { ...databases };
-  return Object.fromEntries(
-    Object.entries(databases).filter(([databaseId]) => !isProtectedDatabaseId(databaseId)),
-  );
+  return { ...databases };
 }
 
 function captureWorkspaceSnapshot(workspaceId: string): void {
@@ -494,22 +468,8 @@ function applyWorkspaceSnapshot(workspaceId: string, snapshot: WorkspaceSnapshot
     persistWorkspaceSnapshot(workspaceId, null);
     return false;
   }
-  const schedulerPages = Object.fromEntries(
-    Object.entries(usePageStore.getState().pages).filter(([, page]) =>
-      isProtectedDatabaseId(page.databaseId),
-    ),
-  );
-  const schedulerDatabases = Object.fromEntries(
-    Object.entries(useDatabaseStore.getState().databases).filter(([databaseId]) =>
-      isProtectedDatabaseId(databaseId),
-    ),
-  );
-  const snapshotPages = workspaceId === LC_SCHEDULER_WORKSPACE_ID
-    ? cloneSnapshot(normalized.pages)
-    : { ...cloneSnapshot(normalized.pages), ...schedulerPages };
-  const snapshotDatabases = workspaceId === LC_SCHEDULER_WORKSPACE_ID
-    ? cloneSnapshot(normalized.databases)
-    : { ...cloneSnapshot(normalized.databases), ...schedulerDatabases };
+  const snapshotPages = cloneSnapshot(normalized.pages);
+  const snapshotDatabases = cloneSnapshot(normalized.databases);
   const pages = filterLocalDeletedSnapshotPages(workspaceId, snapshotPages);
   const databases = filterLocalDeletedSnapshotDatabases(workspaceId, snapshotDatabases);
   const rawTabs = normalized.tabs.length > 0 ? cloneSnapshot(normalized.tabs) : [{ pageId: null }];
@@ -560,25 +520,14 @@ async function restoreWorkspaceSnapshot(workspaceId: string): Promise<boolean> {
 // 그렇지 않으면 서버에 도달하지 못한 새 페이지가 영구 손실된다.
 //
 function hasLocalWorkspaceCache(): boolean {
-  const hasNonSchedulerPages = Object.values(usePageStore.getState().pages).some(
-    (page) => page.workspaceId !== LC_SCHEDULER_WORKSPACE_ID && !isProtectedDatabaseId(page.databaseId),
-  );
-  const hasNonSchedulerDatabases = Object.keys(useDatabaseStore.getState().databases).some(
-    (databaseId) => !isProtectedDatabaseId(databaseId),
-  );
-  return (
-    hasNonSchedulerPages ||
-    hasNonSchedulerDatabases
-  );
+  const hasPages = Object.keys(usePageStore.getState().pages).length > 0;
+  const hasDatabases = Object.keys(useDatabaseStore.getState().databases).length > 0;
+  return hasPages || hasDatabases;
 }
 
 export function cacheBelongsToWorkspace(workspaceId: string): boolean {
-  const hasPageCache = Object.values(usePageStore.getState().pages).some(
-    (page) => page.workspaceId !== LC_SCHEDULER_WORKSPACE_ID && !isProtectedDatabaseId(page.databaseId),
-  );
-  const hasDatabaseCache = Object.keys(useDatabaseStore.getState().databases).some(
-    (databaseId) => !isProtectedDatabaseId(databaseId),
-  );
+  const hasPageCache = Object.keys(usePageStore.getState().pages).length > 0;
+  const hasDatabaseCache = Object.keys(useDatabaseStore.getState().databases).length > 0;
   const pageCacheWorkspaceId = usePageStore.getState().cacheWorkspaceId;
   const databaseCacheWorkspaceId = useDatabaseStore.getState().cacheWorkspaceId;
   if (hasPageCache && pageCacheWorkspaceId !== workspaceId) return false;
@@ -614,38 +563,17 @@ export function workspaceCacheNeedsPrepaintClear(workspaceId: string | null): bo
 }
 
 export function clearWorkspaceScopedStores(nextWorkspaceId: string): void {
-  const currentPages = usePageStore.getState().pages;
-  const activePageId = usePageStore.getState().activePageId;
-  const activeSchedulerPageId =
-    nextWorkspaceId === LC_SCHEDULER_WORKSPACE_ID &&
-    activePageId &&
-    (isProtectedDatabaseId(currentPages[activePageId]?.databaseId) ||
-      currentPages[activePageId]?.workspaceId === LC_SCHEDULER_WORKSPACE_ID)
-      ? activePageId
-      : null;
-  const schedulerPages = Object.fromEntries(
-    Object.entries(currentPages).filter(
-      ([, page]) =>
-        isProtectedDatabaseId(page.databaseId) ||
-        page.workspaceId === LC_SCHEDULER_WORKSPACE_ID,
-    ),
-  );
-  const schedulerDatabases = Object.fromEntries(
-    Object.entries(useDatabaseStore.getState().databases).filter(([databaseId]) =>
-      isProtectedDatabaseId(databaseId),
-    ),
-  );
   usePageStore.setState({
-    pages: schedulerPages,
-    activePageId: activeSchedulerPageId,
+    pages: {},
+    activePageId: null,
     cacheWorkspaceId: nextWorkspaceId,
   });
   useDatabaseStore.setState({
-    databases: schedulerDatabases,
+    databases: {},
     cacheWorkspaceId: nextWorkspaceId,
   });
   useSettingsStore.setState({
-    tabs: [{ pageId: activeSchedulerPageId }],
+    tabs: [{ pageId: null }],
     activeTabIndex: 0,
     lastClosedTab: null,
   });
@@ -679,12 +607,7 @@ export async function applyWorkspaceSwitch(
   try {
     const engine = await getSyncEngine();
     const snapshot = (await engine.debugSnapshot()) as Array<{ workspaceId?: string | null }>;
-    pending = snapshot.filter((entry) => {
-      const ws = typeof entry.workspaceId === "string" ? entry.workspaceId : null;
-      // LC 스케줄러 공용 outbox 항목은 일반 워크스페이스 캐시 전환 보류 사유에서 제외한다.
-      if (ws === LC_SCHEDULER_WORKSPACE_ID) return false;
-      return true;
-    }).length;
+    pending = snapshot.length;
   } catch {
     /* outbox 조회 실패 시 클리어 보류 쪽으로 안전 처리 */
   }

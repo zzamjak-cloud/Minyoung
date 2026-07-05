@@ -5,11 +5,6 @@ import { usePageStore } from "../../../store/pageStore";
 import { useDatabaseStore, listDatabases } from "../../../store/databaseStore";
 import { useOrganizationStore } from "../../../store/organizationStore";
 import { useTeamStore } from "../../../store/teamStore";
-import { useSchedulerProjectsStore } from "../../../store/schedulerProjectsStore";
-import {
-  LC_MILESTONE_DATABASE_ID_PREFIX,
-  LC_FEATURE_DATABASE_ID_PREFIX,
-} from "../../../lib/scheduler/database";
 import { koreanIncludes } from "../../../lib/koreanSearch";
 import { PageIconDisplay } from "../../common/PageIconDisplay";
 import { AppSelect } from "../../common/AppSelect";
@@ -48,9 +43,6 @@ type Props = {
 const FILTER_KIND_LABELS: { id: SearchFilterRule["kind"]; label: string }[] = [
   { id: "organization", label: "조직" },
   { id: "team", label: "팀" },
-  { id: "project", label: "프로젝트" },
-  { id: "milestone", label: "마일스톤" },
-  { id: "feature", label: "피처" },
   { id: "database", label: "DB" },
 ];
 
@@ -75,7 +67,6 @@ export function PageLinkSearchPopup({
   const allDatabases = useDatabaseStore(listDatabases);
   const organizations = useOrganizationStore((s) => s.organizations);
   const teams = useTeamStore((s) => s.teams);
-  const projects = useSchedulerProjectsStore((s) => s.projects);
 
   // 사용자가 검색 시점에 단계별로 누적하는 동적 필터 — store 에 영구 저장하여
   // 다음에 동일 컬럼 팝업을 열었을 때 마지막 사용한 필터가 그대로 복원된다.
@@ -93,34 +84,12 @@ export function PageLinkSearchPopup({
     setStorePresets(prefsKey, resolved);
   };
 
-  // 마일스톤·피처 페이지 후보 — value picker 옵션화
-  const milestonePages = useMemo(
-    () =>
-      Object.values(pages).filter(
-        (p) => p.databaseId && p.databaseId.startsWith(LC_MILESTONE_DATABASE_ID_PREFIX),
-      ),
-    [pages],
-  );
-  const featurePages = useMemo(
-    () =>
-      Object.values(pages).filter(
-        (p) => p.databaseId && p.databaseId.startsWith(LC_FEATURE_DATABASE_ID_PREFIX),
-      ),
-    [pages],
-  );
-
   const valueOptionsForKind = (kind: SearchFilterRule["kind"]) => {
     switch (kind) {
       case "organization":
         return organizations.map((o) => ({ value: o.organizationId, label: o.name }));
       case "team":
         return teams.map((t) => ({ value: t.teamId, label: t.name }));
-      case "project":
-        return projects.map((p) => ({ value: p.id, label: p.name }));
-      case "milestone":
-        return milestonePages.map((p) => ({ value: p.id, label: p.title || "제목 없음" }));
-      case "feature":
-        return featurePages.map((p) => ({ value: p.id, label: p.title || "제목 없음" }));
       case "database":
         return [
           ...allDatabases.map((d) => ({ value: d.id, label: d.meta.title || "제목 없음" })),
@@ -128,6 +97,8 @@ export function PageLinkSearchPopup({
             .filter((d) => !allDatabases.some((local) => local.id === d.id))
             .map((d) => ({ value: d.id, label: d.meta.title || "제목 없음" })),
         ];
+      default:
+        return [];
     }
   };
 

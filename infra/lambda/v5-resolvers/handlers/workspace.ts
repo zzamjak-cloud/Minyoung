@@ -10,9 +10,7 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { v4 as uuid } from "uuid";
 import {
-  LC_SCHEDULER_WORKSPACE_ID,
   badRequest,
-  forbidden,
   notFound,
   requireRoleAtLeast,
   type Member,
@@ -196,17 +194,6 @@ async function hydrateWorkspace(
     return null;
   }
   const access = await getWorkspaceAccess(doc, tables, row.workspaceId);
-  if (row.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
-    return {
-      ...row,
-      access: [{ subjectType: "everyone", subjectId: null, level: "edit" }],
-      myEffectiveLevel: "edit",
-      options: {
-        jobFunctions: row.jobFunctions ?? [],
-        jobTitles: row.jobTitles ?? [],
-      },
-    };
-  }
   // developer/owner/leader는 WorkspaceAccess 엔트리 없이도 암묵적으로 edit 권한
   const level = (caller.workspaceRole === "developer" || caller.workspaceRole === "owner" || caller.workspaceRole === "leader")
     ? "edit"
@@ -295,9 +282,6 @@ export async function updateWorkspace(args: {
   input: { workspaceId: string; name?: string | null; options?: { jobFunctions?: string[] | null; jobTitles?: string[] | null } | null };
 }): Promise<Workspace> {
   requireRoleAtLeast(args.caller, "manager");
-  if (args.input.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
-    forbidden("LC스케줄러 워크스페이스 설정은 변경할 수 없습니다");
-  }
   const row = await getWorkspaceRow(args.doc, args.tables, args.input.workspaceId);
   if (!row) notFound("Workspace 없음");
 
@@ -352,9 +336,6 @@ export async function setWorkspaceAccess(args: {
   entries: WorkspaceAccessInput[];
 }): Promise<Workspace> {
   requireRoleAtLeast(args.caller, "manager");
-  if (args.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
-    forbidden("LC스케줄러 워크스페이스 접근 권한은 모든 구성원 편집으로 고정됩니다");
-  }
   const row = await getWorkspaceRow(args.doc, args.tables, args.workspaceId);
   if (!row) notFound("Workspace 없음");
 
@@ -417,9 +398,6 @@ export async function deleteWorkspace(args: {
   workspaceId: string;
 }): Promise<boolean> {
   requireRoleAtLeast(args.caller, "manager");
-  if (args.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
-    forbidden("LC스케줄러 워크스페이스는 삭제할 수 없습니다");
-  }
   const row = await getWorkspaceRow(args.doc, args.tables, args.workspaceId);
   if (!row) return false;
 
@@ -521,27 +499,6 @@ export async function deleteWorkspace(args: {
     workspaceId: args.workspaceId,
     keyOf: (i) => ({ databaseId: i.databaseId, historyId: i.historyId }),
   });
-  await deleteAllByWorkspaceGsi({
-    doc: args.doc,
-    tableName: args.tables.Holidays,
-    indexName: "byWorkspace",
-    workspaceId: args.workspaceId,
-    keyOf: (i) => ({ id: i.id, workspaceId: i.workspaceId }),
-  });
-  await deleteAllByWorkspaceGsi({
-    doc: args.doc,
-    tableName: args.tables.Projects,
-    indexName: "byWorkspace",
-    workspaceId: args.workspaceId,
-    keyOf: (i) => ({ id: i.id, workspaceId: i.workspaceId }),
-  });
-  await deleteAllByWorkspaceGsi({
-    doc: args.doc,
-    tableName: args.tables.MmEntries,
-    indexName: "byWorkspaceAndWeek",
-    workspaceId: args.workspaceId,
-    keyOf: (i) => ({ id: i.id, workspaceId: i.workspaceId }),
-  });
 
   // AssetUsage 는 workspaceId 인덱스가 없어 페이지별(byPage)로 정리한다.
   // 고아 AssetUsage 는 자산을 계속 "사용 중"으로 보이게 해 GC 가 영구 보존하므로 반드시 제거.
@@ -571,7 +528,6 @@ export async function listMyWorkspaces(args: {
     "everyone#*",
   ];
   const workspaceIds = new Set<string>([args.caller.personalWorkspaceId]);
-  workspaceIds.add(LC_SCHEDULER_WORKSPACE_ID);
 
   for (const sk of subjectKeys) {
     const r = await args.doc.send(
@@ -657,9 +613,6 @@ export async function archiveWorkspace(args: {
   workspaceId: string;
 }): Promise<Workspace> {
   requireRoleAtLeast(args.caller, "leader");
-  if (args.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
-    forbidden("LC스케줄러 워크스페이스는 보관할 수 없습니다");
-  }
   const row = await getWorkspaceRow(args.doc, args.tables, args.workspaceId);
   if (!row) notFound("워크스페이스 없음");
   const now = new Date().toISOString();
@@ -691,9 +644,6 @@ export async function restoreWorkspace(args: {
   workspaceId: string;
 }): Promise<Workspace> {
   requireRoleAtLeast(args.caller, "leader");
-  if (args.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
-    forbidden("LC스케줄러 워크스페이스는 복원 대상이 아닙니다");
-  }
   const row = await getWorkspaceRow(args.doc, args.tables, args.workspaceId);
   if (!row) notFound("워크스페이스 없음");
   await args.doc.send(

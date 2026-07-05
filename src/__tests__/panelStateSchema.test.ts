@@ -14,12 +14,10 @@ describe("parseDatabasePanelStateJson", () => {
           value: "x",
         },
       ],
-      schedulerFeatureMilestoneIds: ["milestone-1"],
     });
     const out = parseDatabasePanelStateJson(raw);
     expect(out.searchQuery).toBe("hello");
     expect(out.filterRules).toHaveLength(1);
-    expect(out.schedulerFeatureMilestoneIds).toEqual(["milestone-1"]);
     expect(out.sortRules).toEqual(emptyPanelState().sortRules);
   });
 
@@ -34,27 +32,15 @@ describe("parseDatabasePanelStateJson", () => {
     expect(out.filterRules[0]?.value).toEqual(["a", "b"]);
   });
 
-  it("구성원 탭 순서(schedulerMemberOrder)를 동기화 round-trip 에서 보존한다", () => {
-    const raw = JSON.stringify({
-      schedulerMemberOrder: ["member-3", "member-1", "member-2"],
-      schedulerMemberOrderUpdatedAt: 1234,
-    });
-    const out = parseDatabasePanelStateJson(raw);
-    expect(out.schedulerMemberOrder).toEqual(["member-3", "member-1", "member-2"]);
-    expect(out.schedulerMemberOrderUpdatedAt).toBe(1234);
-  });
-
   it("이중 인코딩(AWSJSON 구독 페이로드)된 panelState 도 복구한다", () => {
     // 서버/AppSync 가 이미 stringify 된 panelState 를 다시 stringify 해 내려보내는 경우.
     const inner = JSON.stringify({
-      schedulerMemberOrder: ["m2", "m1"],
-      schedulerMemberOrderUpdatedAt: 1780312873975,
+      groupByColumnId: "c-person",
       searchQuery: "hi",
     });
     const doubleEncoded = JSON.stringify(inner);
     const out = parseDatabasePanelStateJson(doubleEncoded);
-    expect(out.schedulerMemberOrder).toEqual(["m2", "m1"]);
-    expect(out.schedulerMemberOrderUpdatedAt).toBe(1780312873975);
+    expect(out.groupByColumnId).toBe("c-person");
     expect(out.searchQuery).toBe("hi");
   });
 

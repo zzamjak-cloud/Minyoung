@@ -8,7 +8,7 @@ describe("createGuardedGraphql", () => {
 
     const args = {
       query: "query ListTeams { listTeams { teamId } }",
-      variables: { workspaceId: "lc-scheduler-global" },
+      variables: { workspaceId: "ws-1" },
     };
 
     const [first, second] = await Promise.all([graphql(args), graphql(args)]);

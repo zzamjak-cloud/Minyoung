@@ -4,7 +4,7 @@ import { emptyPanelState, type CellValue, type ColumnDef, type DatabasePanelStat
 import { useDatabaseStore } from "../../../../store/databaseStore";
 import { useMemberStore } from "../../../../store/memberStore";
 import { usePageStore } from "../../../../store/pageStore";
-import { COLOR_PRESETS } from "../../../../lib/scheduler/colors";
+import { COLOR_PRESETS } from "../TimelineContextMenu";
 import { TIMELINE_CARD_COLOR_OVERRIDES_CELL_ID } from "../../../../lib/database/timelineCardColor";
 import { DatabaseTimelineView } from "../DatabaseTimelineView";
 

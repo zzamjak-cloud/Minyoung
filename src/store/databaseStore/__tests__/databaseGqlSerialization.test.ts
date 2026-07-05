@@ -68,7 +68,6 @@ describe("databaseStore GraphQL serialization", () => {
         requiredColumnIds: ["title"],
         visibleColumnIds: ["title", "source"],
         hiddenColumnIds: ["fetch"],
-        schedulerDefaults: { titlePrefix: "[Feature]" },
         createdAt: 1,
         updatedAt: 2,
       },
@@ -94,7 +93,7 @@ describe("databaseStore GraphQL serialization", () => {
       title: "QA",
       color: "#2563EB",
     });
-    expect(parsedPresets[0]?.schedulerDefaults?.titlePrefix).toBe("[Feature]");
+    expect(parsedPresets[0]?.name).toBe("Feature");
   });
 
   it("invalid column payload는 서버 동기화 전에 거부한다", () => {
@@ -161,7 +160,7 @@ describe("databaseStore GraphQL serialization", () => {
     ]);
   });
 
-  it("template automation config is serialized inside templates AWSJSON", () => {
+  it("templates are serialized inside templates AWSJSON", () => {
     const meta: DatabaseMeta = {
       id: "db-1",
       workspaceId: "ws-1",
@@ -175,16 +174,6 @@ describe("databaseStore GraphQL serialization", () => {
         title: "QA",
         cells: { status: "todo" },
         pageId: "template-page-1",
-        automation: {
-          id: "automation-1",
-          enabled: true,
-          weekdays: [1],
-          time: "09:30",
-          timezone: "Asia/Seoul",
-          titlePrefix: "QA",
-          maxAttempts: 3,
-          updatedAt: 1,
-        },
       },
     ];
 
@@ -199,6 +188,6 @@ describe("databaseStore GraphQL serialization", () => {
 
     expect(payload.templates).toEqual(expect.any(String));
     const parsedTemplates = JSON.parse(payload.templates as string) as DatabaseTemplate[];
-    expect(parsedTemplates[0]?.automation).toEqual(templates[0]?.automation);
+    expect(parsedTemplates[0]).toEqual(templates[0]);
   });
 });

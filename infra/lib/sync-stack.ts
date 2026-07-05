@@ -11,26 +11,21 @@ import * as logs from "aws-cdk-lib/aws-logs";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
 import * as events from "aws-cdk-lib/aws-events";
 import * as eventsTargets from "aws-cdk-lib/aws-events-targets";
-import * as iam from "aws-cdk-lib/aws-iam";
-import * as eventScheduler from "aws-cdk-lib/aws-scheduler";
 import { createSyncTable, type ModelTable } from "./sync/ddb-table-factory";
 import { DYNAMODB_TABLE_ENCRYPTION } from "./sync/table-encryption";
 
 // DynamoDB 는 한 번의 업데이트에 GSI 를 하나만 생성/삭제할 수 있다.
 // 그래서 Pages 테이블 GSI 는 누적 단계로 하나씩 추가한다(아래 순서대로 cdk deploy 반복).
-//   meta → all(byDatabaseAndOrder) → scope-org → scope-team → scope-project
+//   meta → all(byDatabaseAndOrder)
 const PAGE_TABLE_GSI_STAGES = [
   "meta",
   "all",
-  "scope-org",
-  "scope-team",
-  "scope-project",
 ] as const;
 type PageTableGsiDeployStage = (typeof PAGE_TABLE_GSI_STAGES)[number];
 
 function resolvePageTableGsiDeployStage(scope: Construct): PageTableGsiDeployStage {
-  // 기본값은 최종 단계. 신규 GSI 를 단계 배포할 때만 -c pageTableGsiDeployStage=scope-org 등으로 지정.
-  const rawStage = scope.node.tryGetContext("pageTableGsiDeployStage") ?? "scope-project";
+  // 기본값은 최종 단계. 신규 GSI 를 단계 배포할 때만 -c pageTableGsiDeployStage=meta 등으로 지정.
+  const rawStage = scope.node.tryGetContext("pageTableGsiDeployStage") ?? "all";
   if ((PAGE_TABLE_GSI_STAGES as readonly string[]).includes(rawStage)) {
     return rawStage as PageTableGsiDeployStage;
   }
@@ -147,33 +142,6 @@ export class QuicknoteSyncStack extends cdk.Stack {
         projectionType: dynamodb.ProjectionType.ALL,
       });
     }
-    // LC 보호 DB row 의 org/팀/프로젝트 scope 필터링용 sparse GSI.
-    // 키 형식: `${databaseId}#${scopeId}`. 해당 속성이 없는 항목은 자동 미색인(sparse).
-    if (pageTableGsiStageAtLeast(pageTableGsiDeployStage, "scope-org")) {
-      this.pageTable.table.addGlobalSecondaryIndex({
-        indexName: "byDbScopeOrg",
-        partitionKey: { name: "dbScopeOrg", type: dynamodb.AttributeType.STRING },
-        sortKey: { name: "order", type: dynamodb.AttributeType.STRING },
-        projectionType: dynamodb.ProjectionType.ALL,
-      });
-    }
-    if (pageTableGsiStageAtLeast(pageTableGsiDeployStage, "scope-team")) {
-      this.pageTable.table.addGlobalSecondaryIndex({
-        indexName: "byDbScopeTeam",
-        partitionKey: { name: "dbScopeTeam", type: dynamodb.AttributeType.STRING },
-        sortKey: { name: "order", type: dynamodb.AttributeType.STRING },
-        projectionType: dynamodb.ProjectionType.ALL,
-      });
-    }
-    if (pageTableGsiStageAtLeast(pageTableGsiDeployStage, "scope-project")) {
-      this.pageTable.table.addGlobalSecondaryIndex({
-        indexName: "byDbScopeProject",
-        partitionKey: { name: "dbScopeProject", type: dynamodb.AttributeType.STRING },
-        sortKey: { name: "order", type: dynamodb.AttributeType.STRING },
-        projectionType: dynamodb.ProjectionType.ALL,
-      });
-    }
-
     this.databaseTable.table.addGlobalSecondaryIndex({
       indexName: "byWorkspaceAndUpdatedAt",
       partitionKey: { name: "workspaceId", type: dynamodb.AttributeType.STRING },
@@ -344,57 +312,6 @@ export class QuicknoteSyncStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
-    // LC 스케줄러 프로젝트 테이블 — 신규 생성
-    const projectsTable = new dynamodb.Table(this, "SchedulerProjectsTable", {
-      tableName: `${envPrefix}quicknote-scheduler-projects`,
-      partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "workspaceId", type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-    });
-    projectsTable.addGlobalSecondaryIndex({
-      indexName: "byWorkspace",
-      partitionKey: { name: "workspaceId", type: dynamodb.AttributeType.STRING },
-      projectionType: dynamodb.ProjectionType.ALL,
-    });
-
-    // LC 스케줄러 공휴일 테이블 — 신규 생성
-    const holidaysTable = new dynamodb.Table(this, "SchedulerHolidaysTable", {
-      tableName: `${envPrefix}quicknote-scheduler-holidays`,
-      partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "workspaceId", type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-    });
-    holidaysTable.addGlobalSecondaryIndex({
-      indexName: "byWorkspace",
-      partitionKey: { name: "workspaceId", type: dynamodb.AttributeType.STRING },
-      projectionType: dynamodb.ProjectionType.ALL,
-    });
-
-    // LC 스케줄러 주간 MM 원본 테이블
-    const mmEntriesTable = new dynamodb.Table(this, "SchedulerMmEntriesTable", {
-      tableName: `${envPrefix}quicknote-scheduler-mm-entries`,
-      partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "workspaceId", type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-    });
-    mmEntriesTable.addGlobalSecondaryIndex({
-      indexName: "byWorkspaceAndWeek",
-      partitionKey: { name: "workspaceId", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "weekStart", type: dynamodb.AttributeType.STRING },
-      projectionType: dynamodb.ProjectionType.ALL,
-    });
-    mmEntriesTable.addGlobalSecondaryIndex({
-      indexName: "byEntry",
-      partitionKey: { name: "entryId", type: dynamodb.AttributeType.STRING },
-      projectionType: dynamodb.ProjectionType.ALL,
-    });
-
     // 워크스페이스 공유 커스텀 아이콘 프리셋. 모든 멤버가 같은 아이콘 목록을 볼 수 있도록 동기화.
     // PK = id (UUID), GSI byWorkspace = (workspaceId, createdAt) — 최신순 정렬.
     const customIconsTable = new dynamodb.Table(this, "CustomIconsTable", {
@@ -499,82 +416,6 @@ export class QuicknoteSyncStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
     new cdk.CfnOutput(this, "FlowchartHistoryTableName", { value: flowchartHistoryTable.tableName });
-
-    // LC 스케줄러 일정 테이블
-    // live 환경: CDK 외부에서 먼저 생성된 테이블이므로 import. dev 환경: 신규 생성.
-    let schedulesTable: dynamodb.ITable;
-    if (envPrefix !== "") {
-      const createdSchedulesTable = new dynamodb.Table(this, "SchedulesTable", {
-        tableName: `${envPrefix}quicknote-schedules`,
-        partitionKey: { name: "workspaceId", type: dynamodb.AttributeType.STRING },
-        sortKey: { name: "id", type: dynamodb.AttributeType.STRING },
-        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-        removalPolicy: cdk.RemovalPolicy.RETAIN,
-      });
-      createdSchedulesTable.addGlobalSecondaryIndex({
-        indexName: "byWorkspaceAndStartAt",
-        partitionKey: { name: "workspaceId", type: dynamodb.AttributeType.STRING },
-        sortKey: { name: "startAt", type: dynamodb.AttributeType.STRING },
-        projectionType: dynamodb.ProjectionType.ALL,
-      });
-      schedulesTable = createdSchedulesTable;
-    } else {
-      schedulesTable = dynamodb.Table.fromTableAttributes(this, "SchedulesTable", {
-        tableName: "quicknote-schedules",
-        globalIndexes: ["byWorkspaceAndStartAt"],
-      });
-    }
-    new cdk.CfnOutput(this, "SchedulesTableName", { value: schedulesTable.tableName });
-
-    // 작업 DB row 의 구성원(assignee)별 색인 테이블 — listDatabaseRows 의 assigneeId 필터용.
-    // PK=`${databaseId}#${memberId}`, SK=pageId. assignee 마다 1엔트리(per-assignee).
-    const databaseRowMembersTable = new dynamodb.Table(this, "DatabaseRowMembersTable", {
-      tableName: `${envPrefix}quicknote-database-row-members`,
-      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "pageId", type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
-      encryption: DYNAMODB_TABLE_ENCRYPTION,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-    });
-    new cdk.CfnOutput(this, "DatabaseRowMembersTableName", {
-      value: databaseRowMembersTable.tableName,
-    });
-
-    const templateAutomationRunsTable = new dynamodb.Table(this, "TemplateAutomationRunsTable", {
-      tableName: `${envPrefix}quicknote-template-automation-runs`,
-      partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
-      encryption: DYNAMODB_TABLE_ENCRYPTION,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-    });
-    templateAutomationRunsTable.addGlobalSecondaryIndex({
-      indexName: "byAutomationAndScheduledTime",
-      partitionKey: { name: "automationId", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "scheduledTime", type: dynamodb.AttributeType.STRING },
-      projectionType: dynamodb.ProjectionType.ALL,
-    });
-    new cdk.CfnOutput(this, "TemplateAutomationRunsTableName", {
-      value: templateAutomationRunsTable.tableName,
-    });
-
-    const templateAutomationScheduleGroupName = `${envPrefix}quicknote-template-automation`;
-    const templateAutomationScheduleGroup = new eventScheduler.CfnScheduleGroup(
-      this,
-      "TemplateAutomationScheduleGroup",
-      { name: templateAutomationScheduleGroupName },
-    );
-    new cdk.CfnOutput(this, "TemplateAutomationScheduleGroupName", {
-      value: templateAutomationScheduleGroupName,
-    });
-    const templateAutomationSchedulerRole = new iam.Role(
-      this,
-      "TemplateAutomationSchedulerRole",
-      {
-        assumedBy: new iam.ServicePrincipal("scheduler.amazonaws.com"),
-      },
-    );
 
     new cdk.CfnOutput(this, "MembersTableName", { value: membersTable.tableName });
     new cdk.CfnOutput(this, "TeamsTableName", { value: teamsTable.tableName });
@@ -851,71 +692,6 @@ export function response(ctx) {
     // v5-resolvers Lambda — 모든 v5 admin/workspace mutation/query 라우터
     // 타임아웃은 AppSync resolver 의 기본 한도(~30s) 에 맞춰 28s.
     // migrateAssetUsage 처럼 Scan 기반 무거운 mutation 도 단일 호출에서 처리 가능.
-    const templateAutomationRunnerFn = new lambdaNode.NodejsFunction(
-      this,
-      "TemplateAutomationRunnerFn",
-      {
-        entry: path.join(__dirname, "..", "lambda", "template-automation", "runner.ts"),
-        runtime: lambda.Runtime.NODEJS_22_X,
-        handler: "handler",
-        memorySize: 512,
-        timeout: cdk.Duration.seconds(60),
-        logRetention: logs.RetentionDays.ONE_MONTH,
-        environment: {
-          MEMBERS_TABLE_NAME: this.membersTable.tableName,
-          TEAMS_TABLE_NAME: this.teamsTable.tableName,
-          MEMBER_TEAMS_TABLE_NAME: this.memberTeamsTable.tableName,
-          WORKSPACES_TABLE_NAME: this.workspacesTable.tableName,
-          WORKSPACE_ACCESS_TABLE_NAME: this.workspaceAccessTable.tableName,
-          PAGES_TABLE_NAME: this.pageTable.table.tableName,
-          DATABASES_TABLE_NAME: this.databaseTable.table.tableName,
-          SCHEDULES_TABLE_NAME: schedulesTable.tableName,
-          IMAGE_ASSETS_TABLE_NAME: this.imageAssetTable.table.tableName,
-          ASSET_USAGE_TABLE_NAME: assetUsageTable.tableName,
-          PAGE_HISTORY_TABLE_NAME: pageHistoryTable.tableName,
-          DATABASE_HISTORY_TABLE_NAME: databaseHistoryTable.tableName,
-          DATABASE_ROW_MEMBERS_TABLE_NAME: databaseRowMembersTable.tableName,
-          IMAGES_BUCKET_NAME: imagesBucket.bucketName,
-          TEMPLATE_AUTOMATION_RUNS_TABLE_NAME: templateAutomationRunsTable.tableName,
-          APPSYNC_GRAPHQL_URL: api.graphqlUrl,
-        },
-        bundling: {
-          minify: true,
-          target: "node20",
-          sourceMap: false,
-          externalModules: ["@aws-sdk/*"],
-        },
-      },
-    );
-    templateAutomationRunsTable.grantReadWriteData(templateAutomationRunnerFn);
-    this.membersTable.grantReadData(templateAutomationRunnerFn);
-    this.teamsTable.grantReadData(templateAutomationRunnerFn);
-    this.memberTeamsTable.grantReadData(templateAutomationRunnerFn);
-    this.workspacesTable.grantReadData(templateAutomationRunnerFn);
-    this.workspaceAccessTable.grantReadData(templateAutomationRunnerFn);
-    this.pageTable.table.grantReadWriteData(templateAutomationRunnerFn);
-    this.databaseTable.table.grantReadData(templateAutomationRunnerFn);
-    schedulesTable.grantReadWriteData(templateAutomationRunnerFn);
-    this.imageAssetTable.table.grantReadWriteData(templateAutomationRunnerFn);
-    assetUsageTable.grantReadWriteData(templateAutomationRunnerFn);
-    pageHistoryTable.grantReadWriteData(templateAutomationRunnerFn);
-    databaseHistoryTable.grantReadWriteData(templateAutomationRunnerFn);
-    databaseRowMembersTable.grantReadWriteData(templateAutomationRunnerFn);
-    imagesBucket.grantReadWrite(templateAutomationRunnerFn);
-    templateAutomationRunnerFn.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["appsync:GraphQL"],
-        resources: [
-          `arn:${cdk.Aws.PARTITION}:appsync:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:apis/${api.apiId}/types/Mutation/fields/publishPageChanged`,
-        ],
-      }),
-    );
-    templateAutomationRunnerFn.grantInvoke(templateAutomationSchedulerRole);
-    templateAutomationRunnerFn.node.addDependency(templateAutomationScheduleGroup);
-    new cdk.CfnOutput(this, "TemplateAutomationRunnerFunctionName", {
-      value: templateAutomationRunnerFn.functionName,
-    });
-
     const v5ResolversFn = new lambdaNode.NodejsFunction(this, "V5ResolversFn", {
       entry: path.join(__dirname, "..", "lambda", "v5-resolvers", "index.ts"),
       runtime: lambda.Runtime.NODEJS_22_X,
@@ -936,20 +712,12 @@ export function response(ctx) {
         NOTIFICATIONS_TABLE_NAME: notificationTable.tableName,
         ORGANIZATIONS_TABLE_NAME: this.organizationsTable.tableName,
         MEMBER_ORGANIZATIONS_TABLE_NAME: this.memberOrganizationsTable.tableName,
-        SCHEDULES_TABLE_NAME: schedulesTable.tableName,
-        PROJECTS_TABLE_NAME: projectsTable.tableName,
-        HOLIDAYS_TABLE_NAME: holidaysTable.tableName,
-        MM_ENTRIES_TABLE_NAME: mmEntriesTable.tableName,
         IMAGE_ASSETS_TABLE_NAME: this.imageAssetTable.table.tableName,
         ASSET_USAGE_TABLE_NAME: assetUsageTable.tableName,
         PAGE_HISTORY_TABLE_NAME: pageHistoryTable.tableName,
         DATABASE_HISTORY_TABLE_NAME: databaseHistoryTable.tableName,
-        DATABASE_ROW_MEMBERS_TABLE_NAME: databaseRowMembersTable.tableName,
         IMAGES_BUCKET_NAME: imagesBucket.bucketName,
         CUSTOM_ICONS_TABLE_NAME: customIconsTable.tableName,
-        TEMPLATE_AUTOMATION_SCHEDULE_GROUP_NAME: templateAutomationScheduleGroupName,
-        TEMPLATE_AUTOMATION_RUNNER_ARN: templateAutomationRunnerFn.functionArn,
-        TEMPLATE_AUTOMATION_SCHEDULER_ROLE_ARN: templateAutomationSchedulerRole.roleArn,
       },
       bundling: {
         minify: true,
@@ -972,35 +740,12 @@ export function response(ctx) {
     notificationTable.grantReadWriteData(v5ResolversFn);
     this.organizationsTable.grantReadWriteData(v5ResolversFn);
     this.memberOrganizationsTable.grantReadWriteData(v5ResolversFn);
-    schedulesTable.grantReadWriteData(v5ResolversFn);
-    projectsTable.grantReadWriteData(v5ResolversFn);
-    holidaysTable.grantReadWriteData(v5ResolversFn);
-    mmEntriesTable.grantReadWriteData(v5ResolversFn);
     this.imageAssetTable.table.grantReadWriteData(v5ResolversFn);
     assetUsageTable.grantReadWriteData(v5ResolversFn);
     pageHistoryTable.grantReadWriteData(v5ResolversFn);
     databaseHistoryTable.grantReadWriteData(v5ResolversFn);
-    databaseRowMembersTable.grantReadWriteData(v5ResolversFn);
     imagesBucket.grantReadWrite(v5ResolversFn);
     customIconsTable.grantReadWriteData(v5ResolversFn);
-    v5ResolversFn.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: [
-          "scheduler:CreateSchedule",
-          "scheduler:UpdateSchedule",
-          "scheduler:DeleteSchedule",
-        ],
-        resources: [
-          `arn:${cdk.Aws.PARTITION}:scheduler:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:schedule/${templateAutomationScheduleGroupName}/*`,
-        ],
-      }),
-    );
-    v5ResolversFn.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["iam:PassRole"],
-        resources: [templateAutomationSchedulerRole.roleArn],
-      }),
-    );
 
     // AppSync Lambda DataSource
     const v5Ds = api.addLambdaDataSource("V5ResolversDs", v5ResolversFn);
@@ -1253,32 +998,7 @@ export function response(ctx) {
     });
     (onDatabaseChangedResolver.node.defaultChild as appsync.CfnResolver).overrideLogicalId("SyncApiSubscriptiononDatabaseChangedE8BD5823");
 
-    v5Ds.createResolver("QuerylistSchedules", { typeName: "Query", fieldName: "listSchedules" });
-    v5Ds.createResolver("MutationcreateSchedule", { typeName: "Mutation", fieldName: "createSchedule" });
-    v5Ds.createResolver("MutationupdateSchedule", { typeName: "Mutation", fieldName: "updateSchedule" });
-    v5Ds.createResolver("MutationdeleteSchedule", { typeName: "Mutation", fieldName: "deleteSchedule" });
-    v5Ds.createResolver("SubscriptiononScheduleChanged", { typeName: "Subscription", fieldName: "onScheduleChanged" });
-    // 프로젝트 resolver wiring
-    v5Ds.createResolver("QuerylistProjects", { typeName: "Query", fieldName: "listProjects" });
     v5Ds.createResolver("QuerygetWorkspaceMeta", { typeName: "Query", fieldName: "getWorkspaceMeta" });
-    v5Ds.createResolver("MutationcreateProject", { typeName: "Mutation", fieldName: "createProject" });
-    v5Ds.createResolver("MutationupdateProject", { typeName: "Mutation", fieldName: "updateProject" });
-    v5Ds.createResolver("MutationdeleteProject", { typeName: "Mutation", fieldName: "deleteProject" });
-    v5Ds.createResolver("SubscriptiononProjectChanged", { typeName: "Subscription", fieldName: "onProjectChanged" });
-    // 공휴일 resolver wiring
-    v5Ds.createResolver("QuerylistHolidays", { typeName: "Query", fieldName: "listHolidays" });
-    v5Ds.createResolver("MutationcreateHoliday", { typeName: "Mutation", fieldName: "createHoliday" });
-    v5Ds.createResolver("MutationupdateHoliday", { typeName: "Mutation", fieldName: "updateHoliday" });
-    v5Ds.createResolver("MutationdeleteHoliday", { typeName: "Mutation", fieldName: "deleteHoliday" });
-    v5Ds.createResolver("SubscriptiononHolidayChanged", { typeName: "Subscription", fieldName: "onHolidayChanged" });
-    // 주간 MM resolver wiring
-    v5Ds.createResolver("QuerylistMmEntries", { typeName: "Query", fieldName: "listMmEntries" });
-    v5Ds.createResolver("QuerylistMmRevisions", { typeName: "Query", fieldName: "listMmRevisions" });
-    v5Ds.createResolver("MutationupsertMmEntry", { typeName: "Mutation", fieldName: "upsertMmEntry" });
-    v5Ds.createResolver("MutationreviewMmEntry", { typeName: "Mutation", fieldName: "reviewMmEntry" });
-    v5Ds.createResolver("MutationlockMmEntry", { typeName: "Mutation", fieldName: "lockMmEntry" });
-    v5Ds.createResolver("MutationunlockMmEntry", { typeName: "Mutation", fieldName: "unlockMmEntry" });
-    v5Ds.createResolver("SubscriptiononMmEntryChanged", { typeName: "Subscription", fieldName: "onMmEntryChanged" });
 
     // 워크스페이스 공유 커스텀 아이콘.
     v5Ds.createResolver("QuerylistCustomIcons", { typeName: "Query", fieldName: "listCustomIcons" });

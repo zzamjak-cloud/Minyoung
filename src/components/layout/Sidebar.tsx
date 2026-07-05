@@ -41,9 +41,6 @@ const SettingsModal = lazy(() =>
   import("../settings/SettingsModal").then((m) => ({ default: m.SettingsModal })),
 );
 
-function isLCSchedulerModalOpen(): boolean {
-  return Boolean(document.querySelector("[data-lc-scheduler-modal='true']"));
-}
 
 function SidebarDragPreview({ pageId }: { pageId: string }) {
   const { title, icon } = usePageStore(
@@ -113,7 +110,6 @@ export function Sidebar({ variant = "inline" }: { variant?: "inline" | "drawer" 
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isLCSchedulerModalOpen()) return;
       const activeEl = document.activeElement as HTMLElement | null;
       const tag = activeEl?.tagName;
       const isInput =

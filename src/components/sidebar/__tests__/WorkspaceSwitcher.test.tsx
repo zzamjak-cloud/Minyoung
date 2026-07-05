@@ -2,7 +2,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { WorkspaceSwitcher } from "../WorkspaceSwitcher";
 import { useWorkspaceStore } from "../../../store/workspaceStore";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../../../lib/scheduler/scope";
 
 describe("WorkspaceSwitcher", () => {
   beforeEach(() => {
@@ -37,15 +36,6 @@ describe("WorkspaceSwitcher", () => {
     expect(screen.getByText("Workspace B (view)")).toBeTruthy();
     fireEvent.click(screen.getByText("Workspace B (view)"));
     expect(useWorkspaceStore.getState().currentWorkspaceId).toBe("ws-2");
-  });
-
-  it("LC 스케줄러 워크스페이스를 선택할 수 있다", () => {
-    render(<WorkspaceSwitcher />);
-    const trigger = screen.getByLabelText("워크스페이스 선택");
-    fireEvent.click(trigger);
-    fireEvent.click(screen.getByText("LC 스케줄러"));
-
-    expect(useWorkspaceStore.getState().currentWorkspaceId).toBe(LC_SCHEDULER_WORKSPACE_ID);
   });
 
   it("view-only 워크스페이스가 선택되면 잠금 힌트를 노출한다", () => {

@@ -205,7 +205,7 @@ export function SelectSourceEditor({ databaseId, column }: CommonProps) {
     if (selected) rememberCrossWorkspaceDatabase(selected);
   };
 
-  const setLinkedScope = (scope: "organization" | "team" | "project" | null) => {
+  const setLinkedScope = (scope: "organization" | "team" | null) => {
     if (scope === null) {
       const { linkedScope: _omit, ...rest } = column.config ?? {};
       updateColumn(databaseId, column.id, { config: rest });
@@ -232,14 +232,13 @@ export function SelectSourceEditor({ databaseId, column }: CommonProps) {
             } else if (v === "_automation") {
               update({ databaseId: "", columnId: "", automation: true });
             } else {
-              setLinkedScope(v as "organization" | "team" | "project");
+              setLinkedScope(v as "organization" | "team");
             }
           }}
           options={[
             { value: "_none", label: "직접 옵션 편집" },
             { value: "organization", label: "조직 (organizationStore)" },
             { value: "team", label: "팀 (teamStore)" },
-            { value: "project", label: "프로젝트 (schedulerProjects)" },
             { value: "_db", label: "다른 DB 컬럼…" },
             { value: "_automation", label: "자동화" },
           ]}
@@ -250,7 +249,6 @@ export function SelectSourceEditor({ databaseId, column }: CommonProps) {
           <p className="mt-1 text-[10px] leading-tight text-zinc-400">
             {linkedScope === "organization" && "옵션은 조직 목록과 자동 동기화됩니다."}
             {linkedScope === "team" && "옵션은 팀 목록과 자동 동기화됩니다."}
-            {linkedScope === "project" && "옵션은 LC 프로젝트 목록과 자동 동기화됩니다."}
           </p>
         )}
       </div>

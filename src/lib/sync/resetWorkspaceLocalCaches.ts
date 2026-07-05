@@ -2,7 +2,6 @@ import { useDatabaseRowRemoteStore } from "../../store/databaseRowRemoteStore";
 import { usePageContentLoadStore } from "../../store/pageContentLoadStore";
 import { usePageMetaRemoteStore } from "../../store/pageMetaRemoteStore";
 import { useSyncWatermarkStore } from "../../store/syncWatermarkStore";
-import { resetDatabaseRowLoadSessionState } from "./externalProtectedDatabaseLoad";
 
 // 워크스페이스의 로컬 동기화 캐시 + 워터마크를 함께 초기화한다.
 //
@@ -15,7 +14,6 @@ import { resetDatabaseRowLoadSessionState } from "./externalProtectedDatabaseLoa
 // 사용처: cache-repair-revision / 루트페이지 repair / 향후 persist 스키마 bump 복구 경로.
 // 호출 후에는 반드시 forceMetaBaseline(=전체 기준선) 페치로 데이터를 다시 채워야 한다.
 export function resetWorkspaceLocalCaches(workspaceId: string): void {
-  resetDatabaseRowLoadSessionState();
   useDatabaseRowRemoteStore.getState().clear();
   usePageContentLoadStore.getState().clear();
   usePageMetaRemoteStore.getState().clearWorkspace(workspaceId);

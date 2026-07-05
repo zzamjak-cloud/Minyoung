@@ -14,9 +14,6 @@ enum AccessLevel  { EDIT VIEW }
 enum AccessSubjectType { TEAM MEMBER EVERYONE }
 enum MemberStatus { ACTIVE REMOVED }
 enum ImageStatus { PENDING READY }
-enum MmEntryStatus { DRAFT SUBMITTED REVIEWED LOCKED }
-enum MmScopeKind { ORGANIZATION TEAM PROJECT OTHER }
-enum MmAutoReasonType { HOLIDAY LEAVE EMPTY UNCLASSIFIED }
 
 # ========== Domain Types ==========
 type Member {
@@ -101,7 +98,6 @@ type WorkspaceMeta {
   members: [Member!]!
   teams: [Team!]!
   organizations: [Organization!]!
-  projects: [Project!]!
 }
 
 type WorkspaceAccessEntry {
@@ -499,7 +495,7 @@ type Query {
   listPageMetas(workspaceId: ID!, updatedAfter: AWSDateTime, limit: Int, nextToken: String): PageMetaConnection!
   listPages(workspaceId: ID!, updatedAfter: AWSDateTime, limit: Int, nextToken: String): PageConnection!
   """DB row 페이지를 화면 노출 단위로 가져온다. 대형 DB에서 워크스페이스 전체 fetch를 피하기 위한 cursor API."""
-  listDatabaseRows(databaseId: ID!, workspaceId: ID!, organizationId: ID, teamId: ID, projectId: ID, assigneeId: ID, limit: Int, nextToken: String): PageConnection!
+  listDatabaseRows(databaseId: ID!, workspaceId: ID!, limit: Int, nextToken: String): PageConnection!
   listPageHistory(pageId: ID!, workspaceId: ID!, limit: Int, nextToken: String): [PageHistoryEntry!]!
   listDatabaseHistory(databaseId: ID!, workspaceId: ID!, limit: Int, nextToken: String): [DatabaseHistoryEntry!]!
   """DB 소속 모든 row 페이지의 변경 히스토리 — page-history GSI(byDatabaseAndCreatedAt) 단일 쿼리, 삭제된 행 포함, createdAt 최신순"""
@@ -512,20 +508,6 @@ type Query {
 
   getImageDownloadUrl(imageId: ID!): String!
   listMyNotifications: [Notification!]!
-
-  listSchedules(
-    workspaceId: ID!
-    from: AWSDateTime!
-    to: AWSDateTime!
-    organizationId: ID
-    teamId: ID
-    projectId: ID
-    assigneeId: ID
-  ): [Schedule!]!
-  listProjects(workspaceId: ID!): [Project!]!
-  listHolidays(workspaceId: ID!): [Holiday!]!
-  listMmEntries(workspaceId: ID!, fromWeekStart: String!, toWeekStart: String!, memberId: ID): [MmEntry!]!
-  listMmRevisions(workspaceId: ID!, entryId: ID!): [MmRevision!]!
 
   """워크스페이스 공유 커스텀 아이콘 목록 (최신순)."""
   listCustomIcons(workspaceId: ID!): [CustomIcon!]!
@@ -603,23 +585,6 @@ type Mutation {
   markNotificationRead(notificationId: ID!): Notification!
   deleteMyNotification(notificationId: ID!): Boolean!
 
-  createSchedule(input: CreateScheduleInput!): Schedule!
-  updateSchedule(input: UpdateScheduleInput!): Schedule!
-  deleteSchedule(id: ID!, workspaceId: ID!): Boolean!
-
-  createProject(input: CreateProjectInput!): Project!
-  updateProject(input: UpdateProjectInput!): Project!
-  deleteProject(id: ID!, workspaceId: ID!): Boolean!
-
-  createHoliday(input: CreateHolidayInput!): Holiday!
-  updateHoliday(input: UpdateHolidayInput!): Holiday!
-  deleteHoliday(id: ID!, workspaceId: ID!): Boolean!
-
-  upsertMmEntry(input: MmEntryInput!): MmEntry!
-  reviewMmEntry(input: MmReviewInput!): MmEntry!
-  lockMmEntry(workspaceId: ID!, entryId: ID!, note: String): MmEntry!
-  unlockMmEntry(workspaceId: ID!, entryId: ID!, note: String): MmEntry!
-
   """워크스페이스 공유 커스텀 아이콘 추가. 모든 멤버가 즉시 볼 수 있음."""
   createCustomIcon(input: CustomIconInput!): CustomIcon!
   """워크스페이스 공유 커스텀 아이콘 제거. 삭제된 아이콘을 반환해 구독 전파 가능."""
@@ -642,231 +607,10 @@ type Subscription {
     @aws_subscribe(mutations: ["upsertPage", "publishPageChanged", "softDeletePage", "restorePage"])
   onDatabaseChanged(workspaceId: ID!): Database
     @aws_subscribe(mutations: ["upsertDatabase", "softDeleteDatabase", "restoreDatabase"])
-  onScheduleChanged(workspaceId: ID!): Schedule
-    @aws_subscribe(mutations: ["createSchedule", "updateSchedule"])
-  onProjectChanged(workspaceId: ID!): Project
-    @aws_subscribe(mutations: ["createProject", "updateProject"])
-  onHolidayChanged(workspaceId: ID!): Holiday
-    @aws_subscribe(mutations: ["createHoliday", "updateHoliday"])
-  onMmEntryChanged(workspaceId: ID!): MmEntry
-    @aws_subscribe(mutations: ["upsertMmEntry", "reviewMmEntry", "lockMmEntry", "unlockMmEntry"])
   onCustomIconChanged(workspaceId: ID!): CustomIcon
     @aws_subscribe(mutations: ["createCustomIcon", "deleteCustomIcon"])
   """워크스페이스 접근권한 변경 실시간 알림. 클라이언트는 이 신호로 워크스페이스를 재페치해
      각자 본인 기준 권한(myEffectiveLevel)을 갱신한다(회수 시 자동 전환)."""
   onWorkspaceChanged(workspaceId: ID!): Workspace
     @aws_subscribe(mutations: ["setWorkspaceAccess"])
-}
-
-# ========== Schedule ==========
-type Schedule {
-  id: ID!
-  sourcePageId: ID
-  sourcePage: Page
-  workspaceId: ID!
-  title: String!
-  """일정 코멘트(툴팁/편집팝업)"""
-  comment: String
-  """관련 링크 URL"""
-  link: String
-  """소속 프로젝트/조직 ID"""
-  projectId: ID
-  teamId: ID
-  organizationId: ID
-  kind: String
-  startAt: AWSDateTime!
-  endAt: AWSDateTime!
-  assigneeId: ID
-  color: String
-  """카드 텍스트 색상(hex)"""
-  textColor: String
-  """같은 멤버 내 행 인덱스(다중 일정 겹침 방지)"""
-  rowIndex: Int
-  createdByMemberId: ID!
-  createdAt: AWSDateTime!
-  updatedAt: AWSDateTime!
-}
-
-input CreateScheduleInput {
-  workspaceId: ID!
-  title: String!
-  comment: String
-  link: String
-  projectId: ID
-  startAt: AWSDateTime!
-  endAt: AWSDateTime!
-  assigneeId: ID
-  color: String
-  textColor: String
-  rowIndex: Int
-}
-
-input UpdateScheduleInput {
-  id: ID!
-  workspaceId: ID!
-  title: String
-  comment: String
-  link: String
-  projectId: ID
-  startAt: AWSDateTime
-  endAt: AWSDateTime
-  assigneeId: ID
-  color: String
-  textColor: String
-  rowIndex: Int
-}
-
-# ========== Project ==========
-type Project {
-  id: ID!
-  workspaceId: ID!
-  name: String!
-  color: String!
-  description: String
-  memberIds: [ID!]!
-  leaderMemberIds: [ID!]!
-  isHidden: Boolean!
-  createdByMemberId: ID!
-  createdAt: AWSDateTime!
-  updatedAt: AWSDateTime!
-}
-
-input CreateProjectInput {
-  workspaceId: ID!
-  name: String!
-  color: String!
-  description: String
-  memberIds: [ID!]!
-  leaderMemberIds: [ID!]
-  isHidden: Boolean
-}
-
-input UpdateProjectInput {
-  id: ID!
-  workspaceId: ID!
-  name: String
-  color: String
-  description: String
-  memberIds: [ID!]
-  leaderMemberIds: [ID!]
-  isHidden: Boolean
-}
-
-# ========== Holiday ==========
-type Holiday {
-  id: ID!
-  workspaceId: ID!
-  title: String!
-  date: String!
-  type: String!
-  color: String!
-  createdByMemberId: ID!
-  createdAt: AWSDateTime!
-  updatedAt: AWSDateTime!
-}
-
-input CreateHolidayInput {
-  workspaceId: ID!
-  title: String!
-  date: String!
-  type: String!
-  color: String!
-}
-
-input UpdateHolidayInput {
-  id: ID!
-  workspaceId: ID!
-  title: String
-  date: String
-  type: String
-  color: String
-}
-
-# ========== Weekly MM ==========
-type MmAutoReason {
-  date: String!
-  type: MmAutoReasonType!
-  label: String!
-  ratioBp: Int!
-}
-
-type MmBucket {
-  id: ID!
-  kind: MmScopeKind!
-  scopeId: ID
-  label: String!
-  ratioBp: Int!
-  editable: Boolean!
-  reasons: [MmAutoReason!]!
-}
-
-type MmEntry {
-  id: ID!
-  workspaceId: ID!
-  memberId: ID!
-  weekStart: String!
-  weekEnd: String!
-  status: MmEntryStatus!
-  buckets: [MmBucket!]!
-  sourceSnapshot: AWSJSON
-  organizationId: ID
-  teamId: ID
-  submittedByMemberId: ID!
-  submittedAt: AWSDateTime!
-  updatedAt: AWSDateTime!
-  reviewedByMemberId: ID
-  reviewedAt: AWSDateTime
-  lockedByMemberId: ID
-  lockedAt: AWSDateTime
-  note: String
-}
-
-input MmAutoReasonInput {
-  date: String!
-  type: MmAutoReasonType!
-  label: String!
-  ratioBp: Int!
-}
-
-input MmBucketInput {
-  id: ID!
-  kind: MmScopeKind!
-  scopeId: ID
-  label: String!
-  ratioBp: Int!
-  editable: Boolean!
-  reasons: [MmAutoReasonInput!]
-}
-
-input MmEntryInput {
-  workspaceId: ID!
-  memberId: ID!
-  weekStart: String!
-  weekEnd: String!
-  buckets: [MmBucketInput!]!
-  sourceSnapshot: AWSJSON
-  organizationId: ID
-  teamId: ID
-  note: String
-}
-
-input MmReviewInput {
-  workspaceId: ID!
-  entryId: ID!
-  buckets: [MmBucketInput!]
-  note: String
-}
-
-type MmRevision {
-  id: ID!
-  entryId: ID!
-  workspaceId: ID!
-  memberId: ID!
-  weekStart: String!
-  actorMemberId: ID!
-  action: String!
-  before: AWSJSON
-  after: AWSJSON
-  createdAt: AWSDateTime!
-  note: String
 }

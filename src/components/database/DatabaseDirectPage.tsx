@@ -7,7 +7,6 @@ import { useDatabaseStore } from "../../store/databaseStore";
 import { usePageStore } from "../../store/pageStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { useWorkspaceStore } from "../../store/workspaceStore";
-import { isProtectedDatabaseId } from "../../lib/scheduler/database";
 import { refreshWorkspaceSnapshot } from "../../lib/sync/workspaceSwitch";
 import { normalizeConfirmPhrase } from "../../lib/text/normalizeConfirmPhrase";
 import type { ViewKind } from "../../types/database";
@@ -52,7 +51,6 @@ export function DatabaseDirectPage({ databaseId, pageId }: Props) {
   const titleInputRef = useRef<HTMLInputElement | null>(null);
 
   const title = bundle?.meta.title ?? "데이터베이스";
-  const isProtectedDatabase = isProtectedDatabaseId(databaseId);
 
   useEffect(() => {
     const input = titleInputRef.current;
@@ -89,7 +87,6 @@ export function DatabaseDirectPage({ databaseId, pageId }: Props) {
   };
 
   const openDeleteDatabaseModal = () => {
-    if (isProtectedDatabase) return;
     setDeletePhraseDraft("");
     setDeleteModalOpen(true);
   };
@@ -100,7 +97,6 @@ export function DatabaseDirectPage({ databaseId, pageId }: Props) {
   };
 
   const executeDeleteDatabase = () => {
-    if (isProtectedDatabase) return;
     if (normalizeConfirmPhrase(deletePhraseDraft) !== deleteConfirmPhrase) {
       alert(`다음 문구를 정확히 입력하세요:\n「${deleteConfirmPhrase}」`);
       return;
@@ -120,38 +116,32 @@ export function DatabaseDirectPage({ databaseId, pageId }: Props) {
       >
         <div className="mb-4 flex min-w-0 items-center gap-3 px-2">
           <Database size={40} className="shrink-0 text-zinc-400" />
-          {isProtectedDatabase ? (
-            <h1 className="min-w-0 flex-1 truncate text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-              {title}
-            </h1>
-          ) : (
-            <input
-              ref={titleInputRef}
-              type="text"
-              defaultValue={title}
-              onMouseEnter={() => setTitleHovered(true)}
-              onMouseLeave={() => setTitleHovered(false)}
-              onFocus={() => setTitleFocused(true)}
-              onBlur={() => {
-                setTitleFocused(false);
-                setTitleHovered(false);
-                commitTitle(titleInputRef.current?.value ?? title);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-              }}
-              placeholder="데이터베이스 이름"
-              title="이름 변경"
-              className={[
-                "min-w-0 flex-1 cursor-text rounded-md border bg-transparent px-2 text-4xl font-bold tracking-tight text-zinc-900 outline-none dark:text-zinc-100",
-                titleFocused
-                  ? "border-zinc-300 dark:border-zinc-600"
-                  : titleHovered
-                    ? "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/40"
-                    : "border-transparent",
-              ].join(" ")}
-            />
-          )}
+          <input
+            ref={titleInputRef}
+            type="text"
+            defaultValue={title}
+            onMouseEnter={() => setTitleHovered(true)}
+            onMouseLeave={() => setTitleHovered(false)}
+            onFocus={() => setTitleFocused(true)}
+            onBlur={() => {
+              setTitleFocused(false);
+              setTitleHovered(false);
+              commitTitle(titleInputRef.current?.value ?? title);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
+            placeholder="데이터베이스 이름"
+            title="이름 변경"
+            className={[
+              "min-w-0 flex-1 cursor-text rounded-md border bg-transparent px-2 text-4xl font-bold tracking-tight text-zinc-900 outline-none dark:text-zinc-100",
+              titleFocused
+                ? "border-zinc-300 dark:border-zinc-600"
+                : titleHovered
+                  ? "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/40"
+                  : "border-transparent",
+            ].join(" ")}
+          />
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
@@ -165,13 +155,8 @@ export function DatabaseDirectPage({ databaseId, pageId }: Props) {
             <button
               type="button"
               aria-label="데이터베이스 삭제"
-              title={
-                isProtectedDatabase
-                  ? "LC스케줄러 DB는 삭제할 수 없습니다."
-                  : "데이터베이스 삭제"
-              }
+              title="데이터베이스 삭제"
               onClick={openDeleteDatabaseModal}
-              disabled={isProtectedDatabase}
               className="rounded-md p-2 text-zinc-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-400 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             >
               <Trash2 size={18} />
@@ -202,7 +187,7 @@ export function DatabaseDirectPage({ databaseId, pageId }: Props) {
         databaseId={databaseId}
         layout="fullPage"
         isInsidePeek={false}
-        isProtectedDatabase={isProtectedDatabase}
+        isProtectedDatabase={false}
         onClose={() => setHistoryDialogOpen(false)}
         onDeletePermanently={executeDeleteDatabase}
       />

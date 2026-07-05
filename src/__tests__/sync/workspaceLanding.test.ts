@@ -37,33 +37,10 @@ describe("getFirstRootSidebarPageId", () => {
 
   it("다른 워크스페이스 루트가 더 앞에 있어도 현재 워크스페이스 첫 인덱스를 반환한다", () => {
     const pages: PageMap = {
-      lcMilestone: makePage({
-        id: "lcMilestone",
+      otherRoot: makePage({
+        id: "otherRoot",
         order: 0,
-        workspaceId: "lc-scheduler",
-      }),
-      catIndex: makePage({ id: "catIndex", order: 1, workspaceId: WS }),
-    };
-    expect(getFirstRootSidebarPageId(pages, WS)).toBe("catIndex");
-  });
-
-  it("workspaceId 가 없는 레거시 LC 보호 DB 루트는 현재 워크스페이스 첫 인덱스에서 제외한다", () => {
-    const pages: PageMap = {
-      legacyLcRoot: makePage({
-        id: "legacyLcRoot",
-        order: 0,
-        doc: {
-          type: "doc",
-          content: [
-            {
-              type: "databaseBlock",
-              attrs: {
-                layout: "inline",
-                databaseId: "lc-milestone-db:lc-scheduler-global",
-              },
-            },
-          ],
-        },
+        workspaceId: "ws-other",
       }),
       catIndex: makePage({ id: "catIndex", order: 1, workspaceId: WS }),
     };
@@ -175,52 +152,15 @@ describe("applyWorkspaceLanding — forceFirstRoot", () => {
   it("전환 진입(forceFirstRoot)이면 다른 워크스페이스의 더 앞선 루트 페이지를 무시한다", () => {
     usePageStore.setState({
       pages: {
-        lcMilestone: makePage({
-          id: "lcMilestone",
+        otherRoot: makePage({
+          id: "otherRoot",
           order: 0,
-          workspaceId: "lc-scheduler",
+          workspaceId: "ws-other",
         }),
         catIndex: makePage({ id: "catIndex", order: 1, workspaceId: WS }),
       },
       activePageId: null,
       cacheWorkspaceId: WS,
-    });
-
-    applyWorkspaceLanding(WS, { forceFirstRoot: true });
-
-    const settings = useSettingsStore.getState();
-    const tab = settings.tabs[settings.activeTabIndex];
-    expect(tab.pageId).toBe("catIndex");
-    expect(usePageStore.getState().activePageId).toBe("catIndex");
-  });
-
-  it("전환 진입(forceFirstRoot)이면 workspaceId 없는 레거시 LC 루트 탭도 무시한다", () => {
-    usePageStore.setState({
-      pages: {
-        legacyLcRoot: makePage({
-          id: "legacyLcRoot",
-          order: 0,
-          doc: {
-            type: "doc",
-            content: [
-              {
-                type: "databaseBlock",
-                attrs: {
-                  layout: "inline",
-                  databaseId: "lc-scheduler-db:lc-scheduler-global",
-                },
-              },
-            ],
-          },
-        }),
-        catIndex: makePage({ id: "catIndex", order: 1, workspaceId: WS }),
-      },
-      activePageId: "legacyLcRoot",
-      cacheWorkspaceId: WS,
-    });
-    useSettingsStore.setState({
-      tabs: [{ pageId: "legacyLcRoot", databaseId: null }],
-      activeTabIndex: 0,
     });
 
     applyWorkspaceLanding(WS, { forceFirstRoot: true });

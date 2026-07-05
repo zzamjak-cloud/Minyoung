@@ -18,10 +18,6 @@ import { debouncePerKey } from "../lib/sync/debouncePerKey";
 import { jsonContentEquals } from "../lib/pm/jsonDocEquals";
 import { extractMentionMemberHitsFromDoc } from "../lib/mentions/extractMentions";
 import {
-  isLCSchedulerDatabaseId,
-} from "../lib/scheduler/database";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../lib/scheduler/scope";
-import {
   EMPTY_DOC,
   blockPreviewById,
   enqueueUpsertPage,
@@ -61,13 +57,8 @@ export { migratePageStore } from "./pageStore/migrations";
 // 동기화·헬퍼는 ./pageStore/helpers.ts 로 분리됨.
 // 단, notifyNewPageMentions 는 usePageStore 를 참조하므로 순환 회피용으로 본 파일 유지.
 
-function resolveDeletedPageWorkspaceId(page: Page, removedPageById: Map<string, Page>): string {
+function resolveDeletedPageWorkspaceId(page: Page, _removedPageById: Map<string, Page>): string {
   if (page.workspaceId) return page.workspaceId;
-  let cursor: Page | undefined = page;
-  while (cursor) {
-    if (isLCSchedulerDatabaseId(cursor.databaseId)) return LC_SCHEDULER_WORKSPACE_ID;
-    cursor = cursor.parentId ? removedPageById.get(cursor.parentId) : undefined;
-  }
   return getCurrentWorkspaceId();
 }
 
@@ -697,7 +688,6 @@ export {
   createFilterPageTreeSelector,
   filterPageTree,
   isFullPageDatabaseHomePage,
-  isProtectedDatabaseBlockPage,
   selectFirstSidebarRootId,
   selectPageTree,
   selectSortedPages,

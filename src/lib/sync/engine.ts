@@ -7,8 +7,6 @@ import type {
 import { buildOutboxEntryMeta } from "./outboxMeta";
 import { sortOutboxBatchForFlush } from "./outboxFlushOrder";
 import { useUiStore } from "../../store/uiStore";
-import { LC_SCHEDULER_WORKSPACE_ID } from "../scheduler/scope";
-import { isLCSchedulerDatabaseId } from "../scheduler/database";
 import { ensureFreshTokensForAppSync } from "../auth/apiTokens";
 import { markPermanentlyDeletedEntity } from "./localDeleteGuards";
 import {
@@ -200,9 +198,6 @@ export class SyncEngine {
 
   private async enqueueNow(op: OutboxOp, payload: EnqueuePayload): Promise<void> {
     if (this.stopped) return;
-    if (op === "softDeleteDatabase" && isLCSchedulerDatabaseId(payload.id)) {
-      return;
-    }
     const meta = buildOutboxEntryMeta(
       op,
       payload as Record<string, unknown>,
@@ -516,7 +511,6 @@ export class SyncEngine {
     const uiWs = fn();
     const entryWs = entry.workspaceId;
     if (!uiWs || entryWs == null || entryWs === "") return;
-    if (entryWs === LC_SCHEDULER_WORKSPACE_ID) return;
     if (entryWs !== uiWs) {
       console.debug(
         "[sync] outbox flush: UI 워크스페이스와 엔트리 메타 workspaceId 불일치 (payload 기준으로 전송 진행)",

@@ -7,7 +7,6 @@ import { usePageStore } from "../../store/pageStore";
 import { useMemberStore } from "../../store/memberStore";
 import { useOrganizationStore } from "../../store/organizationStore";
 import { useTeamStore } from "../../store/teamStore";
-import { useSchedulerProjectsStore } from "../../store/schedulerProjectsStore";
 import {
   collectDatabaseDependencyIds,
   collectPageDependencyIds,
@@ -32,7 +31,6 @@ export function useRowGroups(
   const members = useMemberStore((s) => s.members);
   const organizations = useOrganizationStore((s) => s.organizations);
   const teams = useTeamStore((s) => s.teams);
-  const projects = useSchedulerProjectsStore((s) => s.projects);
 
   const groupCol = useMemo(() => {
     if (!groupByColumnId) return null;
@@ -71,7 +69,7 @@ export function useRowGroups(
       databases,
       pages,
       members,
-      scopeCtx: { organizations, teams, projects },
+      scopeCtx: { organizations, teams },
     });
-  }, [groupCol, rows, databases, pages, members, organizations, teams, projects]);
+  }, [groupCol, rows, databases, pages, members, organizations, teams]);
 }

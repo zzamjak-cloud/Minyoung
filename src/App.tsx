@@ -19,7 +19,6 @@ import { useSettingsStore } from "./store/settingsStore";
 import {
   usePageStore,
   selectFirstSidebarRootId,
-  isProtectedDatabaseBlockPage,
 } from "./store/pageStore";
 import { useDatabaseStore } from "./store/databaseStore";
 import { usePageMetaRemoteStore } from "./store/pageMetaRemoteStore";
@@ -37,8 +36,6 @@ import {
   installPageScrollCapture,
   restorePageScrollPosition,
 } from "./lib/navigation/pageScrollMemory";
-import { LC_SCHEDULER_WORKSPACE_ID } from "./lib/scheduler/scope";
-import { isProtectedDatabaseId } from "./lib/scheduler/database";
 
 const DatabaseRowPage = lazy(() =>
   import("./components/database/DatabaseRowPage").then((m) => ({
@@ -50,10 +47,6 @@ const DatabaseRowPeek = lazy(() =>
     default: m.DatabaseRowPeek,
   })),
 );
-function isLCSchedulerModalOpen(): boolean {
-  return Boolean(document.querySelector("[data-lc-scheduler-modal='true']"));
-}
-
 function App() {
   const darkMode = useSettingsStore((s) => s.darkMode);
   const toggleDarkMode = useSettingsStore((s) => s.toggleDarkMode);
@@ -232,12 +225,6 @@ function App() {
       ) {
         return true;
       }
-      if (
-        currentWorkspaceId !== LC_SCHEDULER_WORKSPACE_ID &&
-        isProtectedDatabaseBlockPage(page)
-      ) {
-        return true;
-      }
       setActivePage(target.pageId);
       setCurrentTabPage(target.pageId);
       clearPendingLocationTarget(target);
@@ -358,7 +345,7 @@ function App() {
       tabDatabasePageId,
       tabDatabaseTitle,
       workspaceBootstrapping: useUiStore.getState().workspaceBootstrapping,
-      isProtectedDatabase: !!tabDatabaseId && isProtectedDatabaseId(tabDatabaseId),
+      isProtectedDatabase: false,
     })) return;
     const databaseId = tabDatabaseId;
     const databaseTitle = tabDatabaseTitle;
@@ -490,7 +477,6 @@ function App() {
   // 글로벌 단축키
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (isLCSchedulerModalOpen()) return;
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
       if (e.key === "n") {

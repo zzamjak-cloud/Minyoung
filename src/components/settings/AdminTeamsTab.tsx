@@ -12,7 +12,6 @@ import {
 import { useTeamStore } from "../../store/teamStore";
 import { useMemberStore } from "../../store/memberStore";
 import { assignMemberToTeamApi, unassignMemberFromTeamApi } from "../../lib/sync/memberApi";
-import { inferLeaderMemberIds } from "../../lib/scheduler/mm/leaderDefaults";
 import { useUiStore } from "../../store/uiStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { sortByKoreanName } from "../../lib/memberSearch";
@@ -126,11 +125,7 @@ export function AdminTeamsTab() {
     setEditingTeamName(team?.name ?? "");
     setEditingDescription(entityDescriptions[teamId] ?? "");
     setSelectedMemberIds(team?.members.map((m) => m.memberId) ?? []);
-    const initial =
-      (team?.leaderMemberIds?.length
-        ? team.leaderMemberIds
-        : inferLeaderMemberIds("team", team?.members ?? [])) ?? [];
-    setLeaderSelection(initial);
+    setLeaderSelection(team?.leaderMemberIds ?? []);
   };
 
   const updateSelectedMembers = (nextIds: string[]) => {

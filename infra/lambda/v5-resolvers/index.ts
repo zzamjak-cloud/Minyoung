@@ -88,31 +88,6 @@ import {
 } from "./handlers/pageDatabase";
 import { listMyNotifications, markNotificationRead, deleteMyNotification } from "./handlers/notification";
 import {
-  listSchedules,
-  createSchedule,
-  updateSchedule,
-  deleteSchedule,
-} from "./handlers/schedule";
-import {
-  listProjects,
-  createProject,
-  updateProject,
-  deleteProject,
-} from "./handlers/project";
-import {
-  listHolidays,
-  createHoliday,
-  updateHoliday,
-  deleteHoliday,
-} from "./handlers/holiday";
-import {
-  listMmEntries,
-  listMmRevisions,
-  upsertMmEntry,
-  reviewMmEntry,
-  setMmEntryLock,
-} from "./handlers/mm";
-import {
   listMyAssets,
   renameAsset,
   getAssetUsages,
@@ -146,17 +121,12 @@ const tables: Tables = {
   // 조직(실) 관련 테이블 — CDK 배포 후 env 주입
   Organizations: process.env.ORGANIZATIONS_TABLE_NAME,
   MemberOrganizations: process.env.MEMBER_ORGANIZATIONS_TABLE_NAME,
-  Schedules: process.env.SCHEDULES_TABLE_NAME,
-  Projects: process.env.PROJECTS_TABLE_NAME,
-  Holidays: process.env.HOLIDAYS_TABLE_NAME,
-  MmEntries: process.env.MM_ENTRIES_TABLE_NAME,
   ImageAssets: process.env.IMAGE_ASSETS_TABLE_NAME,
   AssetUsage: process.env.ASSET_USAGE_TABLE_NAME,
   ImagesBucketName: process.env.IMAGES_BUCKET_NAME,
   CustomIcons: process.env.CUSTOM_ICONS_TABLE_NAME,
   PageHistory: process.env.PAGE_HISTORY_TABLE_NAME,
   DatabaseHistory: process.env.DATABASE_HISTORY_TABLE_NAME,
-  DatabaseRowMembers: process.env.DATABASE_ROW_MEMBERS_TABLE_NAME,
 };
 
 type AppsyncEvent = {
@@ -231,47 +201,6 @@ function normalizeOrgForGql(org: Record<string, unknown>) {
     ...org,
     leaderMemberIds: Array.isArray(org.leaderMemberIds) ? org.leaderMemberIds : [],
     members: members.map((m) => normalizeMemberForGql(m as Record<string, unknown>)),
-  };
-}
-
-function mmStatusToGql(status: string): "DRAFT" | "SUBMITTED" | "REVIEWED" | "LOCKED" {
-  if (status === "draft") return "DRAFT";
-  if (status === "reviewed") return "REVIEWED";
-  if (status === "locked") return "LOCKED";
-  return "SUBMITTED";
-}
-
-function mmKindToGql(kind: string): "ORGANIZATION" | "TEAM" | "PROJECT" | "OTHER" {
-  if (kind === "organization") return "ORGANIZATION";
-  if (kind === "team") return "TEAM";
-  if (kind === "project") return "PROJECT";
-  return "OTHER";
-}
-
-function mmReasonTypeToGql(type: string): "HOLIDAY" | "LEAVE" | "EMPTY" | "UNCLASSIFIED" {
-  if (type === "holiday") return "HOLIDAY";
-  if (type === "leave") return "LEAVE";
-  if (type === "empty") return "EMPTY";
-  return "UNCLASSIFIED";
-}
-
-function normalizeMmEntryForGql(entry: Record<string, unknown>) {
-  const buckets = Array.isArray(entry.buckets) ? entry.buckets : [];
-  return {
-    ...entry,
-    status: mmStatusToGql(String(entry.status ?? "submitted")),
-    buckets: buckets.map((bucket) => {
-      const b = bucket as Record<string, unknown>;
-      const reasons = Array.isArray(b.reasons) ? b.reasons : [];
-      return {
-        ...b,
-        kind: mmKindToGql(String(b.kind ?? "other")),
-        reasons: reasons.map((reason) => {
-          const r = reason as Record<string, unknown>;
-          return { ...r, type: mmReasonTypeToGql(String(r.type ?? "unclassified")) };
-        }),
-      };
-    }),
   };
 }
 
@@ -400,7 +329,6 @@ const RESOLVERS: Record<
       members: meta.members.map((member) => normalizeMemberForGql(member as unknown as Record<string, unknown>)),
       teams: meta.teams.map((team) => normalizeTeamForGql(team as unknown as Record<string, unknown>)),
       organizations: meta.organizations.map((organization) => normalizeOrgForGql(organization as unknown as Record<string, unknown>)),
-      projects: meta.projects,
     };
   },
   createWorkspace: async (event, base) =>
@@ -468,10 +396,6 @@ const RESOLVERS: Record<
       ...base,
       databaseId: event.arguments.databaseId as string,
       workspaceId: event.arguments.workspaceId as string,
-      organizationId: event.arguments.organizationId as string | undefined,
-      teamId: event.arguments.teamId as string | undefined,
-      projectId: event.arguments.projectId as string | undefined,
-      assigneeId: event.arguments.assigneeId as string | undefined,
       limit: event.arguments.limit as number | undefined,
       nextToken: event.arguments.nextToken as string | undefined,
     }),
@@ -660,180 +584,6 @@ const RESOLVERS: Record<
     await validateWorkspaceSubscription({ ...base, workspaceId: event.arguments.workspaceId as string }),
   onDatabaseChanged: async (event, base) =>
     await validateWorkspaceSubscription({ ...base, workspaceId: event.arguments.workspaceId as string }),
-  listSchedules: async (event, base) =>
-    await listSchedules({
-      ...base,
-      workspaceId: event.arguments.workspaceId as string,
-      from: event.arguments.from as string,
-      to: event.arguments.to as string,
-      organizationId: event.arguments.organizationId as string | undefined,
-      teamId: event.arguments.teamId as string | undefined,
-      projectId: event.arguments.projectId as string | undefined,
-      assigneeId: event.arguments.assigneeId as string | undefined,
-    }),
-  createSchedule: async (event, base) =>
-    await createSchedule({
-      ...base,
-      input: event.arguments.input as {
-        workspaceId: string;
-        title: string;
-        startAt: string;
-        endAt: string;
-        assigneeId?: string;
-        color?: string;
-      },
-    }),
-  updateSchedule: async (event, base) =>
-    await updateSchedule({
-      ...base,
-      input: event.arguments.input as {
-        id: string;
-        workspaceId: string;
-        title?: string;
-        startAt?: string;
-        endAt?: string;
-        assigneeId?: string;
-        color?: string;
-      },
-    }),
-  deleteSchedule: async (event, base) =>
-    await deleteSchedule({
-      ...base,
-      id: event.arguments.id as string,
-      workspaceId: event.arguments.workspaceId as string,
-    }),
-  onScheduleChanged: async (event, base) =>
-    await validateWorkspaceSubscription({
-      ...base,
-      workspaceId: event.arguments.workspaceId as string,
-    }),
-  listProjects: async (event, base) =>
-    await listProjects({
-      ...base,
-      workspaceId: event.arguments.workspaceId as string,
-    }),
-  createProject: async (event, base) =>
-    await createProject({
-      ...base,
-      input: event.arguments.input as {
-        workspaceId: string;
-        name: string;
-        color: string;
-        description?: string;
-        memberIds?: string[];
-        leaderMemberIds?: string[];
-        isHidden?: boolean;
-      },
-    }),
-  updateProject: async (event, base) =>
-    await updateProject({
-      ...base,
-      input: event.arguments.input as {
-        id: string;
-        workspaceId: string;
-        name?: string;
-        color?: string;
-        description?: string;
-        memberIds?: string[];
-        leaderMemberIds?: string[];
-        isHidden?: boolean;
-      },
-    }),
-  deleteProject: async (event, base) =>
-    await deleteProject({
-      ...base,
-      id: event.arguments.id as string,
-      workspaceId: event.arguments.workspaceId as string,
-    }),
-  onProjectChanged: async (event, base) =>
-    await validateWorkspaceSubscription({
-      ...base,
-      workspaceId: event.arguments.workspaceId as string,
-    }),
-  listHolidays: async (event, base) =>
-    await listHolidays({
-      ...base,
-      workspaceId: event.arguments.workspaceId as string,
-    }),
-  createHoliday: async (event, base) =>
-    await createHoliday({
-      ...base,
-      input: event.arguments.input as {
-        workspaceId: string;
-        title: string;
-        date: string;
-        type: string;
-        color: string;
-      },
-    }),
-  updateHoliday: async (event, base) =>
-    await updateHoliday({
-      ...base,
-      input: event.arguments.input as {
-        id: string;
-        workspaceId: string;
-        title?: string;
-        date?: string;
-        type?: string;
-        color?: string;
-      },
-    }),
-  deleteHoliday: async (event, base) =>
-    await deleteHoliday({
-      ...base,
-      id: event.arguments.id as string,
-      workspaceId: event.arguments.workspaceId as string,
-    }),
-  onHolidayChanged: async (event, base) =>
-    await validateWorkspaceSubscription({
-      ...base,
-      workspaceId: event.arguments.workspaceId as string,
-    }),
-  listMmEntries: async (event, base) =>
-    (await listMmEntries({
-      ...base,
-      workspaceId: event.arguments.workspaceId as string,
-      fromWeekStart: event.arguments.fromWeekStart as string,
-      toWeekStart: event.arguments.toWeekStart as string,
-      memberId: event.arguments.memberId as string | undefined,
-    })).map((entry) => normalizeMmEntryForGql(entry as unknown as Record<string, unknown>)),
-  listMmRevisions: async (event, base) =>
-    await listMmRevisions({
-      ...base,
-      workspaceId: event.arguments.workspaceId as string,
-      entryId: event.arguments.entryId as string,
-    }),
-  upsertMmEntry: async (event, base) =>
-    normalizeMmEntryForGql((await upsertMmEntry({
-      ...base,
-      input: event.arguments.input as Parameters<typeof upsertMmEntry>[0]["input"],
-    })) as unknown as Record<string, unknown>),
-  reviewMmEntry: async (event, base) =>
-    normalizeMmEntryForGql((await reviewMmEntry({
-      ...base,
-      input: event.arguments.input as Parameters<typeof reviewMmEntry>[0]["input"],
-    })) as unknown as Record<string, unknown>),
-  lockMmEntry: async (event, base) =>
-    normalizeMmEntryForGql((await setMmEntryLock({
-      ...base,
-      workspaceId: event.arguments.workspaceId as string,
-      entryId: event.arguments.entryId as string,
-      locked: true,
-      note: event.arguments.note as string | undefined,
-    })) as unknown as Record<string, unknown>),
-  unlockMmEntry: async (event, base) =>
-    normalizeMmEntryForGql((await setMmEntryLock({
-      ...base,
-      workspaceId: event.arguments.workspaceId as string,
-      entryId: event.arguments.entryId as string,
-      locked: false,
-      note: event.arguments.note as string | undefined,
-    })) as unknown as Record<string, unknown>),
-  onMmEntryChanged: async (event, base) =>
-    await validateWorkspaceSubscription({
-      ...base,
-      workspaceId: event.arguments.workspaceId as string,
-    }),
   // ── 자산 관리 ────────────────────────────────────────────────────
   listMyAssets: async (event, base) => {
     const res = await listMyAssets({

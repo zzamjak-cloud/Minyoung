@@ -10,8 +10,8 @@ import { Rnd } from "react-rnd";
 import { PanelRight } from "lucide-react";
 import type { ViewConfigsMap } from "../../../types/database";
 import { DAY_MS } from "../../../lib/database/timelineGeometry";
-import { getScheduleCardContentOffset } from "../../scheduler/scheduleCardDisplay";
-import { ContextMenu, announceSchedulerContextMenuOpen } from "../../scheduler/ContextMenu";
+import { getTimelineCardContentOffset } from "../timelineCardDisplay";
+import { TimelineContextMenu, announceTimelineContextMenuOpen } from "./TimelineContextMenu";
 import { TimelineCardText } from "../TimelineCardText";
 import { TimelineCardPropertyLabels } from "../TimelineCardPropertyLabels";
 import { ScheduleCardDetailRows } from "../ScheduleCardDetailRows";
@@ -73,13 +73,13 @@ export function DatabaseTimelineCard({
   const [localW, setLocalW] = useState(card.width);
   const dragMovedRef = useRef(false);
   const resizeStartRef = useRef<{ startIdx: number; endIdx: number } | null>(null);
-  // 호버 툴팁 위치 — LC 스케줄러 카드와 동일한 상세 속성 툴팁을 띄운다.
+  // 호버 툴팁 위치 — 상세 속성 툴팁을 띄운다.
   const [tipPos, setTipPos] = useState<{ top: number; left: number; placeAbove: boolean } | null>(null);
   const [contextMenuPos, setContextMenuPos] = useState<{ left: number; top: number } | null>(null);
 
   useLayoutEffect(() => {
     // 미등록(날짜 없음) 카드는 가로 스크롤과 무관하게 항상 항목열 우측에 고정한다.
-    // (scrollLeft 만큼 더해 트랙이 스크롤돼도 화면상 같은 위치 유지 — LC 스케줄러와 동일)
+    // (scrollLeft 만큼 더해 트랙이 스크롤돼도 화면상 같은 위치 유지)
     setLocalX(card.isUnscheduled ? scrollLeft + card.left : card.left);
     setLocalW(card.width);
   }, [card.left, card.width, card.isUnscheduled, scrollLeft]);
@@ -101,10 +101,10 @@ export function DatabaseTimelineCard({
     !card.isUnscheduled && multiDragDeltaX != null
       ? card.left + multiDragDeltaX
       : localX;
-  // 긴 카드가 좌측으로 스크롤될 때 텍스트를 화면 안에 유지 (LC 스케줄러와 동일)
+  // 긴 카드가 좌측으로 스크롤될 때 텍스트를 화면 안에 유지
   const contentOffset = card.isUnscheduled
     ? 0
-    : getScheduleCardContentOffset({ scrollLeft, cardLeft: visualX, cardWidth: localW });
+    : getTimelineCardContentOffset({ scrollLeft, cardLeft: visualX, cardWidth: localW });
   const titleClassName = card.isUnscheduled
     ? "font-medium text-zinc-700 dark:text-zinc-200"
     : "font-medium text-white";
@@ -119,7 +119,7 @@ export function DatabaseTimelineCard({
     (event: ContextPointerEvent) => {
       event.preventDefault();
       event.stopPropagation();
-      announceSchedulerContextMenuOpen();
+      announceTimelineContextMenuOpen();
       setTipPos(null);
       onSelect(card);
       setContextMenuPos({ left: event.clientX, top: event.clientY });
@@ -356,11 +356,11 @@ export function DatabaseTimelineCard({
       )}
     {contextMenuPos && !card.isUnscheduled &&
       createPortal(
-        <ContextMenu
+        <TimelineContextMenu
           x={contextMenuPos.left}
           y={contextMenuPos.top}
           currentColor={card.color}
-          onColorChange={(color) => onColorChange(card, color)}
+          onColorChange={(color: string) => onColorChange(card, color)}
           onClose={() => setContextMenuPos(null)}
         />,
         document.body,

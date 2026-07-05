@@ -1,0 +1,52 @@
+{
+  "name": "quicknote-infra",
+  "version": "3.0.0",
+  "private": true,
+  "description": "QuickNote AWS 인프라 (Cognito + 화이트리스트 Lambda)",
+  "bin": {
+    "quicknote-infra": "bin/quicknote.js"
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "watch": "tsc -p . -w",
+    "test": "vitest run",
+    "cdk": "cdk",
+    "diff": "cdk diff",
+    "deploy": "cdk deploy --all --outputs-file cdk-outputs.json",
+    "deploy:live": "cdk deploy --all --outputs-file cdk-outputs.json",
+    "deploy:dev": "DEPLOY_ENV=dev cdk deploy --all --require-approval never --outputs-file cdk-outputs.dev.json",
+    "diff:gsi-meta": "cdk diff QuicknoteSyncStack -c pageTableGsiDeployStage=meta",
+    "deploy:gsi-meta": "cdk deploy QuicknoteSyncStack -c pageTableGsiDeployStage=meta --outputs-file cdk-outputs.json",
+    "diff:gsi-all": "cdk diff QuicknoteSyncStack -c pageTableGsiDeployStage=all",
+    "deploy:gsi-all": "cdk deploy QuicknoteSyncStack -c pageTableGsiDeployStage=all --outputs-file cdk-outputs.json",
+    "destroy": "cdk destroy --all",
+    "build:resolvers": "esbuild lib/sync/resolvers/upsert.ts lib/sync/resolvers/softDelete.ts lib/sync/resolvers/list.ts lib/sync/resolvers/subscribe.ts --bundle --platform=neutral --format=esm --target=esnext --external:@aws-appsync/utils --outdir=lib/sync/resolvers/dist"
+  },
+  "devDependencies": {
+    "@aws-appsync/utils": "^2.1.1",
+    "@aws-sdk/client-dynamodb": "^3.1043.0",
+    "@aws-sdk/client-s3": "^3.1043.0",
+    "@aws-sdk/client-scheduler": "^3.1063.0",
+    "@aws-sdk/lib-dynamodb": "^3.1043.0",
+    "@aws-sdk/s3-request-presigner": "^3.1043.0",
+    "@types/aws-lambda": "^8.10.145",
+    "@types/node": "^20.14.10",
+    "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.18.1",
+    "aws-cdk": "^2.170.0",
+    "esbuild": "^0.24.0",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.5.4",
+    "uuid": "^10.0.0",
+    "vitest": "^2.0.0",
+    "ws": "^8.21.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-apigatewaymanagementapi": "^3.1065.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.1043.0",
+    "aws-cdk-lib": "^2.170.0",
+    "aws-jwt-verify": "^5.2.1",
+    "constructs": "^10.4.2",
+    "yjs": "^13.6.31"
+  }
+}

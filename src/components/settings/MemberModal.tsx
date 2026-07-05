@@ -1,0 +1,766 @@
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
+import { ChevronDown } from "lucide-react";
+import { useExclusiveDropdown } from "../../hooks/useExclusiveDropdown";
+import { AppSelect } from "../common/AppSelect";
+import type { EmploymentStatus, Member } from "../../store/memberStore";
+import { useWorkspaceOptionsStore } from "../../store/workspaceOptionsStore";
+import { useWorkspaceStore } from "../../store/workspaceStore";
+import { useOrganizationStore } from "../../store/organizationStore";
+import { useTeamStore } from "../../store/teamStore";
+import {
+  updateMemberApi,
+  promoteToManagerApi,
+  demoteToMemberApi,
+  setMemberRoleApi,
+  removeMemberApi,
+  restoreMemberApi,
+  unassignMemberFromTeamApi,
+} from "../../lib/sync/memberApi";
+import { unassignMemberFromOrganizationApi } from "../../lib/sync/organizationApi";
+import { updateWorkspaceOptionsApi } from "../../lib/sync/workspaceApi";
+import { resizeAvatar } from "../../lib/images/resizeAvatar";
+
+type CreateProps = {
+  mode: "create";
+  open: boolean;
+  onClose: () => void;
+  onCreate: (input: { email: string; name: string; jobRole: string; workspaceRole: Member["workspaceRole"] }) => Promise<void>;
+};
+
+type EditProps = {
+  mode: "edit";
+  open: boolean;
+  onClose: () => void;
+  member: Member;
+  onUpdated: (member: Member) => void;
+  onRemoved: (member: Member) => void;
+  archived?: boolean;
+  onRestored?: (member: Member) => void;
+};
+
+type Props = CreateProps | EditProps;
+
+/** 드롭다운 + 직접 추가 서브컴포넌트 */
+function DropdownWithAdd({
+  label,
+  value,
+  options,
+  onChange,
+  onAdd,
+  onRemove,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+  onAdd: (v: string) => void | Promise<void>;
+  onRemove: (v: string) => void | Promise<void>;
+}) {
+  // 프로필 팝업 내에서 한 번에 하나의 드롭다운만 열리도록 — 다른 드롭다운 클릭 시 자동으로 닫힘
+  const { open, setOpen } = useExclusiveDropdown("memberModal");
+  const [adding, setAdding] = useState(false);
+  const [newValue, setNewValue] = useState("");
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+  const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (
+        (!wrapRef.current || !wrapRef.current.contains(t)) &&
+        (!dropRef.current || !dropRef.current.contains(t))
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open, setOpen]);
+
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) { setDropPos(null); return; }
+    const r = buttonRef.current.getBoundingClientRect();
+    const PAD = 8;
+    const left = Math.max(PAD, Math.min(r.left, window.innerWidth - r.width - PAD));
+    setDropPos({ top: r.bottom + 2, left, width: r.width });
+  }, [open]);
+
+  const sorted = [...options].sort((a, b) => a.localeCompare(b, "ko"));
+
+  const handleAdd = () => {
+    const v = newValue.trim();
+    if (!v) return;
+    onAdd(v);
+    onChange(v);
+    setNewValue("");
+    setAdding(false);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <div className="mb-0.5 text-[9px] font-medium text-zinc-500">{label}</div>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => { setOpen((o) => !o); setAdding(false); }}
+        className="flex w-full items-center justify-between rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-950"
+      >
+        <span className={value ? "" : "text-zinc-400"}>{value || "선택"}</span>
+        <ChevronDown size={10} className="text-zinc-400" />
+      </button>
+      {open && dropPos && createPortal(
+        <div
+          ref={dropRef}
+          style={{ position: "fixed", top: dropPos.top, left: dropPos.left, width: dropPos.width, zIndex: 9999 }}
+          className="rounded border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+        >
+          <div className="max-h-36 overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => { onChange(""); setOpen(false); }}
+              className="w-full px-2 py-1 text-left text-xs text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            >
+              선택 안 함
+            </button>
+            {sorted.map((o) => (
+              <div key={o} className="flex items-center hover:bg-zinc-50 dark:hover:bg-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => { onChange(o); setOpen(false); }}
+                  className={`flex-1 px-2 py-1 text-left text-xs ${value === o ? "font-semibold" : ""}`}
+                >
+                  {o}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); void onRemove(o); }}
+                  className="px-1.5 py-1 text-[10px] text-zinc-300 hover:text-red-500"
+                  title="삭제"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-zinc-100 dark:border-zinc-800">
+            {adding ? (
+              <div className="flex gap-1 p-1">
+                <input
+                  autoFocus
+                  value={newValue}
+                  onChange={(e) => setNewValue(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+                  placeholder="새 항목..."
+                  className="flex-1 rounded border border-blue-400 px-1.5 py-0.5 text-xs outline-none dark:bg-zinc-950"
+                />
+                <button
+                  type="button"
+                  onClick={handleAdd}
+                  className="rounded bg-zinc-900 px-1.5 py-0.5 text-[10px] text-white dark:bg-zinc-100 dark:text-zinc-900"
+                >
+                  추가
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdding(false)}
+                  className="rounded border px-1.5 py-0.5 text-[10px]"
+                >
+                  취소
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAdding(true)}
+                className="w-full px-2 py-1 text-left text-[10px] text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+              >
+                + 직접 추가...
+              </button>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+/** 단순 셀렉트 드롭다운 (직접 추가 없음) */
+function SimpleSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-0.5 text-[9px] font-medium text-zinc-500">{label}</div>
+      <AppSelect
+        value={value}
+        onChange={(nextValue) => onChange(nextValue)}
+        options={[
+          { value: "", label: "선택 안 함" },
+          ...options.map((option) => ({ value: option, label: option })),
+        ]}
+        buttonClassName="w-full px-2 py-1 dark:bg-zinc-950"
+        portal
+      />
+    </div>
+  );
+}
+
+const EMPLOYMENT_STATUS_OPTIONS: EmploymentStatus[] = ["재직중", "휴직", "병가", "퇴사"];
+
+export function MemberModal(props: Props) {
+  const jobFunctions = useWorkspaceOptionsStore((s) => s.jobFunctions);
+  const jobTitles = useWorkspaceOptionsStore((s) => s.jobTitles);
+  const jobCategories = useWorkspaceOptionsStore((s) => s.jobCategories);
+  const jobDetails = useWorkspaceOptionsStore((s) => s.jobDetails);
+  const addJobTitle = useWorkspaceOptionsStore((s) => s.addJobTitle);
+  const removeJobTitle = useWorkspaceOptionsStore((s) => s.removeJobTitle);
+  const addJobCategory = useWorkspaceOptionsStore((s) => s.addJobCategory);
+  const removeJobCategory = useWorkspaceOptionsStore((s) => s.removeJobCategory);
+  const addJobDetail = useWorkspaceOptionsStore((s) => s.addJobDetail);
+  const removeJobDetail = useWorkspaceOptionsStore((s) => s.removeJobDetail);
+  const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
+
+  // 조직·팀 목록 (소속(실), 소속(팀) 셀렉트용)
+  const organizations = useOrganizationStore((s) => s.organizations.filter((o) => !o.removedAt));
+  const teams = useTeamStore((s) => s.teams.filter((t) => !t.removedAt));
+
+  const initial = props.mode === "edit" ? props.member : null;
+
+  const [email, setEmail] = useState(initial?.email ?? "");
+  const [name, setName] = useState(initial?.name ?? "");
+  const [jobRole, setJobRole] = useState(initial?.jobRole ?? "");
+  const [jobTitle, setJobTitle] = useState(initial?.jobTitle ?? "");
+  const [phone, setPhone] = useState(initial?.phone ?? "");
+  const [workspaceRole, setWorkspaceRole] = useState<Member["workspaceRole"]>(
+    initial?.workspaceRole ?? "member",
+  );
+  // 새 필드
+  const [employmentStatus, setEmploymentStatus] = useState<EmploymentStatus>(
+    initial?.employmentStatus ?? "재직중",
+  );
+  const [employeeNumber, setEmployeeNumber] = useState(initial?.employeeNumber ?? "");
+  const [department, setDepartment] = useState(initial?.department ?? "");
+  const [team, setTeam] = useState(initial?.team ?? "");
+  const [jobCategory, setJobCategory] = useState(initial?.jobCategory ?? "");
+  const [jobDetail, setJobDetail] = useState(initial?.jobDetail ?? "");
+  const [joinedAt, setJoinedAt] = useState(initial?.joinedAt ?? "");
+
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | undefined>(
+    props.mode === "edit" ? props.member.avatarUrl ?? undefined : undefined,
+  );
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | undefined>(
+    props.mode === "edit" ? props.member.thumbnailUrl ?? undefined : undefined,
+  );
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const dirty =
+    props.mode === "create"
+      ? true
+      : name !== (initial?.name ?? "") ||
+        jobRole !== (initial?.jobRole ?? "") ||
+        jobTitle !== (initial?.jobTitle ?? "") ||
+        phone !== (initial?.phone ?? "") ||
+        workspaceRole !== (initial?.workspaceRole ?? "member") ||
+        employmentStatus !== (initial?.employmentStatus ?? "재직중") ||
+        employeeNumber !== (initial?.employeeNumber ?? "") ||
+        department !== (initial?.department ?? "") ||
+        team !== (initial?.team ?? "") ||
+        jobCategory !== (initial?.jobCategory ?? "") ||
+        jobDetail !== (initial?.jobDetail ?? "") ||
+        joinedAt !== (initial?.joinedAt ?? "");
+
+  if (!props.open) return null;
+
+  const isArchived = props.mode === "edit" && props.archived === true;
+
+  const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error instanceof Error) return error.message;
+    if (error && typeof error === "object" && "errors" in error) {
+      const gqlErrors = (error as { errors?: Array<{ message?: string }> }).errors;
+      if (gqlErrors && gqlErrors.length > 0 && gqlErrors[0]?.message) {
+        return gqlErrors[0].message;
+      }
+    }
+    return fallback;
+  };
+
+  const mergeLocalProfileFields = (member: Member): Member => ({
+    ...member,
+    employmentStatus,
+    employeeNumber: employeeNumber || undefined,
+    department: department || undefined,
+    team: team || undefined,
+    jobCategory: jobCategory || undefined,
+    jobDetail: jobDetail || undefined,
+    joinedAt: joinedAt || undefined,
+  });
+
+  const detachMemberFromGroups = async (memberId: string) => {
+    const teamIds = teams
+      .filter((teamItem) => teamItem.members.some((member) => member.memberId === memberId))
+      .map((teamItem) => teamItem.teamId);
+    const organizationIds = organizations
+      .filter((orgItem) => orgItem.members.some((member) => member.memberId === memberId))
+      .map((orgItem) => orgItem.organizationId);
+
+    if (teamIds.length === 0 && organizationIds.length === 0) return;
+
+    const detachResults = await Promise.allSettled([
+      ...teamIds.map((teamId) => unassignMemberFromTeamApi(memberId, teamId)),
+      ...organizationIds.map((organizationId) =>
+        unassignMemberFromOrganizationApi(memberId, organizationId)),
+    ]);
+
+    if (detachResults.some((result) => result.status === "rejected")) {
+      console.warn("[MemberModal] 구성원 그룹 분리 일부 실패", {
+        memberId,
+        teamIds,
+        organizationIds,
+      });
+    }
+  };
+
+  const handleAvatarFile = async (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    const { avatar256, thumbnail64 } = await resizeAvatar(file);
+    setAvatarPreview(avatar256);
+    setThumbnailPreview(thumbnail64);
+  };
+
+  const handleSubmit = async () => {
+    setError(null);
+    setSubmitting(true);
+    try {
+      if (props.mode === "create") {
+        if (!email.trim() || !name.trim()) {
+          setError("이름과 이메일은 필수입니다.");
+          setSubmitting(false);
+          return;
+        }
+        await props.onCreate({ email: email.trim(), name: name.trim(), jobRole, workspaceRole });
+        props.onClose();
+      } else {
+        let updated = await updateMemberApi(props.member.memberId, {
+          name: name.trim(),
+          jobRole: jobRole || null,
+          jobTitle: jobTitle || null,
+          phone: phone || null,
+          avatarUrl: avatarPreview ?? null,
+          thumbnailUrl: thumbnailPreview ?? null,
+          employmentStatus,
+          employeeNumber: employeeNumber || null,
+          department: department || null,
+          team: team || null,
+          jobCategory: jobCategory || null,
+          jobDetail: jobDetail || null,
+          joinedAt: joinedAt || null,
+        });
+        const prevRole = initial?.workspaceRole;
+        if (workspaceRole !== prevRole) {
+          if (workspaceRole === "manager" && prevRole === "member") {
+            updated = await promoteToManagerApi(props.member.memberId);
+          } else if (workspaceRole === "member" && prevRole === "manager") {
+            updated = await demoteToMemberApi(props.member.memberId);
+          } else if (workspaceRole && workspaceRole !== "owner" && workspaceRole !== "developer") {
+            updated = await setMemberRoleApi(props.member.memberId, workspaceRole);
+          }
+        }
+        const mergedUpdated = mergeLocalProfileFields({
+          ...props.member,
+          ...updated,
+        });
+
+        if (!isArchived && employmentStatus === "퇴사") {
+          await detachMemberFromGroups(props.member.memberId);
+          const removed = await removeMemberApi(props.member.memberId);
+          props.onRemoved(mergeLocalProfileFields({
+            ...mergedUpdated,
+            ...removed,
+            status: removed.status ?? "removed",
+          }));
+          props.onClose();
+          return;
+        }
+
+        props.onUpdated(mergedUpdated);
+        props.onClose();
+      }
+    } catch (e) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else if (e && typeof e === "object" && "errors" in e) {
+        const gqlErrors = (e as { errors: Array<{ message?: string }> }).errors;
+        setError(gqlErrors[0]?.message ?? "오류가 발생했습니다.");
+      } else {
+        setError("오류가 발생했습니다.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (props.mode !== "edit") return;
+    setSubmitting(true);
+    try {
+      await detachMemberFromGroups(props.member.memberId);
+      const removed = await removeMemberApi(props.member.memberId);
+      props.onRemoved(mergeLocalProfileFields({
+        ...props.member,
+        ...removed,
+        status: removed.status ?? "removed",
+      }));
+      props.onClose();
+    } catch (e) {
+      setError(getErrorMessage(e, "보관함 이동에 실패했습니다."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (props.mode !== "edit" || !props.onRestored) return;
+    setSubmitting(true);
+    try {
+      const restored = await restoreMemberApi(props.member.memberId);
+      props.onRestored(restored);
+      props.onClose();
+    } catch (e) {
+      setError(getErrorMessage(e, "복원에 실패했습니다."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const isOwner = workspaceRole === "owner";
+
+  // 조직·팀 이름 목록
+  const orgNames = organizations.map((o) => o.name);
+  const teamNames = teams.map((t) => t.name);
+
+  return (
+    <div
+      className="fixed inset-0 z-[520] flex items-center justify-center bg-black/45 p-4"
+      role="presentation"
+      onMouseDown={(e) => e.target === e.currentTarget && props.onClose()}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="w-full max-w-2xl overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+        style={{ maxHeight: "min(92vh, 820px)" }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {/* 상단 프로필 영역 */}
+        <div className="flex flex-col items-center gap-1.5 border-b border-zinc-100 px-4 pb-3 pt-4 dark:border-zinc-800">
+          <div className="relative">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-blue-200 bg-blue-100 text-2xl dark:border-blue-900 dark:bg-blue-950">
+              {avatarPreview ? (
+                <img src={avatarPreview} className="h-full w-full rounded-full object-cover" alt="" />
+              ) : (
+                "👤"
+              )}
+            </div>
+            {props.mode === "edit" && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-700 text-[10px] text-white hover:bg-zinc-500"
+                  title="사진 변경"
+                >
+                  ✎
+                </button>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleAvatarFile(f);
+                  }}
+                />
+              </>
+            )}
+          </div>
+          {props.mode === "edit" ? (
+            <>
+              <div className="text-sm font-semibold">{name || initial?.name}</div>
+              <div className="flex flex-wrap justify-center gap-1">
+                {workspaceRole === "developer" && (
+                  <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[9px] text-purple-700 dark:bg-purple-900 dark:text-purple-300">Developer</span>
+                )}
+                {workspaceRole === "owner" && (
+                  <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] text-blue-700 dark:bg-blue-900 dark:text-blue-300">Owner</span>
+                )}
+                {workspaceRole === "leader" && (
+                  <span className="rounded bg-green-100 px-1.5 py-0.5 text-[9px] text-green-700 dark:bg-green-900 dark:text-green-300">Leader</span>
+                )}
+                {workspaceRole === "manager" && (
+                  <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[9px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">Manager</span>
+                )}
+                {employmentStatus && employmentStatus !== "재직중" && (
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">{employmentStatus}</span>
+                )}
+                {department && (
+                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">{department}</span>
+                )}
+                {jobTitle && (
+                  <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[9px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">{jobTitle}</span>
+                )}
+                {jobRole && (
+                  <span className="rounded bg-yellow-100 px-1.5 py-0.5 text-[9px] text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300">{jobRole}</span>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="text-sm font-semibold text-zinc-400">새 구성원</div>
+          )}
+        </div>
+
+        {/* 폼 영역 */}
+        <div className="p-4">
+          {/* 기본 정보 섹션 */}
+          <div className="mb-3 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">기본 정보</div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <div className="mb-0.5 text-[9px] font-medium text-zinc-500">이름 *</div>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="이름"
+                className="w-full rounded border border-zinc-300 px-2 py-1 outline-none focus:border-zinc-500 dark:border-zinc-600 dark:bg-zinc-950"
+              />
+            </div>
+            <div>
+              <div className="mb-0.5 text-[9px] font-medium text-zinc-500">이메일</div>
+              {props.mode === "create" ? (
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="이메일"
+                  className="w-full rounded border border-zinc-300 px-2 py-1 outline-none focus:border-zinc-500 dark:border-zinc-600 dark:bg-zinc-950"
+                />
+              ) : (
+                <input
+                  value={initial?.email ?? ""}
+                  disabled
+                  className="w-full rounded border border-zinc-100 bg-zinc-50 px-2 py-1 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900"
+                />
+              )}
+            </div>
+            <div>
+              <div className="mb-0.5 text-[9px] font-medium text-zinc-500">사번</div>
+              <input
+                value={employeeNumber}
+                onChange={(e) => setEmployeeNumber(e.target.value)}
+                placeholder="사번"
+                className="w-full rounded border border-zinc-300 px-2 py-1 outline-none focus:border-zinc-500 dark:border-zinc-600 dark:bg-zinc-950"
+              />
+            </div>
+            <div>
+              <div className="mb-0.5 text-[9px] font-medium text-zinc-500">입사일</div>
+              <input
+                type="date"
+                value={joinedAt}
+                onChange={(e) => setJoinedAt(e.target.value)}
+                className="w-full rounded border border-zinc-300 px-2 py-1 outline-none focus:border-zinc-500 dark:border-zinc-600 dark:bg-zinc-950"
+              />
+            </div>
+            <div>
+              <div className="mb-0.5 text-[9px] font-medium text-zinc-500">연락처</div>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="010-0000-0000"
+                className="w-full rounded border border-zinc-300 px-2 py-1 outline-none focus:border-zinc-500 dark:border-zinc-600 dark:bg-zinc-950"
+              />
+            </div>
+            <div>
+              <div className="mb-0.5 text-[9px] font-medium text-zinc-500">재직 상태</div>
+              <AppSelect
+                value={employmentStatus}
+                onChange={(nextValue) => {
+                  const value = nextValue;
+                  if (!EMPLOYMENT_STATUS_OPTIONS.includes(value as EmploymentStatus)) {
+                    setJobRole(value);
+                    return;
+                  }
+                  setEmploymentStatus(value as EmploymentStatus);
+                }}
+                options={EMPLOYMENT_STATUS_OPTIONS.map((status) => ({
+                  value: status,
+                  label: status,
+                }))}
+                buttonClassName="w-full px-2 py-1 dark:bg-zinc-950"
+              />
+            </div>
+          </div>
+
+          {/* 소속 정보 섹션 */}
+          <div className="mb-3 mt-4 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">소속 정보</div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <SimpleSelect
+              label="소속(실)"
+              value={department}
+              options={orgNames}
+              onChange={setDepartment}
+            />
+            <SimpleSelect
+              label="소속(팀)"
+              value={team}
+              options={teamNames}
+              onChange={setTeam}
+            />
+          </div>
+
+          {/* 직무 정보 섹션 */}
+          <div className="mb-3 mt-4 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">직무 정보</div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <div className="mb-0.5 text-[9px] font-medium text-zinc-500">직무</div>
+              <AppSelect
+                ariaLabel="직무"
+                value={jobRole}
+                onChange={(nextValue) => setJobRole(nextValue)}
+                options={[
+                  { value: "", label: "선택" },
+                  ...[...new Set([...jobFunctions, "PM"])].map((option) => ({
+                    value: option,
+                    label: option,
+                  })),
+                ]}
+                buttonClassName="w-full px-2 py-1 dark:bg-zinc-950"
+              />
+            </div>
+            <DropdownWithAdd
+              label="직책"
+              value={jobTitle}
+              options={jobTitles}
+              onChange={setJobTitle}
+              onAdd={async (v) => {
+                addJobTitle(v);
+                if (currentWorkspaceId) {
+                  await updateWorkspaceOptionsApi(currentWorkspaceId, {
+                    jobTitles: useWorkspaceOptionsStore.getState().jobTitles,
+                  });
+                }
+              }}
+              onRemove={async (v) => {
+                removeJobTitle(v);
+                if (currentWorkspaceId) {
+                  await updateWorkspaceOptionsApi(currentWorkspaceId, {
+                    jobTitles: useWorkspaceOptionsStore.getState().jobTitles,
+                  });
+                }
+              }}
+            />
+            <DropdownWithAdd
+              label="직무 카테고리"
+              value={jobCategory}
+              options={jobCategories}
+              onChange={setJobCategory}
+              onAdd={(v) => addJobCategory(v)}
+              onRemove={(v) => removeJobCategory(v)}
+            />
+            <DropdownWithAdd
+              label="상세직무"
+              value={jobDetail}
+              options={jobDetails}
+              onChange={setJobDetail}
+              onAdd={(v) => addJobDetail(v)}
+              onRemove={(v) => removeJobDetail(v)}
+            />
+          </div>
+
+          {/* 권한 섹션 */}
+          <div className="mb-3 mt-4 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">권한</div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <div className="mb-0.5 text-[9px] font-medium text-zinc-500">역할 (권한)</div>
+              <AppSelect
+                value={workspaceRole}
+                onChange={(nextValue) => setWorkspaceRole(nextValue as Member["workspaceRole"])}
+                disabled={isOwner || workspaceRole === "developer"}
+                options={
+                  workspaceRole === "developer"
+                    ? [{ value: "developer", label: "Developer" }]
+                    : workspaceRole === "owner"
+                      ? [{ value: "owner", label: "Owner" }]
+                      : [
+                        { value: "owner", label: "Owner" },
+                        { value: "leader", label: "Leader" },
+                        { value: "manager", label: "Manager" },
+                        { value: "member", label: "Member" },
+                      ]
+                }
+                buttonClassName="w-full px-2 py-1 dark:bg-zinc-950 disabled:cursor-not-allowed disabled:opacity-60"
+                portal
+              />
+            </div>
+          </div>
+
+          {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+
+          <div className="mt-4 flex items-center justify-between">
+            {isArchived ? (
+              <button
+                type="button"
+                onClick={() => void handleRestore()}
+                disabled={submitting}
+                className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                구성원으로 이동
+              </button>
+            ) : (
+              props.mode === "edit" && !isOwner ? (
+                <button
+                  type="button"
+                  onClick={() => void handleRemove()}
+                  disabled={submitting}
+                  className="rounded bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-700 disabled:opacity-60"
+                >
+                  보관함으로 이동
+                </button>
+              ) : (
+                <span />
+              )
+            )}
+            {!isArchived && (
+              <div className="flex gap-2">
+                <button type="button" onClick={props.onClose} className="rounded border px-3 py-1 text-sm">
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleSubmit()}
+                  disabled={submitting || (props.mode === "edit" && !dirty)}
+                  className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700 disabled:opacity-40"
+                >
+                  {submitting ? "처리 중..." : props.mode === "create" ? "추가" : "갱신"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,271 @@
+// pageStore 트리 셀렉터·필터 — 순수 함수.
+// pageStore.ts 에서 분리 — 동작 변경 없음.
+
+import type { Page } from "../../types/page";
+import { isProtectedDatabaseId } from "../../lib/scheduler/database";
+import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
+import type { PageStore } from "../pageStore";
+
+/** 사이드바/트리에서 숨기는 DB 전용 풀페이지 홈 — 랜딩 기본값 계산에도 동일 규칙 적용 */
+export function isFullPageDatabaseHomePage(page: Page): boolean {
+  // 메타데이터 필드 우선 확인 — doc 로드 전에도 식별 가능
+  if (page.fullPageDatabaseId) return true;
+  // 레거시·마이그레이션 페이지: doc content 로 폴백
+  const first = page.doc?.content?.[0] as
+    | { type?: string; attrs?: Record<string, unknown> }
+    | undefined;
+  return (
+    !!first &&
+    first.type === "databaseBlock" &&
+    first.attrs?.layout === "fullPage" &&
+    typeof first.attrs?.databaseId === "string"
+  );
+}
+
+function getFirstDatabaseBlockId(page: Page): string | null {
+  const first = page.doc?.content?.[0] as
+    | { type?: string; attrs?: Record<string, unknown> }
+    | undefined;
+  if (first?.type !== "databaseBlock") return null;
+  const databaseId = first.attrs?.databaseId;
+  return typeof databaseId === "string" ? databaseId : null;
+}
+
+export function isProtectedDatabaseBlockPage(page: Page): boolean {
+  if (isProtectedDatabaseId(page.databaseId)) return true;
+  // workspaceId 없는 레거시 LC 루트 페이지는 현재 워크스페이스 판별만으로 거를 수 없다.
+  // 현재 워크스페이스에 속한 일반 페이지의 inline 보호 DB 링크는 사이드바에 남겨야 한다.
+  if (page.workspaceId != null) return false;
+  return isProtectedDatabaseId(getFirstDatabaseBlockId(page));
+}
+
+/**
+ * 페이지 자체 또는 조상 중 하나라도 사이드바에서 숨기는 페이지(DB 행 페이지, DB 전용 홈 페이지)
+ * 가 있는지 검사. DB 항목 내부에서 생성한 자식 페이지를 사이드바·트리·검색에서 모두 숨기기 위함.
+ */
+function isHiddenInSidebar(
+  page: Page,
+  pages: Record<string, Page>,
+  currentWorkspaceId: string | null,
+): boolean {
+  // 다른 워크스페이스(예: LC 스케줄러 공용 워크스페이스) 페이지가 구독/스냅샷으로
+  // 공용 store 에 섞여 들어와도 현재 워크스페이스 사이드바엔 절대 노출하지 않는다.
+  // workspaceId 가 없는(레거시) 페이지는 안전하게 현재 워크스페이스 소속으로 간주.
+  if (
+    currentWorkspaceId != null &&
+    page.workspaceId != null &&
+    page.workspaceId !== currentWorkspaceId
+  ) {
+    return true;
+  }
+  if (
+    currentWorkspaceId !== LC_SCHEDULER_WORKSPACE_ID &&
+    isProtectedDatabaseBlockPage(page)
+  ) {
+    return true;
+  }
+  let cursor: Page | undefined = page;
+  // 순환 안전장치
+  const seen = new Set<string>();
+  while (cursor) {
+    if (seen.has(cursor.id)) break;
+    seen.add(cursor.id);
+    if (cursor.databaseId != null) return true;
+    if (isFullPageDatabaseHomePage(cursor)) return true;
+    cursor = cursor.parentId ? pages[cursor.parentId] : undefined;
+  }
+  return false;
+}
+
+export function selectSortedPages(state: PageStore): Page[] {
+  return Object.values(state.pages)
+    .filter((p) => !isHiddenInSidebar(p, state.pages, state.cacheWorkspaceId))
+    .sort((a, b) => a.order - b.order);
+}
+
+export type PageNode = Page & { children: PageNode[] };
+
+/**
+ * 사이드바 트리의 "첫 번째 인덱스" 루트 페이지 id.
+ * selectPageTree()[0] 과 동일한 규칙(루트 = parentId 없음, DB 행/홈 페이지 제외, order 정렬)을
+ * 전체 트리 빌드 없이 O(n) 으로 계산한다. 새로고침 시 기본 선택 페이지 결정에 사용.
+ */
+export function selectFirstSidebarRootId(state: PageStore): string | null {
+  let best: Page | null = null;
+  for (const p of Object.values(state.pages)) {
+    if (p.parentId != null) continue; // 루트만
+    if (isHiddenInSidebar(p, state.pages, state.cacheWorkspaceId)) continue; // DB 행/홈 페이지 제외
+    if (
+      !best ||
+      p.order < best.order ||
+      (p.order === best.order && p.id < best.id)
+    ) {
+      best = p;
+    }
+  }
+  return best?.id ?? null;
+}
+
+// 트리 셀렉터: parentId 기반 재귀 빌드. 형제들은 order로 정렬.
+export function selectPageTree(state: PageStore): PageNode[] {
+  const byParent = new Map<string | null, Page[]>();
+  for (const p of Object.values(state.pages)) {
+    if (isHiddenInSidebar(p, state.pages, state.cacheWorkspaceId)) continue; // DB 행/홈 페이지와 그 자식은 트리에서 제외
+    const list = byParent.get(p.parentId) ?? [];
+    list.push(p);
+    byParent.set(p.parentId, list);
+  }
+  for (const list of byParent.values()) {
+    list.sort((a, b) => a.order - b.order);
+  }
+  const build = (parentId: string | null): PageNode[] =>
+    (byParent.get(parentId) ?? []).map((p) => ({
+      ...p,
+      children: build(p.id),
+    }));
+  return build(null);
+}
+
+/**
+ * "다른 페이지로 이동" 등 모든 페이지를 후보로 보여줘야 하는 컨텍스트용 트리 셀렉터.
+ * DB 행 페이지와 그 자식까지 포함하고, fullPage DB 홈 페이지만 제외한다.
+ */
+export function selectFullPageTree(state: PageStore): PageNode[] {
+  const byParent = new Map<string | null, Page[]>();
+  for (const p of Object.values(state.pages)) {
+    if (isHiddenFromSearch(p, state.pages, state.cacheWorkspaceId)) continue;
+    const list = byParent.get(p.parentId) ?? [];
+    list.push(p);
+    byParent.set(p.parentId, list);
+  }
+  for (const list of byParent.values()) {
+    list.sort((a, b) => a.order - b.order);
+  }
+  const build = (parentId: string | null): PageNode[] =>
+    (byParent.get(parentId) ?? []).map((p) => ({
+      ...p,
+      children: build(p.id),
+    }));
+  return build(null);
+}
+
+/**
+ * 검색 결과에서 숨기는 페이지 판정.
+ * 트리와 달리 검색에선 DB 항목 페이지도 포함하고, fullPage DB 홈 페이지만 숨긴다.
+ */
+function isHiddenFromSearch(
+  page: Page,
+  pages: Record<string, Page>,
+  currentWorkspaceId: string | null,
+): boolean {
+  // 타 워크스페이스 페이지는 검색 결과에서도 제외 (사이드바와 동일 규칙).
+  if (
+    currentWorkspaceId != null &&
+    page.workspaceId != null &&
+    page.workspaceId !== currentWorkspaceId
+  ) {
+    return true;
+  }
+  if (
+    currentWorkspaceId !== LC_SCHEDULER_WORKSPACE_ID &&
+    isProtectedDatabaseBlockPage(page)
+  ) {
+    return true;
+  }
+  let cursor: Page | undefined = page;
+  const seen = new Set<string>();
+  while (cursor) {
+    if (seen.has(cursor.id)) break;
+    seen.add(cursor.id);
+    if (isFullPageDatabaseHomePage(cursor)) return true;
+    cursor = cursor.parentId ? pages[cursor.parentId] : undefined;
+  }
+  return false;
+}
+
+// 검색 필터: 매치되는 페이지와 그 조상을 함께 반환.
+export function filterPageTree(
+  state: PageStore,
+  query: string,
+): PageNode[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return selectPageTree(state);
+  const matched = new Set<string>();
+  for (const p of Object.values(state.pages)) {
+    // 검색 시에는 DB 항목 페이지도 포함; fullPage DB 홈 페이지만 제외
+    if (isHiddenFromSearch(p, state.pages, state.cacheWorkspaceId)) continue;
+    if (p.title.toLowerCase().includes(q)) matched.add(p.id);
+  }
+  // 매치된 페이지의 표시 가능한 조상 포함.
+  const include = new Set(matched);
+  for (const id of matched) {
+    let cursor: string | null = state.pages[id]?.parentId ?? null;
+    while (cursor) {
+      const parent = state.pages[cursor];
+      if (!parent) break;
+      if (!isHiddenFromSearch(parent, state.pages, state.cacheWorkspaceId)) {
+        include.add(cursor);
+      }
+      cursor = parent.parentId;
+    }
+  }
+  const visiblePages = Object.values(state.pages)
+    .filter((p) => include.has(p.id))
+    .filter((p) => !isHiddenFromSearch(p, state.pages, state.cacheWorkspaceId))
+    .sort((a, b) => a.order - b.order);
+  const visibleIds = new Set(visiblePages.map((p) => p.id));
+  const byParent = new Map<string | null, Page[]>();
+  for (const p of visiblePages) {
+    const parentId =
+      p.parentId && visibleIds.has(p.parentId) ? p.parentId : null;
+    const list = byParent.get(parentId) ?? [];
+    list.push(p);
+    byParent.set(parentId, list);
+  }
+  const build = (parentId: string | null): PageNode[] =>
+    (byParent.get(parentId) ?? []).map((p) => ({
+      ...p,
+      children: build(p.id),
+    }));
+  return build(null);
+}
+
+function pageTreeSignature(state: PageStore, query: string): string {
+  const q = query.trim().toLowerCase();
+  // 현재 워크스페이스가 바뀌면 필터 결과가 달라지므로 시그니처에 포함.
+  const wsKey = state.cacheWorkspaceId ?? "";
+  const body = Object.values(state.pages)
+    .map((p) => {
+      const first = p.doc?.content?.[0] as
+        | { type?: string; attrs?: Record<string, unknown> }
+        | undefined;
+      return [
+        p.id,
+        p.title,
+        p.icon ?? "",
+        p.parentId ?? "",
+        p.order,
+        p.databaseId ?? "",
+        p.workspaceId ?? "",
+        first?.type ?? "",
+        first?.attrs?.layout ?? "",
+        first?.attrs?.databaseId ?? "",
+        q ? p.title.toLowerCase() : "",
+      ].join("\u001f");
+    })
+    .join("\u001e");
+  return `${wsKey}${body}`;
+}
+
+export function createFilterPageTreeSelector(query: string) {
+  let lastSignature = "";
+  let lastTree: PageNode[] = [];
+
+  return (state: PageStore): PageNode[] => {
+    const signature = pageTreeSignature(state, query);
+    if (signature === lastSignature) return lastTree;
+    lastSignature = signature;
+    lastTree = filterPageTree(state, query);
+    return lastTree;
+  };
+}

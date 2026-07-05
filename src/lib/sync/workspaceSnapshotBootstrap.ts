@@ -1,0 +1,348 @@
+import { unstable_batchedUpdates } from "react-dom";
+import { useBlockCommentStore } from "../../store/blockCommentStore";
+import { useUiStore } from "../../store/uiStore";
+import {
+  fetchDatabasesByWorkspace,
+  fetchPageMetasBatch,
+  fetchPageMetasByWorkspace,
+  fetchPagesByWorkspace,
+} from "./bootstrap";
+import { usePageMetaRemoteStore } from "../../store/pageMetaRemoteStore";
+import { fetchCommentsByWorkspace } from "./commentApi";
+import { getSyncEngine } from "./runtime";
+import {
+  applyRemotePageMetasToStore,
+  applyRemotePagesToStore,
+  applyRemoteDatabasesToStore,
+  reconcileWorkspacePagesFullSnapshot,
+  reconcileWorkspaceDatabasesFullSnapshot,
+} from "./storeApply";
+import { applyRemoteCommentsToStore } from "./storeApply/commentApply";
+import { applyWorkspaceLanding } from "./workspaceLanding";
+import {
+  clearWorkspaceScopedStores,
+  refreshWorkspaceSnapshot,
+} from "./workspaceSwitch";
+import { useSyncWatermarkStore } from "../../store/syncWatermarkStore";
+
+type FetchApplyWorkspaceSnapshotOptions = {
+  workspaceId: string;
+  cancelled?: () => boolean;
+  clearWorkspaceBeforeApply?: boolean;
+  clearBlockCommentsBeforeApply?: boolean;
+  applyLandingAfterApply?: boolean;
+  /** 워크스페이스 전환 진입 시 true — landing 이 직전 상태를 무시하고 첫 인덱스 페이지로 리셋한다. */
+  landingForceFirstRoot?: boolean;
+  refreshSnapshotAfterApply?: boolean;
+  useBatchedUpdates?: boolean;
+  logPrefix?: string;
+  /**
+   * 지정 시 "증분 모드": 이 시각 이후 변경분만 페치하고 좀비 prune 을 건너뛴다.
+   * (부분 스냅샷으로 prune 하면 변경되지 않은 항목이 모두 삭제되므로 절대 prune 하지 않는다.)
+   * 전체 prune 이 필요한 복구 경로는 이 값을 비워 전체 모드로 호출해야 한다.
+   */
+  updatedAfter?: string;
+};
+
+/** 항목 배열들에서 최대 updatedAt(ISO) 을 구한다. 없으면 undefined. */
+function maxUpdatedAt(
+  ...lists: Array<Array<{ updatedAt?: string | null } | null> | null>
+): string | undefined {
+  let max: string | undefined;
+  for (const list of lists) {
+    if (!list) continue;
+    for (const item of list) {
+      const u = item?.updatedAt;
+      if (typeof u === "string" && (!max || u > max)) max = u;
+    }
+  }
+  return max;
+}
+
+function logFetchFailure(domainLabel: string, reason: unknown, logPrefix?: string): void {
+  const prefix = logPrefix ? `${logPrefix} — ` : "";
+  console.error(`[sync] ${prefix}${domainLabel} 페치 실패, 기존 캐시 유지`, reason);
+}
+
+function errorText(reason: unknown): string {
+  if (reason instanceof Error) return `${reason.message}\n${reason.stack ?? ""}`;
+  try {
+    return JSON.stringify(reason);
+  } catch {
+    return String(reason);
+  }
+}
+
+function isPageMetaSchemaUnavailable(reason: unknown): boolean {
+  const text = errorText(reason);
+  const schemaValidationError =
+    text.includes("Cannot query field") ||
+    text.includes("Unknown field") ||
+    text.includes("Validation error") ||
+    text.includes("FieldUndefined");
+  return schemaValidationError && text.includes("listPageMetas");
+}
+
+
+/** 워크스페이스 원격 스냅샷을 가져와 부분 실패를 보존하면서 로컬 store에 적용한다. */
+export async function fetchApplyWorkspaceRemoteSnapshot({
+  workspaceId,
+  cancelled,
+  clearWorkspaceBeforeApply = false,
+  clearBlockCommentsBeforeApply = false,
+  applyLandingAfterApply = false,
+  landingForceFirstRoot = false,
+  refreshSnapshotAfterApply = false,
+  useBatchedUpdates = false,
+  logPrefix,
+  updatedAfter,
+}: FetchApplyWorkspaceSnapshotOptions): Promise<void> {
+  const isDelta = Boolean(updatedAfter);
+  const engine = await getSyncEngine();
+  const [[pagesResult, dbsResult, commentsResult], pendingIds] = await Promise.all([
+    Promise.allSettled([
+      fetchPagesByWorkspace(workspaceId, updatedAfter),
+      // DB 는 워크스페이스당 소수라 항상 전체 조회한다(updatedAfter 무시). 그래야 증분 동기화에서도
+      // 서버에서 사라진 좀비 DB(과거 임포트·삭제 잔재)를 prune 할 권위 있는 전체 목록을 얻는다.
+      fetchDatabasesByWorkspace(workspaceId),
+      // 댓글은 로컬 persist 안 됨(messages 미저장) → 콜드로드마다 빈 상태로 시작.
+      // 공유 워터마크로 증분 조회하면 워터마크 이전 댓글을 영영 못 받으므로 항상 전체 조회.
+      fetchCommentsByWorkspace(workspaceId),
+    ]),
+    engine.getPendingUpsertEntityIds(),
+  ]);
+  if (cancelled?.()) return;
+
+  const pages = pagesResult.status === "fulfilled" ? pagesResult.value : null;
+  const dbs = dbsResult.status === "fulfilled" ? dbsResult.value : null;
+  const comments = commentsResult.status === "fulfilled" ? commentsResult.value : null;
+
+  const failedDomains: string[] = [];
+  if (pagesResult.status === "rejected") {
+    failedDomains.push("pages");
+    logFetchFailure("페이지", pagesResult.reason, logPrefix);
+  }
+  if (dbsResult.status === "rejected") {
+    failedDomains.push("databases");
+    logFetchFailure("DB", dbsResult.reason, logPrefix);
+  }
+  if (commentsResult.status === "rejected") {
+    failedDomains.push("comments");
+    logFetchFailure("댓글", commentsResult.reason, logPrefix);
+  }
+  useUiStore
+    .getState()
+    .setSyncPartialFetchFailed(failedDomains.length > 0 ? failedDomains : null);
+
+  const remotePageIds = new Set<string>();
+  if (pages) for (const page of pages) if (page?.id) remotePageIds.add(page.id);
+  const remoteDatabaseIds = new Set<string>();
+  if (dbs) for (const database of dbs) if (database?.id) remoteDatabaseIds.add(database.id);
+
+  const apply = () => {
+    if (clearWorkspaceBeforeApply && !isDelta) {
+      clearWorkspaceScopedStores(workspaceId);
+    }
+    if (clearBlockCommentsBeforeApply && !isDelta) {
+      useBlockCommentStore.getState().clearMessages();
+    }
+    if (pages) applyRemotePagesToStore(pages);
+    if (!isDelta && pages) {
+      usePageMetaRemoteStore.getState().setNextToken(workspaceId, null);
+    }
+    if (dbs) applyRemoteDatabasesToStore(dbs);
+    if (comments) applyRemoteCommentsToStore(comments);
+    // 페이지 좀비 정리(prune)는 전체 스냅샷에서만 안전하다. 증분 모드에서는 부분 결과만 오므로
+    // prune 하면 변경되지 않은 멀쩡한 페이지까지 삭제된다 → 비-delta + pages 성공 시에만 수행.
+    if (!isDelta && pages) {
+      reconcileWorkspacePagesFullSnapshot({
+        workspaceId,
+        remotePageIds,
+        pendingUpsertPageIds: pendingIds.pages,
+      });
+    }
+    // DB 는 항상 전체 조회하므로(위 fetch) 증분 모드에서도 prune 이 안전하다.
+    // DB fetch 가 성공(dbs != null)한 경우에만 실행(부분 실패 시 유효 DB 삭제 방지).
+    if (dbs) {
+      reconcileWorkspaceDatabasesFullSnapshot({
+        workspaceId,
+        remoteDatabaseIds,
+        pendingUpsertDatabaseIds: pendingIds.databases,
+      });
+    }
+    if (applyLandingAfterApply) {
+      applyWorkspaceLanding(workspaceId, { forceFirstRoot: landingForceFirstRoot });
+    }
+    if (refreshSnapshotAfterApply) {
+      refreshWorkspaceSnapshot(workspaceId);
+    }
+  };
+
+  if (useBatchedUpdates) {
+    unstable_batchedUpdates(apply);
+  } else {
+    apply();
+  }
+
+  // 모든 도메인이 성공한 경우에만 워터마크를 전진시킨다.
+  // (한 도메인이라도 실패하면 그 도메인의 미수신 변경분을 다음 증분에서 놓치지 않도록 보류.)
+  if (failedDomains.length === 0) {
+    const mx = maxUpdatedAt(pages, dbs, comments);
+    if (mx) useSyncWatermarkStore.getState().advance(workspaceId, mx);
+  }
+
+  // 영구삭제(hard delete)는 델타에 tombstone 이 없어 증분만 도는 PC 에 유령 페이지가 남는다.
+  // 세션당 워크스페이스별 1회, 전체 페이지 메타 ID 목록(권위)과 대사해 서버에 없는 좀비를 정리한다.
+  // 전체 목록 조회 실패 시 prune 은 위험하므로 건너뛰고 다음 증분에서 재시도한다.
+  if (isDelta && pages && !zombiePruneReconciledWorkspaces.has(workspaceId) && !cancelled?.()) {
+    try {
+      const metas = await fetchPageMetasByWorkspace(workspaceId);
+      if (cancelled?.()) return;
+      const fullRemotePageIds = new Set<string>();
+      for (const m of metas) if (m?.id) fullRemotePageIds.add(m.id);
+      const { removedPageIds } = reconcileWorkspacePagesFullSnapshot({
+        workspaceId,
+        remotePageIds: fullRemotePageIds,
+        pendingUpsertPageIds: pendingIds.pages,
+      });
+      zombiePruneReconciledWorkspaces.add(workspaceId);
+      // prune 결과를 persist 스냅샷에도 반영해야 새로고침 시 유령이 부활하지 않는다.
+      if (removedPageIds.length > 0) refreshWorkspaceSnapshot(workspaceId);
+    } catch {
+      /* 다음 증분에서 재시도 */
+    }
+  }
+}
+
+// 증분 모드 좀비 대사를 앱 세션당 워크스페이스별 1회로 제한하는 플래그.
+const zombiePruneReconciledWorkspaces = new Set<string>();
+
+export async function fetchApplyWorkspaceRemoteMetaSnapshot({
+  workspaceId,
+  cancelled,
+  clearWorkspaceBeforeApply = false,
+  clearBlockCommentsBeforeApply = false,
+  applyLandingAfterApply = false,
+  landingForceFirstRoot = false,
+  refreshSnapshotAfterApply = false,
+  useBatchedUpdates = false,
+  logPrefix,
+  updatedAfter,
+}: FetchApplyWorkspaceSnapshotOptions): Promise<void> {
+  const isDelta = Boolean(updatedAfter);
+  const engine = await getSyncEngine();
+  const [[pageMetasBatchResult, dbsResult, commentsResult], pendingIds] = await Promise.all([
+    Promise.allSettled([
+      fetchPageMetasBatch({ workspaceId, updatedAfter }),
+      // DB 는 워크스페이스당 소수라 항상 전체 조회한다(updatedAfter 무시) — 좀비 DB prune 용 권위 목록.
+      fetchDatabasesByWorkspace(workspaceId),
+      // 댓글은 로컬 persist 안 됨(messages 미저장) → 콜드로드마다 빈 상태로 시작.
+      // 공유 워터마크로 증분 조회하면 워터마크 이전 댓글을 영영 못 받으므로 항상 전체 조회.
+      fetchCommentsByWorkspace(workspaceId),
+    ]),
+    engine.getPendingUpsertEntityIds(),
+  ]);
+  if (cancelled?.()) return;
+
+  const pageMetasBatch = pageMetasBatchResult.status === "fulfilled" ? pageMetasBatchResult.value : null;
+  const dbs = dbsResult.status === "fulfilled" ? dbsResult.value : null;
+  const comments = commentsResult.status === "fulfilled" ? commentsResult.value : null;
+
+  const failedDomains: string[] = [];
+  let pageMetaSchemaUnavailable = false;
+  if (pageMetasBatchResult.status === "rejected") {
+    if (isPageMetaSchemaUnavailable(pageMetasBatchResult.reason)) {
+      pageMetaSchemaUnavailable = true;
+      console.warn("[sync] 페이지 메타 API 미배포(스키마 검증 거부), 전체 스냅샷 fallback 대기", {
+        workspaceId,
+        logPrefix,
+        reason: errorText(pageMetasBatchResult.reason).slice(0, 500),
+      });
+    } else {
+      failedDomains.push("pageMetas");
+      logFetchFailure("페이지 메타", pageMetasBatchResult.reason, logPrefix);
+    }
+  }
+  if (dbsResult.status === "rejected") {
+    failedDomains.push("databases");
+    logFetchFailure("DB", dbsResult.reason, logPrefix);
+  }
+  if (commentsResult.status === "rejected") {
+    failedDomains.push("comments");
+    logFetchFailure("댓글", commentsResult.reason, logPrefix);
+  }
+  useUiStore
+    .getState()
+    .setSyncPartialFetchFailed(failedDomains.length > 0 ? failedDomains : null);
+
+  const apply = () => {
+    if (clearWorkspaceBeforeApply && !isDelta) {
+      clearWorkspaceScopedStores(workspaceId);
+    }
+    if (clearBlockCommentsBeforeApply && !isDelta) {
+      useBlockCommentStore.getState().clearMessages();
+    }
+    if (pageMetasBatch) {
+      applyRemotePageMetasToStore(pageMetasBatch.items);
+      usePageMetaRemoteStore.getState().setNextToken(workspaceId, pageMetasBatch.nextToken ?? null);
+    }
+    if (dbs) applyRemoteDatabasesToStore(dbs);
+    if (comments) applyRemoteCommentsToStore(comments);
+    // DB 는 항상 전체 조회하므로 좀비 DB prune 이 안전하다(페이지는 메타 페이지네이션이라 여기서 prune 안 함).
+    if (dbs) {
+      const remoteDatabaseIds = new Set<string>();
+      for (const database of dbs) if (database?.id) remoteDatabaseIds.add(database.id);
+      reconcileWorkspaceDatabasesFullSnapshot({
+        workspaceId,
+        remoteDatabaseIds,
+        pendingUpsertDatabaseIds: pendingIds.databases,
+      });
+    }
+    if (applyLandingAfterApply) applyWorkspaceLanding(workspaceId, { forceFirstRoot: landingForceFirstRoot });
+  };
+
+  if (useBatchedUpdates) {
+    unstable_batchedUpdates(apply);
+  } else {
+    apply();
+  }
+
+  // 페이지 메타가 스키마 거부로 한 건도 안 들어온 상태에서 dbs/comments 기준으로 워터마크를
+  // 전진시키면, 이후 증분(delta) 모드가 그 이전 페이지를 영영 못 받는다 → 전진 보류.
+  if (failedDomains.length === 0 && !pageMetaSchemaUnavailable) {
+    const mx = maxUpdatedAt(pageMetasBatch?.items ?? [], dbs, comments);
+    if (mx) useSyncWatermarkStore.getState().advance(workspaceId, mx);
+  }
+
+  // 100개 초과 워크스페이스: nextToken 있으면 나머지 페이지 메타를 모두 로드
+  if (pageMetasBatch?.nextToken && !cancelled?.()) {
+    let nextToken: string | null = pageMetasBatch.nextToken;
+    // 서버가 동일 토큰을 반복 반환하면 무한 루프에 빠지므로 본 토큰을 추적해 차단
+    const seenTokens = new Set<string>([nextToken]);
+    while (nextToken && !cancelled?.()) {
+      try {
+        const moreBatch = await fetchPageMetasBatch({ workspaceId, nextToken });
+        applyRemotePageMetasToStore(moreBatch.items);
+        const prevToken: string = nextToken;
+        nextToken = moreBatch.nextToken ?? null;
+        if (nextToken && (nextToken === prevToken || seenTokens.has(nextToken))) {
+          console.warn("[sync] 페이지 메타 nextToken 반복 감지 — 루프 중단", { workspaceId });
+          break;
+        }
+        if (nextToken) seenTokens.add(nextToken);
+        usePageMetaRemoteStore.getState().setNextToken(workspaceId, nextToken);
+        const mx = maxUpdatedAt(moreBatch.items);
+        if (mx) useSyncWatermarkStore.getState().advance(workspaceId, mx);
+      } catch (error) {
+        console.warn("[sync] 페이지 메타 추가 배치 페치 실패", { workspaceId, error });
+        break;
+      }
+    }
+  }
+
+  // 모든 페이지 메타 로드 완료(nextToken 없음) 후 스냅샷 갱신
+  const finalToken = usePageMetaRemoteStore.getState().nextTokenByWorkspaceId[workspaceId];
+  if (refreshSnapshotAfterApply && pageMetasBatch && !finalToken && !cancelled?.()) {
+    refreshWorkspaceSnapshot(workspaceId);
+  }
+}

@@ -1,0 +1,417 @@
+import { useMemo, useRef, useState } from "react";
+import { Plus, Search } from "lucide-react";
+import { useWorkspaceStore } from "../../store/workspaceStore";
+import { useUiStore } from "../../store/uiStore";
+import { useSettingsStore } from "../../store/settingsStore";
+import { useWorkspaceAccessCacheStore } from "../../store/workspaceAccessCacheStore";
+import { EntityCard } from "../common/EntityCard";
+import {
+  archiveWorkspaceApi,
+  createWorkspaceApi,
+  deleteWorkspaceApi,
+  getWorkspaceApi,
+  listMyWorkspacesApi,
+  restoreWorkspaceApi,
+  setWorkspaceAccessApi,
+  updateWorkspaceApi,
+  type WorkspaceAccessInput,
+} from "../../lib/sync/workspaceApi";
+import { CreateWorkspaceModal } from "../workspace/CreateWorkspaceModal";
+import { EditWorkspaceModal } from "../workspace/EditWorkspaceModal";
+import { WorkspaceDeleteConfirmDialog } from "../workspace/WorkspaceDeleteConfirmDialog";
+import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
+
+type TabType = "active" | "archived";
+
+export function AdminWorkspacesTab() {
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const upsertWorkspace = useWorkspaceStore((s) => s.upsertWorkspace);
+  const setWorkspaces = useWorkspaceStore((s) => s.setWorkspaces);
+  const showToast = useUiStore((s) => s.showToast);
+  const entityIcons = useSettingsStore((s) => s.entityIcons);
+  const entityDescriptions = useSettingsStore((s) => s.entityDescriptions);
+  const setEntityDescription = useSettingsStore((s) => s.setEntityDescription);
+  const entriesCache = useWorkspaceAccessCacheStore((s) => s.cache);
+  const setCacheEntry = useWorkspaceAccessCacheStore((s) => s.setCache);
+
+  const [activeTab, setActiveTab] = useState<TabType>("active");
+  const [listQuery, setListQuery] = useState("");
+  const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(null);
+  const [openCreate, setOpenCreate] = useState(false);
+  const [openEdit, setOpenEdit] = useState(false);
+  const [editEntries, setEditEntries] = useState<WorkspaceAccessInput[]>([]);
+  const [editDescription, setEditDescription] = useState("");
+  const [archivedActionId, setArchivedActionId] = useState<string | null>(null);
+  const [archivedActionLoading, setArchivedActionLoading] = useState(false);
+  const [deleteWorkspaceId, setDeleteWorkspaceId] = useState<string | null>(null);
+  const [deletePhraseDraft, setDeletePhraseDraft] = useState("");
+
+  // 중복 페치 방지용 — 모듈 레벨이어도 되지만 ref로 컴포넌트에 귀속
+  const fetchingRef = useRef(new Set<string>());
+
+  const sharedAll = useMemo(
+    () => workspaces.filter((w) => w.type === "shared"),
+    [workspaces],
+  );
+  const activeWorkspaces = useMemo(() => {
+    const q = listQuery.trim().toLowerCase();
+    return sharedAll
+      .filter((w) => !w.removedAt)
+      .filter((w) => !q || w.name.toLowerCase().includes(q))
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  }, [sharedAll, listQuery]);
+  const archivedWorkspaces = useMemo(() => {
+    const q = listQuery.trim().toLowerCase();
+    return sharedAll
+      .filter((w) => !!w.removedAt)
+      .filter((w) => !q || w.name.toLowerCase().includes(q))
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  }, [sharedAll, listQuery]);
+
+  const editingWorkspace = useMemo(
+    () => sharedAll.find((w) => w.workspaceId === editingWorkspaceId) ?? null,
+    [sharedAll, editingWorkspaceId],
+  );
+  const editingWorkspaceLocked =
+    editingWorkspace?.workspaceId === LC_SCHEDULER_WORKSPACE_ID;
+
+  const openEditModal = (workspaceId: string) => {
+    const target = sharedAll.find((w) => w.workspaceId === workspaceId);
+    if (!target) return;
+
+    if (target.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
+      setEditEntries([{ subjectType: "EVERYONE", level: "EDIT" }]);
+      setEditDescription(entityDescriptions[workspaceId] ?? "");
+      setEditingWorkspaceId(workspaceId);
+      setOpenEdit(true);
+      return;
+    }
+
+    // 캐시가 있으면 즉시 열기
+    const cached = entriesCache[workspaceId];
+    setEditEntries(cached ?? []);
+    setEditDescription(entityDescriptions[workspaceId] ?? "");
+    setEditingWorkspaceId(workspaceId);
+    setOpenEdit(true);
+
+    // 아직 불러오지 않은 경우 백그라운드 페치 후 캐시 저장
+    if (!cached && !fetchingRef.current.has(workspaceId)) {
+      fetchingRef.current.add(workspaceId);
+      void getWorkspaceApi(workspaceId)
+        .then((detail) => {
+          setCacheEntry(workspaceId, detail.access);
+          // 현재 열린 모달이 이 워크스페이스이면 entries 업데이트
+          setEditingWorkspaceId((cur) => {
+            if (cur === workspaceId) setEditEntries(detail.access);
+            return cur;
+          });
+        })
+        .catch(() => {
+          showToast("접근 규칙을 불러오지 못했습니다.", { kind: "error" });
+        })
+        .finally(() => {
+          fetchingRef.current.delete(workspaceId);
+        });
+    }
+  };
+
+  const onRestoreWorkspace = async (workspaceId: string) => {
+    const restored = await restoreWorkspaceApi(workspaceId);
+    if (restored) upsertWorkspace(restored);
+  };
+
+  const closeEditModal = () => {
+    setOpenEdit(false);
+    setEditingWorkspaceId(null);
+    setEditEntries([]);
+    setEditDescription("");
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex h-9 items-center justify-end">
+        <button
+          type="button"
+          onClick={() => setOpenCreate(true)}
+          style={{ visibility: activeTab === "active" ? "visible" : "hidden" }}
+          className="inline-flex items-center gap-1 rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+        >
+          <Plus size={13} />
+          워크스페이스 생성
+        </button>
+      </div>
+
+      {/* 탭 + 검색 */}
+      <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-700">
+        <button
+          type="button"
+          onClick={() => setActiveTab("active")}
+          className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+            activeTab === "active"
+              ? "border-b-2 border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100"
+              : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+          }`}
+        >
+          워크스페이스
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("archived")}
+          className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+            activeTab === "archived"
+              ? "border-b-2 border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100"
+              : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+          }`}
+        >
+          보관함
+        </button>
+        <div className="ml-auto flex items-center gap-1.5 rounded-md border border-zinc-200 px-2 py-1 dark:border-zinc-700">
+          <Search size={13} className="text-zinc-400" />
+          <input
+            value={listQuery}
+            onChange={(e) => setListQuery(e.target.value)}
+            placeholder="워크스페이스 검색"
+            className="w-36 bg-transparent text-sm outline-none placeholder:text-zinc-400"
+          />
+        </div>
+      </div>
+
+      {activeTab === "active" ? (
+        <ul className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {activeWorkspaces.length === 0 ? (
+            <li className="col-span-full rounded border border-dashed border-zinc-300 px-3 py-6 text-center text-sm text-zinc-500 dark:border-zinc-700">
+              공유 워크스페이스가 없습니다.
+            </li>
+          ) : (
+            activeWorkspaces.map((ws) => (
+              <li key={ws.workspaceId}>
+                <EntityCard
+                  icon={entityIcons[ws.workspaceId] ?? null}
+                  name={ws.name}
+                  hasLeaders={false}
+                  leaderLabel=""
+                  onClick={() => openEditModal(ws.workspaceId)}
+                  ariaLabel={`${ws.name} 설정 편집`}
+                />
+              </li>
+            ))
+          )}
+        </ul>
+      ) : (
+        <ul className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {archivedWorkspaces.length === 0 ? (
+            <li className="col-span-full rounded border border-dashed border-zinc-300 px-3 py-6 text-center text-sm text-zinc-500 dark:border-zinc-700">
+              보관된 워크스페이스 없음
+            </li>
+          ) : (
+            archivedWorkspaces.map((ws) => (
+              <li key={ws.workspaceId}>
+                <EntityCard
+                  icon={entityIcons[ws.workspaceId] ?? null}
+                  name={ws.name}
+                  hasLeaders={false}
+                  leaderLabel=""
+                  onClick={() => setArchivedActionId(ws.workspaceId)}
+                />
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+
+      <CreateWorkspaceModal
+        open={openCreate}
+        onClose={() => setOpenCreate(false)}
+        onCreate={async (input) => {
+          const beforeWorkspaceIds = new Set(
+            useWorkspaceStore.getState().workspaces.map((w) => w.workspaceId),
+          );
+          try {
+            const created = await createWorkspaceApi(input);
+            upsertWorkspace(created);
+          } catch (error) {
+            let latestWorkspaces;
+            try {
+              latestWorkspaces = await listMyWorkspacesApi();
+            } catch {
+              throw error;
+            }
+            const recovered = latestWorkspaces
+              .filter(
+                (w) =>
+                  w.type === "shared" &&
+                  !w.removedAt &&
+                  w.name === input.name &&
+                  !beforeWorkspaceIds.has(w.workspaceId),
+              )
+              .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))[0];
+            if (!recovered) throw error;
+            setWorkspaces(latestWorkspaces);
+          }
+        }}
+      />
+
+      {/* 보관된 워크스페이스 액션 팝업 */}
+      {archivedActionId &&
+        (() => {
+          const ws = archivedWorkspaces.find((w) => w.workspaceId === archivedActionId);
+          if (!ws) return null;
+          return (
+            <div
+              className="fixed inset-0 z-[530] flex items-center justify-center bg-black/45 p-4"
+              role="presentation"
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) setArchivedActionId(null);
+              }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <h4 className="text-sm font-semibold">{ws.name}</h4>
+                <p className="mt-1 text-xs text-zinc-500">보관된 워크스페이스입니다.</p>
+                <div className="mt-4 flex justify-between gap-2">
+                  <button
+                    type="button"
+                    disabled={archivedActionLoading}
+                    onClick={async () => {
+                      setArchivedActionLoading(true);
+                      try {
+                        await deleteWorkspaceApi(ws.workspaceId);
+                        useWorkspaceStore.setState({
+                          workspaces: useWorkspaceStore
+                            .getState()
+                            .workspaces.filter((w) => w.workspaceId !== ws.workspaceId),
+                        });
+                        setArchivedActionId(null);
+                      } catch {
+                        showToast("삭제에 실패했습니다.", { kind: "error" });
+                      } finally {
+                        setArchivedActionLoading(false);
+                      }
+                    }}
+                    className="rounded border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/40"
+                  >
+                    영구 삭제
+                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setArchivedActionId(null)}
+                      disabled={archivedActionLoading}
+                      className="rounded border px-3 py-1 text-xs disabled:opacity-60"
+                    >
+                      닫기
+                    </button>
+                    <button
+                      type="button"
+                      disabled={archivedActionLoading}
+                      onClick={async () => {
+                        setArchivedActionLoading(true);
+                        try {
+                          await onRestoreWorkspace(ws.workspaceId);
+                          setArchivedActionId(null);
+                        } finally {
+                          setArchivedActionLoading(false);
+                        }
+                      }}
+                      className="rounded bg-blue-600 px-3 py-1 text-xs text-white disabled:opacity-60 hover:bg-blue-700"
+                    >
+                      복원
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+      {editingWorkspace ? (
+        <EditWorkspaceModal
+          open={openEdit}
+          workspaceId={editingWorkspace.workspaceId}
+          workspaceName={editingWorkspace.name}
+          initialEntries={editEntries}
+          description={editDescription}
+          onDescriptionChange={setEditDescription}
+          onClose={closeEditModal}
+          onSave={async ({ name, entries, description }) => {
+            if (!editingWorkspace) return;
+            if (editingWorkspaceLocked) {
+              showToast(
+                "LC스케줄러는 특수한 워크스페이스로 편집 또는 삭제할 수 없습니다.",
+                { kind: "info" },
+              );
+              return;
+            }
+            const updated = await updateWorkspaceApi({
+              workspaceId: editingWorkspace.workspaceId,
+              name,
+            });
+            const accessUpdated = await setWorkspaceAccessApi({
+              workspaceId: editingWorkspace.workspaceId,
+              entries,
+            });
+            setEntityDescription(editingWorkspace.workspaceId, description);
+            setCacheEntry(editingWorkspace.workspaceId, entries);
+            upsertWorkspace({
+              ...updated,
+              myEffectiveLevel: accessUpdated.myEffectiveLevel,
+            });
+            showToast("저장되었습니다.", { kind: "success" });
+          }}
+          onRequestDelete={() => {
+            if (editingWorkspace.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
+              showToast(
+                "LC스케줄러는 특수한 워크스페이스로 편집 또는 삭제할 수 없습니다.",
+                { kind: "info" },
+              );
+              return;
+            }
+            void (async () => {
+              const archived = await archiveWorkspaceApi(editingWorkspace.workspaceId);
+              if (archived) upsertWorkspace(archived);
+              closeEditModal();
+              showToast("보관함으로 이동되었습니다.", { kind: "success" });
+            })();
+          }}
+          lockedReason={
+            editingWorkspaceLocked
+              ? "LC스케줄러는 특수한 워크스페이스로 편집 또는 삭제할 수 없습니다."
+              : undefined
+          }
+        />
+      ) : null}
+
+      {editingWorkspace ? (
+        <WorkspaceDeleteConfirmDialog
+          open={deleteWorkspaceId === editingWorkspace.workspaceId}
+          workspaceName={editingWorkspace.name}
+          deleteConfirmPhrase={`${editingWorkspace.name} 삭제`}
+          deletePhraseDraft={deletePhraseDraft}
+          onDeletePhraseChange={setDeletePhraseDraft}
+          onClose={() => {
+            setDeleteWorkspaceId(null);
+            setDeletePhraseDraft("");
+          }}
+          onConfirmDelete={async () => {
+            if (deletePhraseDraft !== `${editingWorkspace.name} 삭제`) return;
+            await deleteWorkspaceApi(editingWorkspace.workspaceId);
+            useWorkspaceStore.setState({
+              workspaces: useWorkspaceStore
+                .getState()
+                .workspaces.filter((w) => w.workspaceId !== editingWorkspace.workspaceId),
+            });
+            setDeleteWorkspaceId(null);
+            setDeletePhraseDraft("");
+            closeEditModal();
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}

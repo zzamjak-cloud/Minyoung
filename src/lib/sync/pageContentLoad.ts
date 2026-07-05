@@ -1,0 +1,107 @@
+import { usePageContentLoadStore } from "../../store/pageContentLoadStore";
+import { usePageStore } from "../../store/pageStore";
+import { useWorkspaceStore } from "../../store/workspaceStore";
+import { fetchPageById, fetchPageByIdOnly } from "./bootstrap";
+import { applyRemotePageToStore, pruneServerMissingPageFromCache } from "./storeApply";
+import { gqlPageToLocalPage } from "./storeApply/helpers";
+import { refreshWorkspaceSnapshot, workspaceHasStructureCache } from "./workspaceSwitch";
+
+const inFlightByPageId = new Map<string, Promise<boolean>>();
+
+type PageContentProbeDoc = {
+  type?: string;
+  content?: Array<{
+    type?: string;
+    content?: unknown[];
+    text?: string;
+  }>;
+} | null | undefined;
+
+type PageContentProbe = {
+  contentLoaded?: boolean;
+  doc?: PageContentProbeDoc;
+} | null | undefined;
+
+function isLikelyEmptyPlaceholderDoc(doc: PageContentProbeDoc): boolean {
+  if (!doc || doc.type !== "doc") return true;
+  const content = Array.isArray(doc.content) ? doc.content : [];
+  if (content.length === 0) return true;
+  if (content.length !== 1) return false;
+  const first = content[0];
+  if (first?.type !== "paragraph") return false;
+  if (typeof first.text === "string" && first.text.length > 0) return false;
+  return !Array.isArray(first.content) || first.content.length === 0;
+}
+
+export function shouldLoadPageContent(
+  page: PageContentProbe,
+  metaOnly: boolean,
+): boolean {
+  if (metaOnly) return true;
+  if (!page) return false;
+  if (page.contentLoaded === false) return true;
+  if (page.contentLoaded === true) return false;
+  return isLikelyEmptyPlaceholderDoc(page.doc);
+}
+
+export async function ensurePageContentLoaded(args: {
+  pageId: string;
+  workspaceId?: string | null;
+  source?: string;
+}): Promise<boolean> {
+  const pageId = args.pageId;
+  const state = usePageContentLoadStore.getState();
+  const page = usePageStore.getState().pages[pageId];
+  const existing = inFlightByPageId.get(pageId);
+  if (existing) return existing;
+
+  const workspaceId =
+    args.workspaceId ??
+    page?.workspaceId ??
+    null;
+  // 페이지가 store 에 있고 본문도 충분하면 로드 불필요. 단, 페이지 자체가 없으면(미로드 멘션/링크
+  // 대상) workspaceId 를 몰라도 id 단독 해석(fetchPageByIdOnly)으로 로드를 시도한다. (과거엔 이때
+  // 로드 없이 true 를 반환해, 클릭해도 store 에 페이지가 없어 무반응이었다.)
+  if (page && !shouldLoadPageContent(page, Boolean(state.metaOnlyByPageId[pageId]))) {
+    return true;
+  }
+
+  const promise = (async () => {
+    usePageContentLoadStore.getState().setLoading(pageId, true);
+    try {
+      // workspaceId 를 알면 일반 경로, 모르면 id 단독 해석(서버가 접근권 검사).
+      const fetched = workspaceId
+        ? await fetchPageById(workspaceId, pageId)
+        : await fetchPageByIdOnly(pageId);
+      if (!fetched) {
+        // 오류는 throw(catch 경로) — null 은 서버가 확정적으로 "페이지 없음"을 응답한 경우.
+        // 영구삭제는 델타 싱크에 tombstone 이 없어 stale 캐시에 유령으로 남으므로 자기치유로 정리.
+        void pruneServerMissingPageFromCache(pageId, workspaceId);
+        return false;
+      }
+      const resolvedWorkspaceId = fetched.workspaceId ?? workspaceId ?? null;
+      // 타 워크스페이스 페이지(미리보기 peek·타 워크스페이스 인라인 DB 행·멘션 대상 등): storeApply 의
+      // 워크스페이스 가드가 page.workspaceId 기준으로 원격 데이터를 무시하므로, 실제 워크스페이스가
+      // 현재와 다르면 가드를 우회해 현재 store 에 직접 적재한다(사이드바·동기화 대상에선 자동 제외).
+      if (resolvedWorkspaceId && resolvedWorkspaceId !== useWorkspaceStore.getState().currentWorkspaceId) {
+        const local = gqlPageToLocalPage(fetched);
+        usePageStore.setState((s) => ({
+          pages: { ...s.pages, [local.id]: { ...s.pages[local.id], ...local } },
+        }));
+        return true;
+      }
+      applyRemotePageToStore(fetched);
+      if (resolvedWorkspaceId && workspaceHasStructureCache(resolvedWorkspaceId)) {
+        refreshWorkspaceSnapshot(resolvedWorkspaceId);
+      }
+      return true;
+    } catch {
+      return false;
+    } finally {
+      usePageContentLoadStore.getState().setLoading(pageId, false);
+      inFlightByPageId.delete(pageId);
+    }
+  })();
+  inFlightByPageId.set(pageId, promise);
+  return promise;
+}

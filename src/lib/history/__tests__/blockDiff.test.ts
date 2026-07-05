@@ -1,0 +1,135 @@
+import { describe, expect, it } from "vitest";
+import {
+  diffDocBlocks,
+  buildUnifiedBlockDiff,
+  parseChangedUnits,
+  parseContributors,
+  summarizeChangedUnits,
+} from "../blockDiff";
+
+const block = (id: string, text: string) => ({
+  type: "paragraph",
+  attrs: { id },
+  content: [{ type: "text", text }],
+});
+
+const docOf = (...blocks: unknown[]) => ({ type: "doc", content: blocks });
+
+describe("buildUnifiedBlockDiff", () => {
+  it("전체 본문을 문서 순서대로 펼치고 변경 구간만 표시한다", () => {
+    const before = docOf(block("a", "하나"), block("b", "둘"), block("c", "셋"));
+    const after = docOf(block("a", "하나"), block("b", "둘!"), block("d", "넷"));
+    const rows = buildUnifiedBlockDiff(before, after);
+    // a 무변경, b 수정(삭제+추가), c 삭제(b 뒤 anchor), d 추가
+    expect(rows.map((r) => r.status)).toEqual([
+      "unchanged", // a
+      "removed", // b(이전)
+      "added", // b(이후)
+      "removed", // c (b 뒤 anchor 위치)
+      "added", // d
+    ]);
+  });
+
+  it("전체 삭제 시 모든 블럭이 removed", () => {
+    const before = docOf(block("a", "하나"), block("b", "둘"));
+    const after = docOf({ type: "paragraph", attrs: { id: "z" } });
+    expect(buildUnifiedBlockDiff(before, after).map((r) => r.status)).toEqual([
+      "removed",
+      "removed",
+    ]);
+  });
+
+  it("변경 없으면 전부 unchanged(전체 본문 그대로 노출)", () => {
+    const doc = docOf(block("a", "하나"), block("b", "둘"));
+    expect(buildUnifiedBlockDiff(doc, doc).map((r) => r.status)).toEqual([
+      "unchanged",
+      "unchanged",
+    ]);
+  });
+});
+
+describe("diffDocBlocks", () => {
+  it("빈 블럭 추가와 위치 이동은 diff 에 잡히지 않는다", () => {
+    const before = docOf(block("a", "하나"), block("b", "둘"));
+    const after = docOf(
+      { type: "paragraph", attrs: { id: "z" } },
+      block("b", "둘"),
+      block("a", "하나"),
+    );
+    expect(diffDocBlocks(before, after)).toEqual([]);
+  });
+
+  it("수정·추가·삭제를 블럭 노드 페어로 반환한다", () => {
+    const before = docOf(block("a", "하나"), block("b", "둘"));
+    const after = docOf(block("a", "하나!"), block("c", "셋"));
+    const diff = diffDocBlocks(before, after);
+    expect(diff.map((d) => [d.kind, d.id])).toEqual([
+      ["modified", "a"],
+      ["added", "c"],
+      ["removed", "b"],
+    ]);
+    expect(diff[0]?.before).toEqual(block("a", "하나"));
+    expect(diff[0]?.after).toEqual(block("a", "하나!"));
+  });
+
+  it("null 기본값 attr 유무 차이는 변화가 아니다 (getJSON vs yDocToJson 직렬화 차이)", () => {
+    const withNulls = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          attrs: { id: "a", textAlign: null, backgroundColor: null },
+          content: [{ type: "text", marks: [{ type: "link", attrs: { href: "https://x.com", target: null } }], text: "x" }],
+        },
+      ],
+    };
+    const withoutNulls = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          attrs: { id: "a" },
+          content: [{ type: "text", marks: [{ type: "link", attrs: { href: "https://x.com" } }], text: "x" }],
+        },
+      ],
+    };
+    expect(diffDocBlocks(withNulls, withoutNulls)).toEqual([]);
+  });
+
+  it("JSON 문자열 doc 과 키 순서 차이를 흡수한다", () => {
+    const before = JSON.stringify(docOf(block("a", "x")));
+    const after = JSON.stringify({
+      type: "doc",
+      content: [{ content: [{ text: "x", type: "text" }], attrs: { id: "a" }, type: "paragraph" }],
+    });
+    expect(diffDocBlocks(before, after)).toEqual([]);
+  });
+
+  it("id 없는 레거시 블럭은 시그니처 매칭으로 폴백한다", () => {
+    const legacy = (text: string) => ({ type: "paragraph", content: [{ type: "text", text }] });
+    const before = docOf(legacy("하나"), legacy("둘"));
+    const after = docOf(legacy("둘"), legacy("하나")); // 순서만 변경
+    expect(diffDocBlocks(before, after)).toEqual([]);
+    const changed = diffDocBlocks(docOf(legacy("하나")), docOf(legacy("둘")));
+    expect(changed.map((d) => d.kind).sort()).toEqual(["added", "removed"]);
+  });
+});
+
+describe("summarizeChangedUnits / 파서", () => {
+  it("단위 키를 한 줄 요약으로 만든다", () => {
+    expect(summarizeChangedUnits(["block:a", "block:b", "cell:c1", "meta:title"])).toBe(
+      "블럭 2개 · 셀 1개 · 제목",
+    );
+    expect(summarizeChangedUnits(JSON.stringify(["column:c1", "preset:p1"]))).toBe(
+      "컬럼 1개 · 뷰 1개",
+    );
+    expect(summarizeChangedUnits(null)).toBe("");
+  });
+
+  it("contributors/changedUnits AWSJSON 문자열을 파싱한다", () => {
+    expect(parseContributors(JSON.stringify([{ memberId: "m1", name: "A" }, { bad: 1 }]))).toEqual([
+      { memberId: "m1", name: "A" },
+    ]);
+    expect(parseChangedUnits(JSON.stringify(["block:a", 3]))).toEqual(["block:a"]);
+  });
+});

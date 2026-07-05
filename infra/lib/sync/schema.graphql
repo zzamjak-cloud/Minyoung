@@ -1,0 +1,915 @@
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
+
+scalar AWSJSON
+scalar AWSDateTime
+
+# ========== Enums ==========
+enum WorkspaceRole { DEVELOPER OWNER LEADER MANAGER MEMBER }
+enum WorkspaceType { PERSONAL SHARED }
+enum AccessLevel  { EDIT VIEW }
+enum AccessSubjectType { TEAM MEMBER EVERYONE }
+enum MemberStatus { ACTIVE REMOVED }
+enum ImageStatus { PENDING READY }
+enum MmEntryStatus { DRAFT SUBMITTED REVIEWED LOCKED }
+enum MmScopeKind { ORGANIZATION TEAM PROJECT OTHER }
+enum MmAutoReasonType { HOLIDAY LEAVE EMPTY UNCLASSIFIED }
+
+# ========== Domain Types ==========
+type Member {
+  memberId: ID!
+  email: String!
+  name: String!
+  jobRole: String!
+  workspaceRole: WorkspaceRole!
+  status: MemberStatus!
+  jobTitle: String
+  phone: String
+  avatarUrl: String
+  thumbnailUrl: String
+  personalWorkspaceId: ID!
+  cognitoSub: String
+  """클라이언트별 동기화 JSON(예: 즐겨찾기). 멤버 본인만 갱신."""
+  clientPrefs: AWSJSON
+  teams: [Team!]!
+  createdAt: AWSDateTime!
+  removedAt: AWSDateTime
+  """재직 상태 (재직중 | 휴직 | 병가 | 퇴사)"""
+  employmentStatus: String
+  """사번"""
+  employeeNumber: String
+  """소속(실)"""
+  department: String
+  """소속(팀) 명칭"""
+  team: String
+  """직무 카테고리"""
+  jobCategory: String
+  """상세직무"""
+  jobDetail: String
+  """입사일 (YYYY-MM-DD)"""
+  joinedAt: String
+  """구성원별 타임라인 행 개수"""
+  rowCount: Int
+}
+
+type MemberMini {
+  memberId: ID!
+  name: String!
+  jobRole: String!
+}
+
+type Team {
+  teamId: ID!
+  name: String!
+  members: [Member!]!
+  leaderMemberIds: [ID!]!
+  createdAt: AWSDateTime!
+  removedAt: AWSDateTime
+}
+
+"""조직(실) — Team 과 동일 구조. 별도 DynamoDB 테이블(quicknote-organizations)에 저장."""
+type Organization {
+  organizationId: ID!
+  name: String!
+  members: [Member!]!
+  leaderMemberIds: [ID!]!
+  createdAt: AWSDateTime!
+  removedAt: AWSDateTime
+}
+
+type WorkspaceOptions {
+  jobFunctions: [String!]!
+  jobTitles: [String!]!
+}
+
+type Workspace {
+  workspaceId: ID!
+  name: String!
+  type: WorkspaceType!
+  ownerMemberId: ID!
+  access: [WorkspaceAccessEntry!]!
+  myEffectiveLevel: AccessLevel!
+  createdAt: AWSDateTime!
+  removedAt: AWSDateTime
+  options: WorkspaceOptions!
+}
+
+type WorkspaceMeta {
+  members: [Member!]!
+  teams: [Team!]!
+  organizations: [Organization!]!
+  projects: [Project!]!
+}
+
+type WorkspaceAccessEntry {
+  subjectType: AccessSubjectType!
+  subjectId: ID
+  level: AccessLevel!
+}
+
+type Page @aws_cognito_user_pools @aws_iam {
+  id: ID!
+  workspaceId: ID!
+  createdByMemberId: ID!
+  title: String!
+  """페이지 제목 텍스트 색(hex)."""
+  titleColor: String
+  icon: String
+  """페이지 상단 커버. `quicknote-image://{imageId}` S3 자산 참조 권장(레거시 data URL 가능)."""
+  coverImage: String
+  parentId: ID
+  """정렬 순서. 레거시·이상 데이터에서 null 일 수 있어 nullable. 클라이언트는 updatedAt 으로 폴백."""
+  order: String
+  databaseId: ID
+  """fullPage 레이아웃 DB 홈 페이지면 연결된 databaseId — doc 없이 메타만으로 식별."""
+  fullPageDatabaseId: ID
+  doc: AWSJSON!
+  dbCells: AWSJSON
+  """블록 댓글 스레드·읽음 상태 JSON(`{ messages, threadVisitedAt }`)."""
+  blockComments: AWSJSON
+  """마지막으로 편집한 멤버 id. upsertPage 가 caller 로 권위적 스탬프(없으면 createdByMemberId 폴백)."""
+  lastEditedByMemberId: ID
+  """마지막 편집자 표시 이름(스탬프 시점 스냅샷)."""
+  lastEditedByName: String
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+  deletedAt: AWSDateTime
+}
+
+type PageMeta {
+  id: ID!
+  workspaceId: ID!
+  createdByMemberId: ID!
+  title: String!
+  """페이지 제목 텍스트 색(hex)."""
+  titleColor: String
+  icon: String
+  """페이지 상단 커버. `quicknote-image://{imageId}` S3 자산 참조 권장(레거시 data URL 가능)."""
+  coverImage: String
+  parentId: ID
+  """정렬 순서. 레거시·이상 데이터에서 null 일 수 있어 nullable. 클라이언트는 updatedAt 으로 폴백."""
+  order: String
+  databaseId: ID
+  """fullPage 레이아웃 DB 홈 페이지면 연결된 databaseId — doc 없이 메타만으로 식별."""
+  fullPageDatabaseId: ID
+  """마지막으로 편집한 멤버 id. Page 와 동일 필드 — 메타 쿼리(listPageMetas) 응답에도 노출."""
+  lastEditedByMemberId: ID
+  """마지막 편집자 표시 이름(스탬프 시점 스냅샷)."""
+  lastEditedByName: String
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+  deletedAt: AWSDateTime
+}
+
+type Database {
+  id: ID!
+  workspaceId: ID!
+  createdByMemberId: ID!
+  title: String!
+  columns: AWSJSON!
+  presets: AWSJSON
+  panelState: AWSJSON
+  templates: AWSJSON
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+  deletedAt: AWSDateTime
+}
+
+type Comment {
+  id: ID!
+  workspaceId: ID!
+  pageId: ID!
+  blockId: String!
+  authorMemberId: ID!
+  bodyText: String!
+  mentionMemberIds: AWSJSON!
+  parentId: ID
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+  deletedAt: AWSDateTime
+}
+
+type CommentConnection { items: [Comment!]! nextToken: String }
+
+type Notification {
+  notificationId: ID!
+  workspaceId: ID!
+  recipientMemberId: ID!
+  kind: String!
+  source: String
+  fromMemberId: ID!
+  pageId: ID!
+  blockId: ID!
+  commentId: ID!
+  previewBody: String
+  workspaceName: String
+  pageTitle: String
+  read: Boolean!
+  createdAt: AWSDateTime!
+}
+
+type ImageAsset {
+  id: ID!
+  ownerId: ID!
+  mimeType: String!
+  size: Int!
+  sha256: String!
+  status: ImageStatus!
+  createdAt: AWSDateTime!
+  """업로드 시점의 사용자 파일명 (UI 표시용, 보강 가능)"""
+  name: String
+  """이 자산을 참조하는 페이지 수 (자산 관리 탭에서 정렬·필터용 캐시값)"""
+  usageCount: Int
+  """사용자 트리거 압축의 결과로 업로드된 자산. true 이면 재압축 불가."""
+  compressed: Boolean
+}
+
+# ========== Asset Usage (자산 사용 위치 인덱스) ==========
+type AssetUsage {
+  assetId: ID!
+  ownerId: ID!
+  pageId: ID!
+  blockId: ID
+  blockType: String
+  workspaceId: ID
+  pageTitle: String
+  updatedAt: AWSDateTime!
+}
+
+type AssetConnection {
+  items: [ImageAsset!]!
+  nextToken: String
+}
+
+input ListMyAssetsInput {
+  sortBy: AssetSortBy
+  filterMimePrefix: String
+  filterUnusedOnly: Boolean
+  minSize: Int
+  limit: Int
+  nextToken: String
+}
+
+enum AssetSortBy {
+  SIZE_DESC
+  SIZE_ASC
+  CREATED_AT_DESC
+}
+
+input ReplaceAssetRefInput {
+  oldAssetId: ID!
+  newAssetId: ID!
+}
+
+type MigrateAssetUsageResult {
+  """이번 호출에서 인덱싱된 (assetId, pageId) row 수."""
+  processedRows: Int!
+  """다음 호출에 그대로 전달할 cursor. null 이면 마이그레이션 완료."""
+  nextCursor: String
+  """추가 처리할 페이지가 남아 있는지."""
+  hasMore: Boolean!
+  """실제 수행된 모드: "incremental"(변경분만) 또는 "full"(전체 스캔)."""
+  mode: String!
+}
+
+type CustomIcon {
+  id: ID!
+  workspaceId: ID!
+  src: String!
+  label: String!
+  createdAt: AWSDateTime!
+  createdByMemberId: ID
+  """삭제 이벤트 tombstone. deleteCustomIcon 이 채워 구독 수신측이 전체 재페치 없이 제거를 반영한다(#9)."""
+  deletedAt: AWSDateTime
+}
+
+input CustomIconInput {
+  workspaceId: ID!
+  src: String!
+  label: String!
+}
+
+type PageConnection { items: [Page!]! nextToken: String }
+type PageMetaConnection { items: [PageMeta!]! nextToken: String }
+type DatabaseConnection { items: [Database!]! nextToken: String }
+type PageHistoryConnection { items: [PageHistoryEntry!]! nextToken: String }
+
+# 여러 페이지가 flowchartId 로 공유하는 플로우차트 자원. data 는 FlowchartData JSON.
+type Flowchart {
+  id: ID!
+  workspaceId: ID!
+  createdByMemberId: ID
+  title: String!
+  data: AWSJSON!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+  deletedAt: AWSDateTime
+}
+type FlowchartConnection { items: [Flowchart!]! nextToken: String }
+input FlowchartInput {
+  id: ID!
+  workspaceId: ID!
+  createdByMemberId: ID
+  title: String!
+  data: AWSJSON!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+type FlowchartHistoryEntry {
+  flowchartId: ID!
+  historyId: ID!
+  workspaceId: ID!
+  title: String!
+  data: AWSJSON!
+  createdAt: AWSDateTime!
+  createdByMemberId: ID
+  createdByName: String
+}
+
+type PageHistoryEntry {
+  pageId: ID!
+  historyId: ID!
+  workspaceId: ID!
+  kind: String!
+  patch: AWSJSON!
+  anchor: AWSJSON
+  # 세션 머지 엔트리(kind page.session)의 post-state 전체 스냅샷·세션 메타
+  snapshot: AWSJSON
+  changedUnits: AWSJSON
+  contributors: AWSJSON
+  sessionStartedAt: AWSDateTime
+  lastActivityAt: AWSDateTime
+  createdAt: AWSDateTime!
+  createdByMemberId: ID
+  createdByName: String
+}
+
+type DatabaseHistoryEntry {
+  databaseId: ID!
+  historyId: ID!
+  workspaceId: ID!
+  ownerId: ID!
+  kind: String!
+  patch: AWSJSON!
+  anchor: AWSJSON
+  # 세션 머지 엔트리(kind database.session)의 post-state 전체 스냅샷·세션 메타
+  snapshot: AWSJSON
+  changedUnits: AWSJSON
+  contributors: AWSJSON
+  sessionStartedAt: AWSDateTime
+  lastActivityAt: AWSDateTime
+  createdAt: AWSDateTime!
+  createdByMemberId: ID
+  createdByName: String
+}
+
+type ImageUploadResult {
+  imageId: ID!
+  uploadUrl: String!
+  expiresAt: AWSDateTime!
+  alreadyUploaded: Boolean!
+}
+
+# ========== Inputs ==========
+input PageInput {
+  id: ID!
+  workspaceId: ID!
+  # 클라이언트가 작성자 식별자를 함께 보낸다(없으면 Lambda 가 caller.memberId 로 폴백).
+  # 누락 시 AppSync 가 'Field not defined' 검증 오류로 mutation 을 거부한다.
+  createdByMemberId: ID
+  title: String!
+  titleColor: String
+  icon: String
+  coverImage: String
+  parentId: ID
+  order: String!
+  databaseId: ID
+  fullPageDatabaseId: ID
+  doc: AWSJSON!
+  dbCells: AWSJSON
+  blockComments: AWSJSON
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+input DatabaseInput {
+  id: ID!
+  workspaceId: ID!
+  createdByMemberId: ID
+  title: String!
+  columns: AWSJSON!
+  presets: AWSJSON
+  panelState: AWSJSON
+  templates: AWSJSON
+  """행 멤버십 순서. 서버는 히스토리 스냅샷에만 사용하고 Database 레코드에는 저장하지 않는다."""
+  rowPageOrder: [ID!]
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+input CommentInput {
+  id: ID!
+  workspaceId: ID!
+  pageId: ID!
+  blockId: String!
+  authorMemberId: ID!
+  bodyText: String!
+  mentionMemberIds: AWSJSON!
+  parentId: ID
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+  """
+  가져오기(노션 등)에서 원본 작성자를 보존하려는 경우 지정. 유효한(존재하는·removed 아님) 구성원일 때만
+  작성자로 사용하고, 그 외에는 스푸핑 방지로 호출자를 강제한다. 일반 댓글 작성 시에는 전송하지 않는다.
+  """
+  importedAuthorMemberId: ID
+}
+
+input ImageUploadInput {
+  mimeType: String!
+  size: Int!
+  sha256: String!
+  """업로드 파일의 사용자 표시 이름 (자산 관리 UI 에서 사용). 선택 사항 — 미전송 시 ID 로 폴백."""
+  name: String
+  """사용자 트리거 압축의 결과물이면 true. 자산 관리 탭이 재압축 버튼을 막는다."""
+  compressed: Boolean
+}
+
+input CreateMemberInput {
+  email: String!
+  name: String!
+  jobRole: String!
+  workspaceRole: WorkspaceRole = MEMBER
+  teamIds: [ID!]
+}
+
+input UpdateMemberInput {
+  memberId: ID!
+  name: String
+  jobRole: String
+  jobTitle: String
+  phone: String
+  avatarUrl: String
+  thumbnailUrl: String
+  teamIds: [ID!]
+  employmentStatus: String
+  employeeNumber: String
+  department: String
+  team: String
+  jobCategory: String
+  jobDetail: String
+  joinedAt: String
+  rowCount: Int
+}
+
+input WorkspaceAccessInput {
+  subjectType: AccessSubjectType!
+  subjectId: ID
+  level: AccessLevel!
+}
+
+input CreateWorkspaceInput {
+  name: String!
+  access: [WorkspaceAccessInput!]!
+}
+
+input WorkspaceOptionsInput {
+  jobFunctions: [String!]
+  jobTitles: [String!]
+}
+
+input UpdateWorkspaceInput {
+  workspaceId: ID!
+  name: String
+  options: WorkspaceOptionsInput
+}
+
+input UpdateMyClientPrefsInput {
+  clientPrefs: AWSJSON!
+}
+
+input RestorePageVersionInput {
+  pageId: ID!
+  workspaceId: ID!
+  historyId: ID!
+}
+
+input RestoreDatabaseVersionInput {
+  databaseId: ID!
+  workspaceId: ID!
+  historyId: ID!
+}
+
+input MemberFilter {
+  status: MemberStatus
+  teamId: ID
+  workspaceRole: WorkspaceRole
+}
+
+# ========== Query ==========
+type Query {
+  me: Member!
+
+  listMembers(filter: MemberFilter): [Member!]!
+  getMember(memberId: ID!): Member
+  listTeams: [Team!]!
+  getTeam(teamId: ID!): Team
+  listOrganizations: [Organization!]!
+
+  searchMembersForMention(query: String, limit: Int = 20): [MemberMini!]!
+
+  listMyWorkspaces: [Workspace!]!
+  getWorkspace(workspaceId: ID!): Workspace
+  getWorkspaceMeta(workspaceId: ID!): WorkspaceMeta!
+
+  getPage(id: ID!, workspaceId: ID!): Page
+  """id 단독 페이지 해석(workspaceId 모를 때). 조회 후 해당 워크스페이스 view 권한 검사."""
+  getPageById(id: ID!): Page
+  getDatabase(id: ID!, workspaceId: ID!): Database
+  getFlowchart(id: ID!, workspaceId: ID!): Flowchart
+  listFlowcharts(workspaceId: ID!, updatedAfter: AWSDateTime, limit: Int, nextToken: String): FlowchartConnection!
+  listFlowchartHistory(flowchartId: ID!, workspaceId: ID!, limit: Int): [FlowchartHistoryEntry!]!
+  """사이드바/탭 기준선용 페이지 메타. doc/dbCells/blockComments 는 내려받지 않는다."""
+  listPageMetas(workspaceId: ID!, updatedAfter: AWSDateTime, limit: Int, nextToken: String): PageMetaConnection!
+  listPages(workspaceId: ID!, updatedAfter: AWSDateTime, limit: Int, nextToken: String): PageConnection!
+  """DB row 페이지를 화면 노출 단위로 가져온다. 대형 DB에서 워크스페이스 전체 fetch를 피하기 위한 cursor API."""
+  listDatabaseRows(databaseId: ID!, workspaceId: ID!, organizationId: ID, teamId: ID, projectId: ID, assigneeId: ID, limit: Int, nextToken: String): PageConnection!
+  listPageHistory(pageId: ID!, workspaceId: ID!, limit: Int, nextToken: String): [PageHistoryEntry!]!
+  listDatabaseHistory(databaseId: ID!, workspaceId: ID!, limit: Int, nextToken: String): [DatabaseHistoryEntry!]!
+  """DB 소속 모든 row 페이지의 변경 히스토리 — page-history GSI(byDatabaseAndCreatedAt) 단일 쿼리, 삭제된 행 포함, createdAt 최신순"""
+  listDatabaseRowHistory(databaseId: ID!, workspaceId: ID!, limit: Int, nextToken: String): PageHistoryConnection!
+  listComments(workspaceId: ID!, updatedAfter: AWSDateTime, limit: Int, nextToken: String): CommentConnection!
+  """삭제 후 보관 기간(30일) 내 페이지만, 삭제 시각 최신순(페이지당 최대 50개·nextToken 연속 조회)"""
+  listTrashedPages(workspaceId: ID!, limit: Int, nextToken: String): PageConnection!
+  """삭제 후 보관 기간(30일) 내 데이터베이스만, 삭제 시각 최신순"""
+  listTrashedDatabases(workspaceId: ID!, limit: Int, nextToken: String): DatabaseConnection!
+  listDatabases(workspaceId: ID!, updatedAfter: AWSDateTime, limit: Int, nextToken: String): DatabaseConnection!
+
+  getImageDownloadUrl(imageId: ID!): String!
+  listMyNotifications: [Notification!]!
+
+  listSchedules(
+    workspaceId: ID!
+    from: AWSDateTime!
+    to: AWSDateTime!
+    organizationId: ID
+    teamId: ID
+    projectId: ID
+    assigneeId: ID
+  ): [Schedule!]!
+  listProjects(workspaceId: ID!): [Project!]!
+  listHolidays(workspaceId: ID!): [Holiday!]!
+  listMmEntries(workspaceId: ID!, fromWeekStart: String!, toWeekStart: String!, memberId: ID): [MmEntry!]!
+  listMmRevisions(workspaceId: ID!, entryId: ID!): [MmRevision!]!
+
+  """워크스페이스 공유 커스텀 아이콘 목록 (최신순)."""
+  listCustomIcons(workspaceId: ID!): [CustomIcon!]!
+
+  """현재 사용자의 자산 전체 목록 (크기·생성일 정렬, MIME/미사용 필터 지원)"""
+  listMyAssets(input: ListMyAssetsInput): AssetConnection!
+  """특정 자산의 사용 위치 (페이지·블록) 목록"""
+  getAssetUsages(assetId: ID!): [AssetUsage!]!
+}
+
+# ========== Mutation ==========
+type Mutation {
+  createMember(input: CreateMemberInput!): Member!
+  updateMember(input: UpdateMemberInput!): Member!
+  promoteToManager(memberId: ID!): Member!
+  demoteToMember(memberId: ID!): Member!
+  setMemberRole(memberId: ID!, role: WorkspaceRole!): Member!
+  transferOwnership(toMemberId: ID!): Member!
+  removeMember(memberId: ID!): Member!
+  restoreMember(memberId: ID!): Member!
+  assignMemberToTeam(memberId: ID!, teamId: ID!): Boolean!
+  unassignMemberFromTeam(memberId: ID!, teamId: ID!): Boolean!
+  """로그인한 멤버 본인의 clientPrefs 저장(LWW 타임스탬프 포함 JSON). MEMBER 역할 허용."""
+  updateMyClientPrefs(input: UpdateMyClientPrefsInput!): Member!
+
+  createTeam(name: String!): Team!
+  updateTeam(teamId: ID!, name: String, leaderMemberIds: [ID!]): Team!
+  deleteTeam(teamId: ID!): Boolean!
+  archiveTeam(teamId: ID!): Team!
+  restoreTeam(teamId: ID!): Team!
+
+  createOrganization(name: String!): Organization!
+  updateOrganization(organizationId: ID!, name: String, leaderMemberIds: [ID!]): Organization!
+  deleteOrganization(organizationId: ID!): Boolean!
+  archiveOrganization(organizationId: ID!): Organization!
+  restoreOrganization(organizationId: ID!): Organization!
+  assignMemberToOrganization(memberId: ID!, organizationId: ID!): Boolean!
+  unassignMemberFromOrganization(memberId: ID!, organizationId: ID!): Boolean!
+
+  createWorkspace(input: CreateWorkspaceInput!): Workspace!
+  updateWorkspace(input: UpdateWorkspaceInput!): Workspace!
+  setWorkspaceAccess(workspaceId: ID!, entries: [WorkspaceAccessInput!]!): Workspace!
+  deleteWorkspace(workspaceId: ID!): Boolean!
+  archiveWorkspace(workspaceId: ID!): Workspace!
+  restoreWorkspace(workspaceId: ID!): Workspace!
+
+  upsertComment(input: CommentInput!): Comment!
+  softDeleteComment(id: ID!, workspaceId: ID!, updatedAt: AWSDateTime!): Comment!
+
+  upsertPage(input: PageInput!): Page!
+  publishPageChanged(input: PageInput!): Page! @aws_iam
+  softDeletePage(id: ID!, workspaceId: ID!, updatedAt: AWSDateTime!): Page!
+  """휴지통 페이지 복원(deletedAt 제거)"""
+  restorePage(id: ID!, workspaceId: ID!): Page!
+  restorePageVersion(input: RestorePageVersionInput!): Page!
+  """현재 페이지 상태를 즉시 하나의 버전 체크포인트로 기록(세션 머지와 무관하게 새 버전 경계 생성)"""
+  savePageVersion(pageId: ID!, workspaceId: ID!): Page!
+  deletePageHistoryEvents(pageId: ID!, workspaceId: ID!, historyIds: [ID!]!): Boolean!
+  """현재 워크스페이스의 휴지통 페이지를 DynamoDB에서 영구 삭제"""
+  emptyTrash(workspaceId: ID!): Int!
+  """휴지통의 단일 페이지를 영구 삭제 (휴지통 비우기 청크 진행률용)"""
+  permanentlyDeletePage(id: ID!, workspaceId: ID!): Boolean!
+  upsertDatabase(input: DatabaseInput!): Database!
+  softDeleteDatabase(id: ID!, workspaceId: ID!, updatedAt: AWSDateTime!): Database!
+  upsertFlowchart(input: FlowchartInput!): Flowchart!
+  softDeleteFlowchart(id: ID!, workspaceId: ID!, updatedAt: AWSDateTime!): Flowchart!
+  saveFlowchartVersion(flowchartId: ID!, workspaceId: ID!, title: String!, data: AWSJSON!): FlowchartHistoryEntry!
+  restoreDatabase(id: ID!, workspaceId: ID!): Database!
+  restoreDatabaseVersion(input: RestoreDatabaseVersionInput!): Database!
+  """현재 DB 상태를 즉시 하나의 버전 체크포인트로 기록(세션 머지와 무관하게 새 버전 경계 생성)"""
+  saveDatabaseVersion(databaseId: ID!, workspaceId: ID!): Database!
+  deleteDatabaseHistoryEvents(databaseId: ID!, workspaceId: ID!, historyIds: [ID!]!): Boolean!
+  permanentlyDeleteDatabase(id: ID!, workspaceId: ID!): Boolean!
+
+  getImageUploadUrl(input: ImageUploadInput!): ImageUploadResult!
+  confirmImage(imageId: ID!): ImageAsset!
+
+  markNotificationRead(notificationId: ID!): Notification!
+  deleteMyNotification(notificationId: ID!): Boolean!
+
+  createSchedule(input: CreateScheduleInput!): Schedule!
+  updateSchedule(input: UpdateScheduleInput!): Schedule!
+  deleteSchedule(id: ID!, workspaceId: ID!): Boolean!
+
+  createProject(input: CreateProjectInput!): Project!
+  updateProject(input: UpdateProjectInput!): Project!
+  deleteProject(id: ID!, workspaceId: ID!): Boolean!
+
+  createHoliday(input: CreateHolidayInput!): Holiday!
+  updateHoliday(input: UpdateHolidayInput!): Holiday!
+  deleteHoliday(id: ID!, workspaceId: ID!): Boolean!
+
+  upsertMmEntry(input: MmEntryInput!): MmEntry!
+  reviewMmEntry(input: MmReviewInput!): MmEntry!
+  lockMmEntry(workspaceId: ID!, entryId: ID!, note: String): MmEntry!
+  unlockMmEntry(workspaceId: ID!, entryId: ID!, note: String): MmEntry!
+
+  """워크스페이스 공유 커스텀 아이콘 추가. 모든 멤버가 즉시 볼 수 있음."""
+  createCustomIcon(input: CustomIconInput!): CustomIcon!
+  """워크스페이스 공유 커스텀 아이콘 제거. 삭제된 아이콘을 반환해 구독 전파 가능."""
+  deleteCustomIcon(id: ID!, workspaceId: ID!): CustomIcon!
+
+  """자산 다중 영구 삭제 (S3 객체 + DDB row + AssetUsage cascade). 결과는 삭제된 ID 목록."""
+  deleteMyAssets(assetIds: [ID!]!): [ID!]!
+  """자산의 표시용 이름을 변경. name 이 빈 문자열·null 이면 이름 제거."""
+  renameAsset(assetId: ID!, name: String): ImageAsset!
+  """페이지 본문의 자산 참조를 oldAssetId → newAssetId 로 교체. 영향받은 페이지 수 반환."""
+  replaceAssetRef(input: ReplaceAssetRefInput!): Int!
+  """기존 페이지 데이터를 스캔해 AssetUsage 인덱스를 재구성.
+  Lambda 타임아웃을 피해 시간-박스 방식으로 동작 — hasMore=true 면 cursor 로 재호출."""
+  migrateAssetUsage(cursor: String, incremental: Boolean): MigrateAssetUsageResult!
+}
+
+# ========== Subscription ==========
+type Subscription {
+  onCommentChanged(workspaceId: ID!): Comment
+    @aws_subscribe(mutations: ["upsertComment", "softDeleteComment"])
+  onPageChanged(workspaceId: ID!): Page
+    @aws_subscribe(mutations: ["upsertPage", "publishPageChanged", "softDeletePage", "restorePage"])
+  onDatabaseChanged(workspaceId: ID!): Database
+    @aws_subscribe(mutations: ["upsertDatabase", "softDeleteDatabase", "restoreDatabase"])
+  onScheduleChanged(workspaceId: ID!): Schedule
+    @aws_subscribe(mutations: ["createSchedule", "updateSchedule"])
+  onProjectChanged(workspaceId: ID!): Project
+    @aws_subscribe(mutations: ["createProject", "updateProject"])
+  onHolidayChanged(workspaceId: ID!): Holiday
+    @aws_subscribe(mutations: ["createHoliday", "updateHoliday"])
+  onMmEntryChanged(workspaceId: ID!): MmEntry
+    @aws_subscribe(mutations: ["upsertMmEntry", "reviewMmEntry", "lockMmEntry", "unlockMmEntry"])
+  onCustomIconChanged(workspaceId: ID!): CustomIcon
+    @aws_subscribe(mutations: ["createCustomIcon", "deleteCustomIcon"])
+  """워크스페이스 접근권한 변경 실시간 알림. 클라이언트는 이 신호로 워크스페이스를 재페치해
+     각자 본인 기준 권한(myEffectiveLevel)을 갱신한다(회수 시 자동 전환)."""
+  onWorkspaceChanged(workspaceId: ID!): Workspace
+    @aws_subscribe(mutations: ["setWorkspaceAccess"])
+}
+
+# ========== Schedule ==========
+type Schedule {
+  id: ID!
+  sourcePageId: ID
+  sourcePage: Page
+  workspaceId: ID!
+  title: String!
+  """일정 코멘트(툴팁/편집팝업)"""
+  comment: String
+  """관련 링크 URL"""
+  link: String
+  """소속 프로젝트/조직 ID"""
+  projectId: ID
+  teamId: ID
+  organizationId: ID
+  kind: String
+  startAt: AWSDateTime!
+  endAt: AWSDateTime!
+  assigneeId: ID
+  color: String
+  """카드 텍스트 색상(hex)"""
+  textColor: String
+  """같은 멤버 내 행 인덱스(다중 일정 겹침 방지)"""
+  rowIndex: Int
+  createdByMemberId: ID!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+input CreateScheduleInput {
+  workspaceId: ID!
+  title: String!
+  comment: String
+  link: String
+  projectId: ID
+  startAt: AWSDateTime!
+  endAt: AWSDateTime!
+  assigneeId: ID
+  color: String
+  textColor: String
+  rowIndex: Int
+}
+
+input UpdateScheduleInput {
+  id: ID!
+  workspaceId: ID!
+  title: String
+  comment: String
+  link: String
+  projectId: ID
+  startAt: AWSDateTime
+  endAt: AWSDateTime
+  assigneeId: ID
+  color: String
+  textColor: String
+  rowIndex: Int
+}
+
+# ========== Project ==========
+type Project {
+  id: ID!
+  workspaceId: ID!
+  name: String!
+  color: String!
+  description: String
+  memberIds: [ID!]!
+  leaderMemberIds: [ID!]!
+  isHidden: Boolean!
+  createdByMemberId: ID!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+input CreateProjectInput {
+  workspaceId: ID!
+  name: String!
+  color: String!
+  description: String
+  memberIds: [ID!]!
+  leaderMemberIds: [ID!]
+  isHidden: Boolean
+}
+
+input UpdateProjectInput {
+  id: ID!
+  workspaceId: ID!
+  name: String
+  color: String
+  description: String
+  memberIds: [ID!]
+  leaderMemberIds: [ID!]
+  isHidden: Boolean
+}
+
+# ========== Holiday ==========
+type Holiday {
+  id: ID!
+  workspaceId: ID!
+  title: String!
+  date: String!
+  type: String!
+  color: String!
+  createdByMemberId: ID!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+input CreateHolidayInput {
+  workspaceId: ID!
+  title: String!
+  date: String!
+  type: String!
+  color: String!
+}
+
+input UpdateHolidayInput {
+  id: ID!
+  workspaceId: ID!
+  title: String
+  date: String
+  type: String
+  color: String
+}
+
+# ========== Weekly MM ==========
+type MmAutoReason {
+  date: String!
+  type: MmAutoReasonType!
+  label: String!
+  ratioBp: Int!
+}
+
+type MmBucket {
+  id: ID!
+  kind: MmScopeKind!
+  scopeId: ID
+  label: String!
+  ratioBp: Int!
+  editable: Boolean!
+  reasons: [MmAutoReason!]!
+}
+
+type MmEntry {
+  id: ID!
+  workspaceId: ID!
+  memberId: ID!
+  weekStart: String!
+  weekEnd: String!
+  status: MmEntryStatus!
+  buckets: [MmBucket!]!
+  sourceSnapshot: AWSJSON
+  organizationId: ID
+  teamId: ID
+  submittedByMemberId: ID!
+  submittedAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+  reviewedByMemberId: ID
+  reviewedAt: AWSDateTime
+  lockedByMemberId: ID
+  lockedAt: AWSDateTime
+  note: String
+}
+
+input MmAutoReasonInput {
+  date: String!
+  type: MmAutoReasonType!
+  label: String!
+  ratioBp: Int!
+}
+
+input MmBucketInput {
+  id: ID!
+  kind: MmScopeKind!
+  scopeId: ID
+  label: String!
+  ratioBp: Int!
+  editable: Boolean!
+  reasons: [MmAutoReasonInput!]
+}
+
+input MmEntryInput {
+  workspaceId: ID!
+  memberId: ID!
+  weekStart: String!
+  weekEnd: String!
+  buckets: [MmBucketInput!]!
+  sourceSnapshot: AWSJSON
+  organizationId: ID
+  teamId: ID
+  note: String
+}
+
+input MmReviewInput {
+  workspaceId: ID!
+  entryId: ID!
+  buckets: [MmBucketInput!]
+  note: String
+}
+
+type MmRevision {
+  id: ID!
+  entryId: ID!
+  workspaceId: ID!
+  memberId: ID!
+  weekStart: String!
+  actorMemberId: ID!
+  action: String!
+  before: AWSJSON
+  after: AWSJSON
+  createdAt: AWSDateTime!
+  note: String
+}

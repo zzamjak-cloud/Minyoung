@@ -1,0 +1,723 @@
+import {
+  BatchWriteCommand,
+  DeleteCommand,
+  DynamoDBDocumentClient,
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  ScanCommand,
+  UpdateCommand,
+} from "@aws-sdk/lib-dynamodb";
+import { v4 as uuid } from "uuid";
+import {
+  LC_SCHEDULER_WORKSPACE_ID,
+  badRequest,
+  forbidden,
+  notFound,
+  requireRoleAtLeast,
+  type Member,
+} from "./_auth";
+import type { Tables } from "./member";
+import { cascadeDeletePageAssetUsage } from "./asset";
+
+/**
+ * workspaceId GSI 로 조회되는 위성 테이블의 모든 행을 배치 삭제한다.
+ * keyOf 는 base 테이블의 PK(+SK) 를 반환한다 — GSI 는 항상 base 키를 포함하므로 안전.
+ */
+async function deleteAllByWorkspaceGsi(args: {
+  doc: DynamoDBDocumentClient;
+  tableName: string | undefined;
+  indexName: string;
+  workspaceId: string;
+  keyOf: (item: Record<string, unknown>) => Record<string, unknown>;
+}): Promise<void> {
+  if (!args.tableName) return;
+  const deletes: Array<{ DeleteRequest: { Key: Record<string, unknown> } }> = [];
+  let startKey: Record<string, unknown> | undefined;
+  do {
+    const res = await args.doc.send(
+      new QueryCommand({
+        TableName: args.tableName,
+        IndexName: args.indexName,
+        KeyConditionExpression: "workspaceId = :w",
+        ExpressionAttributeValues: { ":w": args.workspaceId },
+        ExclusiveStartKey: startKey,
+      }),
+    );
+    for (const item of res.Items ?? []) deletes.push({ DeleteRequest: { Key: args.keyOf(item) } });
+    startKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (startKey);
+
+  for (let i = 0; i < deletes.length; i += 25) {
+    await args.doc.send(
+      new BatchWriteCommand({
+        RequestItems: { [args.tableName]: deletes.slice(i, i + 25) },
+      }),
+    );
+  }
+}
+
+type AccessLevel = "edit" | "view";
+type AccessSubjectType = "member" | "team" | "everyone";
+
+type WorkspaceAccessInput = {
+  subjectType: "MEMBER" | "TEAM" | "EVERYONE";
+  subjectId?: string | null;
+  level: "EDIT" | "VIEW";
+};
+
+type WorkspaceAccessEntry = {
+  subjectType: AccessSubjectType;
+  subjectId: string | null;
+  level: AccessLevel;
+};
+
+type WorkspaceRow = {
+  workspaceId: string;
+  name: string;
+  type: "personal" | "shared";
+  ownerMemberId: string;
+  createdAt: string;
+  removedAt?: string;
+  jobFunctions?: string[];
+  jobTitles?: string[];
+};
+
+export type Workspace = WorkspaceRow & {
+  access: WorkspaceAccessEntry[];
+  myEffectiveLevel: AccessLevel;
+  options: {
+    jobFunctions: string[];
+    jobTitles: string[];
+  };
+};
+
+function toLevel(level: "EDIT" | "VIEW"): AccessLevel {
+  return level === "EDIT" ? "edit" : "view";
+}
+
+function toSubjectType(t: "MEMBER" | "TEAM" | "EVERYONE"): AccessSubjectType {
+  if (t === "MEMBER") return "member";
+  if (t === "TEAM") return "team";
+  return "everyone";
+}
+
+function subjectKey(subjectType: AccessSubjectType, subjectId: string | null): string {
+  if (subjectType === "everyone") return "everyone#*";
+  return `${subjectType}#${subjectId ?? ""}`;
+}
+
+async function getWorkspaceRow(
+  doc: DynamoDBDocumentClient,
+  tables: Tables,
+  workspaceId: string,
+): Promise<WorkspaceRow | undefined> {
+  const r = await doc.send(
+    new GetCommand({ TableName: tables.Workspaces, Key: { workspaceId } }),
+  );
+  return r.Item as WorkspaceRow | undefined;
+}
+
+async function getWorkspaceAccess(
+  doc: DynamoDBDocumentClient,
+  tables: Tables,
+  workspaceId: string,
+): Promise<WorkspaceAccessEntry[]> {
+  const r = await doc.send(
+    new QueryCommand({
+      TableName: tables.WorkspaceAccess,
+      KeyConditionExpression: "workspaceId = :w",
+      ExpressionAttributeValues: { ":w": workspaceId },
+    }),
+  );
+  return (r.Items ?? []).map((i) => ({
+    subjectType: i.subjectType as AccessSubjectType,
+    subjectId: (i.subjectId as string | undefined) ?? null,
+    level: i.level as AccessLevel,
+  }));
+}
+
+async function getCallerTeamIds(
+  doc: DynamoDBDocumentClient,
+  tables: Tables,
+  callerId: string,
+): Promise<string[]> {
+  const r = await doc.send(
+    new QueryCommand({
+      TableName: tables.MemberTeams,
+      KeyConditionExpression: "memberId = :m",
+      ExpressionAttributeValues: { ":m": callerId },
+    }),
+  );
+  return (r.Items ?? []).map((i) => i.teamId as string);
+}
+
+const LEVEL_RANK: Record<AccessLevel, number> = { edit: 2, view: 1 };
+const SUBJECT_RANK: Record<WorkspaceAccessEntry["subjectType"], number> = {
+  member: 3,
+  team: 2,
+  everyone: 1,
+};
+
+export function computeEffectiveLevel(
+  entries: WorkspaceAccessEntry[],
+  caller: Member,
+  callerTeamIds: Set<string>,
+): AccessLevel | null {
+  // 전용 규칙(member/team)이 전체 공개(everyone)보다 우선한다.
+  let best: WorkspaceAccessEntry | null = null;
+  for (const e of entries) {
+    const matched =
+      (e.subjectType === "member" && e.subjectId === caller.memberId) ||
+      (e.subjectType === "team" && e.subjectId && callerTeamIds.has(e.subjectId)) ||
+      e.subjectType === "everyone";
+    if (!matched) continue;
+    if (
+      best === null ||
+      SUBJECT_RANK[e.subjectType] > SUBJECT_RANK[best.subjectType] ||
+      (SUBJECT_RANK[e.subjectType] === SUBJECT_RANK[best.subjectType] &&
+        LEVEL_RANK[e.level] > LEVEL_RANK[best.level])
+    ) {
+      best = e;
+    }
+  }
+  return best?.level ?? null;
+}
+
+async function hydrateWorkspace(
+  doc: DynamoDBDocumentClient,
+  tables: Tables,
+  row: WorkspaceRow,
+  caller: Member,
+  callerTeamIds: Set<string>,
+): Promise<Workspace | null> {
+  // 타인의 개인 워크스페이스는 목록/조회 대상에서 제외한다.
+  if (row.type === "personal" && row.workspaceId !== caller.personalWorkspaceId) {
+    return null;
+  }
+  const access = await getWorkspaceAccess(doc, tables, row.workspaceId);
+  if (row.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
+    return {
+      ...row,
+      access: [{ subjectType: "everyone", subjectId: null, level: "edit" }],
+      myEffectiveLevel: "edit",
+      options: {
+        jobFunctions: row.jobFunctions ?? [],
+        jobTitles: row.jobTitles ?? [],
+      },
+    };
+  }
+  // developer/owner/leader는 WorkspaceAccess 엔트리 없이도 암묵적으로 edit 권한
+  const level = (caller.workspaceRole === "developer" || caller.workspaceRole === "owner" || caller.workspaceRole === "leader")
+    ? "edit"
+    : computeEffectiveLevel(access, caller, callerTeamIds);
+  if (!level) return null;
+  return {
+    ...row,
+    access,
+    myEffectiveLevel: level,
+    options: {
+      jobFunctions: row.jobFunctions ?? [],
+      jobTitles: row.jobTitles ?? [],
+    },
+  };
+}
+
+export async function createWorkspace(args: {
+  doc: DynamoDBDocumentClient;
+  tables: Tables;
+  caller: Member;
+  input: { name: string; access: WorkspaceAccessInput[] };
+}): Promise<Workspace> {
+  requireRoleAtLeast(args.caller, "manager");
+  const name = args.input.name.trim();
+  if (!name) badRequest("워크스페이스 이름은 비어 있을 수 없음");
+  if ((args.input.access?.length ?? 0) > 24) {
+    badRequest("access 엔트리 24개 초과 불가");
+  }
+  const workspaceId = uuid();
+  const createdAt = new Date().toISOString();
+  await args.doc.send(
+    new PutCommand({
+      TableName: args.tables.Workspaces,
+      Item: {
+        workspaceId,
+        name,
+        type: "shared",
+        ownerMemberId: args.caller.memberId,
+        createdAt,
+      },
+      ConditionExpression: "attribute_not_exists(workspaceId)",
+    }),
+  );
+  const normalizedAccess = args.input.access.map((e) => ({
+    subjectType: toSubjectType(e.subjectType),
+    subjectId: e.subjectType === "EVERYONE" ? null : (e.subjectId ?? null),
+    level: toLevel(e.level),
+  }));
+  const putReqs = normalizedAccess.map((e) => ({
+    PutRequest: {
+      Item: {
+        workspaceId,
+        subjectKey: subjectKey(e.subjectType, e.subjectId),
+        subjectType: e.subjectType,
+        subjectId: e.subjectId,
+        level: e.level,
+      },
+    },
+  }));
+  if (putReqs.length > 0) {
+    await args.doc.send(
+      new BatchWriteCommand({
+        RequestItems: { [args.tables.WorkspaceAccess]: putReqs },
+      }),
+    );
+  }
+  return {
+    workspaceId,
+    name,
+    type: "shared",
+    ownerMemberId: args.caller.memberId,
+    createdAt,
+    access: normalizedAccess,
+    myEffectiveLevel: "edit",
+    options: {
+      jobFunctions: [],
+      jobTitles: [],
+    },
+  };
+}
+
+export async function updateWorkspace(args: {
+  doc: DynamoDBDocumentClient;
+  tables: Tables;
+  caller: Member;
+  input: { workspaceId: string; name?: string | null; options?: { jobFunctions?: string[] | null; jobTitles?: string[] | null } | null };
+}): Promise<Workspace> {
+  requireRoleAtLeast(args.caller, "manager");
+  if (args.input.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
+    forbidden("LC스케줄러 워크스페이스 설정은 변경할 수 없습니다");
+  }
+  const row = await getWorkspaceRow(args.doc, args.tables, args.input.workspaceId);
+  if (!row) notFound("Workspace 없음");
+
+  const sets: string[] = [];
+  const names: Record<string, string> = {};
+  const vals: Record<string, unknown> = {};
+
+  if (args.input.name != null && args.input.name.trim()) {
+    sets.push("#n = :n");
+    names["#n"] = "name";
+    vals[":n"] = args.input.name.trim();
+  }
+  if (args.input.options?.jobFunctions != null) {
+    sets.push("jobFunctions = :jf");
+    vals[":jf"] = args.input.options.jobFunctions;
+  }
+  if (args.input.options?.jobTitles != null) {
+    sets.push("jobTitles = :jt");
+    vals[":jt"] = args.input.options.jobTitles;
+  }
+
+  if (sets.length === 0) badRequest("변경할 항목 없음");
+
+  const r = await args.doc.send(
+    new UpdateCommand({
+      TableName: args.tables.Workspaces,
+      Key: { workspaceId: args.input.workspaceId },
+      UpdateExpression: `SET ${sets.join(", ")}`,
+      ...(Object.keys(names).length > 0 ? { ExpressionAttributeNames: names } : {}),
+      ExpressionAttributeValues: vals,
+      ReturnValues: "ALL_NEW",
+    }),
+  );
+  const updated = r.Attributes as WorkspaceRow;
+  const access = await getWorkspaceAccess(args.doc, args.tables, args.input.workspaceId);
+  return {
+    ...updated,
+    access,
+    myEffectiveLevel: "edit",
+    options: {
+      jobFunctions: updated.jobFunctions ?? [],
+      jobTitles: updated.jobTitles ?? [],
+    },
+  };
+}
+
+export async function setWorkspaceAccess(args: {
+  doc: DynamoDBDocumentClient;
+  tables: Tables;
+  caller: Member;
+  workspaceId: string;
+  entries: WorkspaceAccessInput[];
+}): Promise<Workspace> {
+  requireRoleAtLeast(args.caller, "manager");
+  if (args.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
+    forbidden("LC스케줄러 워크스페이스 접근 권한은 모든 구성원 편집으로 고정됩니다");
+  }
+  const row = await getWorkspaceRow(args.doc, args.tables, args.workspaceId);
+  if (!row) notFound("Workspace 없음");
+
+  const existing = await args.doc.send(
+    new QueryCommand({
+      TableName: args.tables.WorkspaceAccess,
+      KeyConditionExpression: "workspaceId = :w",
+      ExpressionAttributeValues: { ":w": args.workspaceId },
+    }),
+  );
+  const deleteReqs = (existing.Items ?? []).map((i) => ({
+    DeleteRequest: { Key: { workspaceId: i.workspaceId, subjectKey: i.subjectKey } },
+  }));
+  for (let i = 0; i < deleteReqs.length; i += 25) {
+    await args.doc.send(
+      new BatchWriteCommand({
+        RequestItems: { [args.tables.WorkspaceAccess]: deleteReqs.slice(i, i + 25) },
+      }),
+    );
+  }
+
+  const normalized = args.entries.map((e) => ({
+    subjectType: toSubjectType(e.subjectType),
+    subjectId: e.subjectType === "EVERYONE" ? null : (e.subjectId ?? null),
+    level: toLevel(e.level),
+  }));
+  const putReqs = normalized.map((e) => ({
+    PutRequest: {
+      Item: {
+        workspaceId: args.workspaceId,
+        subjectKey: subjectKey(e.subjectType, e.subjectId),
+        subjectType: e.subjectType,
+        subjectId: e.subjectId,
+        level: e.level,
+      },
+    },
+  }));
+  for (let i = 0; i < putReqs.length; i += 25) {
+    await args.doc.send(
+      new BatchWriteCommand({
+        RequestItems: { [args.tables.WorkspaceAccess]: putReqs.slice(i, i + 25) },
+      }),
+    );
+  }
+  return {
+    ...row,
+    access: normalized,
+    myEffectiveLevel: "edit",
+    options: {
+      jobFunctions: row.jobFunctions ?? [],
+      jobTitles: row.jobTitles ?? [],
+    },
+  };
+}
+
+export async function deleteWorkspace(args: {
+  doc: DynamoDBDocumentClient;
+  tables: Tables;
+  caller: Member;
+  workspaceId: string;
+}): Promise<boolean> {
+  requireRoleAtLeast(args.caller, "manager");
+  if (args.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
+    forbidden("LC스케줄러 워크스페이스는 삭제할 수 없습니다");
+  }
+  const row = await getWorkspaceRow(args.doc, args.tables, args.workspaceId);
+  if (!row) return false;
+
+  const access = await args.doc.send(
+    new QueryCommand({
+      TableName: args.tables.WorkspaceAccess,
+      KeyConditionExpression: "workspaceId = :w",
+      ExpressionAttributeValues: { ":w": args.workspaceId },
+    }),
+  );
+  const accessDeletes = (access.Items ?? []).map((i) => ({
+    DeleteRequest: { Key: { workspaceId: i.workspaceId, subjectKey: i.subjectKey } },
+  }));
+  for (let i = 0; i < accessDeletes.length; i += 25) {
+    await args.doc.send(
+      new BatchWriteCommand({
+        RequestItems: { [args.tables.WorkspaceAccess]: accessDeletes.slice(i, i + 25) },
+      }),
+    );
+  }
+
+  // 페이지 목록 수집 — AssetUsage(byPage) 정리에 pageId 가 필요하므로 먼저 모은다.
+  const pageIds: string[] = [];
+  if (args.tables.Pages) {
+    let startKey: Record<string, unknown> | undefined;
+    do {
+      const pages = await args.doc.send(
+        new QueryCommand({
+          TableName: args.tables.Pages,
+          IndexName: "byWorkspaceAndUpdatedAt",
+          KeyConditionExpression: "workspaceId = :w",
+          ExpressionAttributeValues: { ":w": args.workspaceId },
+          ExclusiveStartKey: startKey,
+        }),
+      );
+      for (const p of pages.Items ?? []) {
+        if (typeof p.id === "string") pageIds.push(p.id);
+      }
+      startKey = pages.LastEvaluatedKey as Record<string, unknown> | undefined;
+    } while (startKey);
+
+    for (let i = 0; i < pageIds.length; i += 25) {
+      await args.doc.send(
+        new BatchWriteCommand({
+          RequestItems: {
+            [args.tables.Pages]: pageIds
+              .slice(i, i + 25)
+              .map((id) => ({ DeleteRequest: { Key: { id } } })),
+          },
+        }),
+      );
+    }
+  }
+  if (args.tables.Databases) {
+    let startKey: Record<string, unknown> | undefined;
+    const dbDeletes: Array<{ DeleteRequest: { Key: Record<string, unknown> } }> = [];
+    do {
+      const dbs = await args.doc.send(
+        new QueryCommand({
+          TableName: args.tables.Databases,
+          IndexName: "byWorkspaceAndUpdatedAt",
+          KeyConditionExpression: "workspaceId = :w",
+          ExpressionAttributeValues: { ":w": args.workspaceId },
+          ExclusiveStartKey: startKey,
+        }),
+      );
+      for (const d of dbs.Items ?? []) dbDeletes.push({ DeleteRequest: { Key: { id: d.id } } });
+      startKey = dbs.LastEvaluatedKey as Record<string, unknown> | undefined;
+    } while (startKey);
+    for (let i = 0; i < dbDeletes.length; i += 25) {
+      await args.doc.send(
+        new BatchWriteCommand({
+          RequestItems: { [args.tables.Databases]: dbDeletes.slice(i, i + 25) },
+        }),
+      );
+    }
+  }
+
+  // 위성 데이터 cascade 정리 — 누락 시 고아 행 축적(스토리지 비용·GC 도달성 스캔 오염).
+  // 각 테이블의 base 키로 삭제(GSI 는 base 키를 항상 포함).
+  await deleteAllByWorkspaceGsi({
+    doc: args.doc,
+    tableName: args.tables.Comments,
+    indexName: "byWorkspaceAndUpdatedAt",
+    workspaceId: args.workspaceId,
+    keyOf: (i) => ({ id: i.id }),
+  });
+  await deleteAllByWorkspaceGsi({
+    doc: args.doc,
+    tableName: args.tables.CustomIcons,
+    indexName: "byWorkspaceAndCreatedAt",
+    workspaceId: args.workspaceId,
+    keyOf: (i) => ({ id: i.id }),
+  });
+  await deleteAllByWorkspaceGsi({
+    doc: args.doc,
+    tableName: args.tables.PageHistory,
+    indexName: "byWorkspaceAndCreatedAt",
+    workspaceId: args.workspaceId,
+    keyOf: (i) => ({ pageId: i.pageId, historyId: i.historyId }),
+  });
+  await deleteAllByWorkspaceGsi({
+    doc: args.doc,
+    tableName: args.tables.DatabaseHistory,
+    indexName: "byWorkspaceAndCreatedAt",
+    workspaceId: args.workspaceId,
+    keyOf: (i) => ({ databaseId: i.databaseId, historyId: i.historyId }),
+  });
+  await deleteAllByWorkspaceGsi({
+    doc: args.doc,
+    tableName: args.tables.Holidays,
+    indexName: "byWorkspace",
+    workspaceId: args.workspaceId,
+    keyOf: (i) => ({ id: i.id, workspaceId: i.workspaceId }),
+  });
+  await deleteAllByWorkspaceGsi({
+    doc: args.doc,
+    tableName: args.tables.Projects,
+    indexName: "byWorkspace",
+    workspaceId: args.workspaceId,
+    keyOf: (i) => ({ id: i.id, workspaceId: i.workspaceId }),
+  });
+  await deleteAllByWorkspaceGsi({
+    doc: args.doc,
+    tableName: args.tables.MmEntries,
+    indexName: "byWorkspaceAndWeek",
+    workspaceId: args.workspaceId,
+    keyOf: (i) => ({ id: i.id, workspaceId: i.workspaceId }),
+  });
+
+  // AssetUsage 는 workspaceId 인덱스가 없어 페이지별(byPage)로 정리한다.
+  // 고아 AssetUsage 는 자산을 계속 "사용 중"으로 보이게 해 GC 가 영구 보존하므로 반드시 제거.
+  for (const pageId of pageIds) {
+    await cascadeDeletePageAssetUsage({ doc: args.doc, tables: args.tables, pageId });
+  }
+
+  await args.doc.send(
+    new DeleteCommand({
+      TableName: args.tables.Workspaces,
+      Key: { workspaceId: args.workspaceId },
+    }),
+  );
+  return true;
+}
+
+export async function listMyWorkspaces(args: {
+  doc: DynamoDBDocumentClient;
+  tables: Tables;
+  caller: Member;
+}): Promise<Workspace[]> {
+  const teamIds = await getCallerTeamIds(args.doc, args.tables, args.caller.memberId);
+  const teamSet = new Set(teamIds);
+  const subjectKeys = [
+    `member#${args.caller.memberId}`,
+    ...teamIds.map((id) => `team#${id}`),
+    "everyone#*",
+  ];
+  const workspaceIds = new Set<string>([args.caller.personalWorkspaceId]);
+  workspaceIds.add(LC_SCHEDULER_WORKSPACE_ID);
+
+  for (const sk of subjectKeys) {
+    const r = await args.doc.send(
+      new QueryCommand({
+        TableName: args.tables.WorkspaceAccess,
+        IndexName: "bySubject",
+        KeyConditionExpression: "subjectKey = :sk",
+        ExpressionAttributeValues: { ":sk": sk },
+      }),
+    );
+    for (const item of r.Items ?? []) {
+      workspaceIds.add(item.workspaceId as string);
+    }
+  }
+
+  const workspaceIdList = Array.from(workspaceIds);
+  const fetchedRows = await Promise.all(
+    workspaceIdList.map((workspaceId) =>
+      getWorkspaceRow(args.doc, args.tables, workspaceId),
+    ),
+  );
+
+  // 개인 워크스페이스 DynamoDB 레코드가 없으면 자동 생성
+  const rows = [...fetchedRows];
+  const personalIdx = workspaceIdList.indexOf(args.caller.personalWorkspaceId);
+  if (personalIdx >= 0 && !rows[personalIdx]) {
+    const now = new Date().toISOString();
+    const personalRow: WorkspaceRow = {
+      workspaceId: args.caller.personalWorkspaceId,
+      name: "개인 워크스페이스",
+      type: "personal",
+      ownerMemberId: args.caller.memberId,
+      createdAt: now,
+    };
+    try {
+      await args.doc.send(
+        new PutCommand({
+          TableName: args.tables.Workspaces,
+          Item: personalRow,
+          ConditionExpression: "attribute_not_exists(workspaceId)",
+        }),
+      );
+    } catch {
+      // 동시에 생성된 경우 무시
+    }
+    rows[personalIdx] = personalRow;
+  }
+
+  const hydrated = await Promise.all(
+    rows
+      .filter((r): r is WorkspaceRow => Boolean(r))
+      .map((r) => hydrateWorkspace(args.doc, args.tables, r, args.caller, teamSet)),
+  );
+  return hydrated.filter((w): w is Workspace => Boolean(w));
+}
+
+export async function getWorkspace(args: {
+  doc: DynamoDBDocumentClient;
+  tables: Tables;
+  caller: Member;
+  workspaceId: string;
+}): Promise<Workspace | null> {
+  const row = await getWorkspaceRow(args.doc, args.tables, args.workspaceId);
+  if (!row) return null;
+  const teamSet = new Set(
+    await getCallerTeamIds(args.doc, args.tables, args.caller.memberId),
+  );
+  return hydrateWorkspace(args.doc, args.tables, row, args.caller, teamSet);
+}
+
+export async function listWorkspacesForDebug(args: {
+  doc: DynamoDBDocumentClient;
+  tables: Tables;
+}): Promise<WorkspaceRow[]> {
+  const r = await args.doc.send(new ScanCommand({ TableName: args.tables.Workspaces }));
+  return (r.Items ?? []) as WorkspaceRow[];
+}
+
+export async function archiveWorkspace(args: {
+  doc: DynamoDBDocumentClient;
+  tables: Tables;
+  caller: Member;
+  workspaceId: string;
+}): Promise<Workspace> {
+  requireRoleAtLeast(args.caller, "leader");
+  if (args.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
+    forbidden("LC스케줄러 워크스페이스는 보관할 수 없습니다");
+  }
+  const row = await getWorkspaceRow(args.doc, args.tables, args.workspaceId);
+  if (!row) notFound("워크스페이스 없음");
+  const now = new Date().toISOString();
+  await args.doc.send(
+    new UpdateCommand({
+      TableName: args.tables.Workspaces,
+      Key: { workspaceId: args.workspaceId },
+      UpdateExpression: "SET removedAt = :t",
+      ExpressionAttributeValues: { ":t": now },
+    }),
+  );
+  const access = await getWorkspaceAccess(args.doc, args.tables, args.workspaceId);
+  return {
+    ...row,
+    removedAt: now,
+    access,
+    myEffectiveLevel: "edit",
+    options: {
+      jobFunctions: row.jobFunctions ?? [],
+      jobTitles: row.jobTitles ?? [],
+    },
+  };
+}
+
+export async function restoreWorkspace(args: {
+  doc: DynamoDBDocumentClient;
+  tables: Tables;
+  caller: Member;
+  workspaceId: string;
+}): Promise<Workspace> {
+  requireRoleAtLeast(args.caller, "leader");
+  if (args.workspaceId === LC_SCHEDULER_WORKSPACE_ID) {
+    forbidden("LC스케줄러 워크스페이스는 복원 대상이 아닙니다");
+  }
+  const row = await getWorkspaceRow(args.doc, args.tables, args.workspaceId);
+  if (!row) notFound("워크스페이스 없음");
+  await args.doc.send(
+    new UpdateCommand({
+      TableName: args.tables.Workspaces,
+      Key: { workspaceId: args.workspaceId },
+      UpdateExpression: "REMOVE removedAt",
+    }),
+  );
+  const access = await getWorkspaceAccess(args.doc, args.tables, args.workspaceId);
+  return {
+    ...row,
+    access,
+    myEffectiveLevel: "edit",
+    options: {
+      jobFunctions: row.jobFunctions ?? [],
+      jobTitles: row.jobTitles ?? [],
+    },
+  };
+}

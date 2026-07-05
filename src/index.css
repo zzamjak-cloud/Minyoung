@@ -1,0 +1,1454 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 네이티브 입력·편집 영역 — 텍스트·커서(caret) 대비(라이트/다크) */
+@layer base {
+  textarea,
+  input:not([type]),
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="password"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="number"],
+  select {
+    color: rgb(24 24 27);
+    caret-color: rgb(24 24 27);
+  }
+
+  html.dark textarea,
+  html.dark input:not([type]),
+  html.dark input[type="text"],
+  html.dark input[type="search"],
+  html.dark input[type="email"],
+  html.dark input[type="password"],
+  html.dark input[type="tel"],
+  html.dark input[type="url"],
+  html.dark input[type="number"],
+  html.dark select {
+    color: rgb(244 244 245);
+    caret-color: rgb(125 211 252);
+  }
+
+  /* TipTap 본문 — contenteditable 커서 */
+  .ProseMirror {
+    caret-color: rgb(24 24 27);
+  }
+
+  html.dark .ProseMirror {
+    caret-color: rgb(125 211 252);
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+}
+
+/* TipTap 표 스타일 (노션 풍) */
+.tableWrapper {
+  overflow-x: auto;
+  /* x축 바운더리에서 부모로 스크롤 체인이 넘어가지 않도록. 수직 스크롤은 페이지로 자연 전파. */
+  overscroll-behavior-x: contain;
+}
+
+.ProseMirror table:not(.qn-database-table) {
+  border-collapse: collapse;
+  margin: 0;
+  table-layout: fixed;
+  width: 100%;
+  overflow: hidden;
+}
+
+.ProseMirror table.qn-database-table {
+  margin: 0;
+}
+
+.ProseMirror table:not(.qn-database-table) td,
+.ProseMirror table:not(.qn-database-table) th {
+  border: 1px solid rgb(228 228 231);
+  padding: 6px 10px;
+  vertical-align: top;
+  position: relative;
+  min-width: 80px;
+}
+.dark .ProseMirror table:not(.qn-database-table) td,
+.dark .ProseMirror table:not(.qn-database-table) th {
+  border-color: rgb(63 63 70);
+}
+.ProseMirror table:not(.qn-database-table) th {
+  background: rgb(244 244 245);
+  font-weight: 600;
+  text-align: left;
+}
+.dark .ProseMirror table:not(.qn-database-table) th {
+  background: rgb(39 39 42);
+}
+.ProseMirror table:not(.qn-database-table) .selectedCell::after {
+  background: rgba(99, 102, 241, 0.15);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+.ProseMirror .column-resize-handle {
+  background-color: rgb(99 102 241);
+  bottom: 0;
+  pointer-events: none;
+  position: absolute;
+  right: -2px;
+  top: 0;
+  width: 4px;
+}
+
+/* 콜아웃 본문 paragraph 마진 정리 */
+.callout-body > p {
+  margin: 0;
+}
+
+/* 붙여넣기 등으로 유입된 인라인 color 스타일이 콜아웃 배경색과 충돌하지 않도록 기본 색상으로 강제 */
+.callout-body span[style] {
+  color: inherit !important;
+}
+
+/* Empty: 아이콘 열 없음 — 편집 영역이 테두리 안 가로 전체를 쓰도록 */
+.callout--empty .callout-body {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+/* 토글 — React NodeView(div) 기반, data-open 속성으로 열림/닫힘 제어 */
+.toggle-block summary {
+  list-style: none;
+  outline: none;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding-left: 0;
+  min-width: 0;
+}
+.toggle-block summary::-webkit-details-marker {
+  display: none;
+}
+.toggle-block summary::before {
+  content: "▶";
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  line-height: 1;
+  cursor: pointer;
+  transform: rotate(0deg);
+  transition: transform 120ms;
+}
+/* 제목 토글 — 화살표가 제목 글자 크기(em)에 맞춰 함께 커짐 */
+.toggle-block summary[data-title-level="1"]::before {
+  width: 1.1em;
+  height: 1.1em;
+  font-size: 0.42em;
+}
+.toggle-block summary[data-title-level="2"]::before {
+  width: 1.1em;
+  height: 1.1em;
+  font-size: 0.48em;
+}
+.toggle-block summary[data-title-level="3"]::before {
+  width: 1.1em;
+  height: 1.1em;
+  font-size: 0.52em;
+}
+.toggle-block[data-open="true"] summary::before {
+  transform: rotate(90deg);
+}
+/* 닫힘 리셋 규칙을 열림 규칙 "뒤"에 둬 동일 특이도에서 소스 순서로 이긴다.
+   후손 선택자라 부모가 열리면 중첩 자식 summary 까지 90도가 누수되는데, 이 규칙이
+   자기(가장 가까운) 닫힌 토글의 화살표를 0도로 되돌려 누수를 상쇄한다. (닫힌 부모 안의
+   열린 자식은 어차피 display:none 으로 숨겨져 0도여도 보이지 않음) */
+.toggle-block[data-open="false"] summary::before {
+  transform: rotate(0deg);
+}
+.toggle-block[data-open="false"] [data-toggle-content] {
+  display: none;
+}
+/* 토글 제목이 비었을 때 placeholder 만 표시 */
+.ProseMirror summary.toggle-header[data-title-empty="true"]::after {
+  content: "토글 제목";
+  color: rgb(161 161 170);
+  pointer-events: none;
+}
+html.dark .ProseMirror summary.toggle-header[data-title-empty="true"]::after {
+  color: rgb(113 113 122);
+}
+.ProseMirror .toggle-block:not([data-text-color]) summary.toggle-header[data-title-empty="true"]:not([data-text-color]),
+.ProseMirror .toggle-block:not([data-text-color]) summary.toggle-header[data-title-empty="true"][data-text-color="default"],
+.ProseMirror .toggle-block[data-text-color="default"] summary.toggle-header[data-title-empty="true"]:not([data-text-color]) {
+  color: rgb(161 161 170);
+}
+html.dark .ProseMirror .toggle-block:not([data-text-color]) summary.toggle-header[data-title-empty="true"]:not([data-text-color]),
+html.dark .ProseMirror .toggle-block:not([data-text-color]) summary.toggle-header[data-title-empty="true"][data-text-color="default"],
+html.dark .ProseMirror .toggle-block[data-text-color="default"] summary.toggle-header[data-title-empty="true"]:not([data-text-color]) {
+  color: rgb(113 113 122);
+}
+/* 토글 본문이 비었을 때(빈 문단만 있어도) 회색 표시 */
+.ProseMirror .toggle-block[data-content-empty="true"] [data-toggle-content] > :is(p, h1, h2, h3, h4, ul, ol, blockquote, pre, div):not([data-text-color]),
+.ProseMirror .toggle-block[data-content-empty="true"] [data-toggle-content] > :is(p, h1, h2, h3, h4, ul, ol, blockquote, pre, div)[data-text-color="default"] {
+  color: rgb(161 161 170);
+}
+html.dark .ProseMirror .toggle-block[data-content-empty="true"] [data-toggle-content] > :is(p, h1, h2, h3, h4, ul, ol, blockquote, pre, div):not([data-text-color]),
+html.dark .ProseMirror .toggle-block[data-content-empty="true"] [data-toggle-content] > :is(p, h1, h2, h3, h4, ul, ol, blockquote, pre, div)[data-text-color="default"] {
+  color: rgb(113 113 122);
+}
+.toggle-block[data-content-empty="true"] .toggle-content .ProseMirror-trailingBreak {
+  color: inherit;
+}
+
+/* tippy 기본 검정 박스 제거 — 슬래시/멘션 메뉴는 자체 outline + shadow 사용 */
+.tippy-box {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: inherit !important;
+}
+.tippy-arrow {
+  display: none !important;
+}
+
+/* 페이지 멘션 칩 (실제 @ 문자는 renderHTML에서 한 번만 렌더)
+   — 블록 링크 버튼(buttonBlock 기본 프리셋)과 동일한 회색 배경 + 아웃라인 스타일로 통일 */
+.page-mention {
+  cursor: pointer;
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.25rem;
+  vertical-align: middle;
+  line-height: inherit;
+  color: #18181b; /* zinc-950 */
+}
+.page-mention:hover {
+  opacity: 0.7;
+}
+html.dark .page-mention {
+  color: #fafafa; /* zinc-50 */
+}
+html.dark .page-mention:hover {
+  opacity: 0.7;
+}
+.page-mention .page-mention-at,
+.page-mention .truncate {
+  color: inherit;
+  font-weight: 600;
+}
+.page-mention .page-mention-at {
+  font-size: 0.75rem;
+}
+.page-mention .page-mention-icon {
+  /* 아이콘이 line box 높이를 키우지 않도록 본문 텍스트 em 안에 고정한다. */
+  width: 1em;
+  height: 1em;
+  flex: none;
+  font-size: 1em;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.page-mention .page-mention-icon svg {
+  width: 1em;
+  height: 1em;
+}
+/* 이모지 아이콘만 본문 색 상속 — 루시드는 PageIconDisplay color prop 유지 */
+.page-mention .page-mention-icon:not(:has(svg)) {
+  color: inherit;
+}
+.page-mention .truncate {
+  text-decoration: underline;
+  text-decoration-color: #e4e4e7; /* zinc-200 — 컬럼 구분선 유사 연한 밑줄 */
+  text-underline-offset: 2px;
+}
+html.dark .page-mention .truncate {
+  text-decoration-color: #3f3f46; /* zinc-700 */
+}
+
+/* 저장된 HTML 등 구형 member-mention + page kind 폴백 — 동일한 회색/아웃라인 스타일 */
+.member-mention[data-mention-kind="page"],
+span.member-mention[data-id^="p:"] {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 0.5rem; /* rounded-lg */
+  vertical-align: middle;
+  font-weight: 500; /* font-medium */
+  font-size: 0.9375rem;
+  line-height: 1.35;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid #d4d4d8 !important; /* zinc-300 아웃라인 */
+  background-color: #fafafa !important; /* zinc-50 회색 배경 */
+  color: #3f3f46 !important; /* zinc-700 */
+}
+html.dark .member-mention[data-mention-kind="page"],
+html.dark span.member-mention[data-id^="p:"] {
+  border-color: #52525b !important; /* zinc-600 */
+  background-color: #27272a !important; /* zinc-800 */
+  color: #e4e4e7 !important; /* zinc-200 */
+}
+
+/* 블록 드래그(그립) 중 */
+body.quicknote-block-dragging .ProseMirror {
+  cursor: grabbing;
+}
+
+/* 본문 하단 입력 여유 — 스페이서 높이·scroll-padding-bottom 은 Editor.tsx 에서 픽셀 동기화 */
+.qn-editor-body-scroll {
+  overscroll-behavior-y: contain;
+}
+.qn-editor-scroll-tail-spacer {
+  width: 100%;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+/* Typography prose 기본보다 촘촘한 블록 간격 (Enter 로 생기는 문단 간격 포함) */
+.ProseMirror p {
+  margin-top: 0.35rem;
+  margin-bottom: 0.35rem;
+  /* Shift+Enter(하드 브레이크) 줄 간격 — prose 기본 line-height(약 1.75) 보다 촘촘하게 */
+  line-height: 1.42;
+}
+.ProseMirror > p:first-child {
+  margin-top: 0;
+}
+.ProseMirror > p:last-child {
+  margin-bottom: 0;
+}
+
+.ProseMirror h1 {
+  margin-top: 0.75em;
+  margin-bottom: 0.35em;
+}
+.ProseMirror h2 {
+  margin-top: 0.65em;
+  margin-bottom: 0.3em;
+}
+.ProseMirror h3,
+.ProseMirror h4 {
+  margin-top: 0.55em;
+  margin-bottom: 0.25em;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  margin-top: 0.35rem;
+  margin-bottom: 0.35rem;
+  padding-left: 1.25rem;
+}
+
+/* 불릿/번호 마커를 본문보다 진한 회색으로 */
+.ProseMirror ul > li::marker,
+.ProseMirror ol > li::marker {
+  color: rgb(82 82 91);
+}
+
+.dark .ProseMirror ul > li::marker,
+.dark .ProseMirror ol > li::marker {
+  color: rgb(212 212 216);
+}
+
+.ProseMirror li > p {
+  margin-top: 0.2em;
+  margin-bottom: 0.2em;
+  line-height: 1.42;
+}
+
+/* 토글 내부 리스트는 깊이와 무관하게 기본 불릿 형태를 유지 */
+.ProseMirror .toggle-content ul,
+.ProseMirror .toggle-content ul ul,
+.ProseMirror .toggle-content ul ul ul {
+  list-style-type: disc !important;
+}
+
+.ProseMirror a[href] {
+  cursor: pointer;
+}
+
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.ProseMirror ul[data-type="taskList"] > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.ProseMirror ul[data-type="taskList"] > li::marker {
+  content: "";
+}
+
+.ProseMirror ul[data-type="taskList"] > li > label {
+  /* 체크박스를 첫 줄 텍스트의 중앙 라인에 맞춘다.
+     라벨 박스 높이를 본문 첫 줄(line-height 1.42 + p margin-top 0.2em)에 맞추고
+     그 안에서 체크박스를 세로 중앙 정렬한다. */
+  display: flex;
+  align-items: center;
+  height: calc(1.42em + 0.2em);
+  flex: 0 0 auto;
+}
+
+.ProseMirror ul[data-type="taskList"] > li > div {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ProseMirror ul[data-type="taskList"] > li > div > p {
+  /* flex 아이템(div)은 BFC 라 내부 p 마진이 collapse 되지 않는다. bullet(li 블록,
+     마진 collapse → 항목 간 0.2em)과 줄 간격을 맞추려면 0.1em(0.1+0.1=0.2em) 사용. */
+  margin-top: 0.1em;
+  margin-bottom: 0.1em;
+  line-height: 1.42;
+}
+
+.ProseMirror blockquote {
+  margin-top: 0.4rem;
+  margin-bottom: 0.4rem;
+  font-style: normal;
+}
+
+/* Tailwind prose의 blockquote 장식 따옴표를 비활성화 */
+.ProseMirror blockquote p:first-of-type::before,
+.ProseMirror blockquote p:last-of-type::after {
+  content: none !important;
+}
+
+.ProseMirror pre {
+  margin-top: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+
+.ProseMirror hr {
+  margin-top: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+
+/* 이미지: prose 기본 이미지 마진·주변 문단 여백 축소 */
+.ProseMirror img {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+
+/* 동영상: Tailwind prose 가 기본으로 추가하는 video margin (2em) 을 제거.
+   컬럼 블록에서 옆 이미지 블록과 시작 위치가 어긋나거나, 상단 텍스트와 큰 간격이 생기는 회귀를 차단. */
+.ProseMirror video,
+.ProseMirror .qn-file-shell,
+.ProseMirror .react-renderer:has(> .qn-file-shell) {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.ProseMirror p:has(> img:only-child) {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+.ProseMirror p:has(> img:only-child) img {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* ── 블록 드래그: 선택 영역 (prosemirror-view 기본 아웃라인 대체) ── */
+.ProseMirror-selectednode {
+  outline: none !important;
+  border-radius: 8px;
+  background-color: rgba(59, 130, 246, 0.11);
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.08);
+}
+
+.dark .ProseMirror-selectednode {
+  background-color: rgba(96, 165, 250, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.12);
+}
+
+/* DB 블록은 자체 UI에 컨트롤이 많아 atom 선택 시 파란 배경이 거슬림 — 비활성화
+   React 노드뷰: ProseMirror-selectednode 는 포털 루트(.react-renderer)에 붙고,
+   qn-database-block 은 자식 NodeViewWrapper 에 있어서 동일 요소 조합이 안 됨 → :has 로 상위에서 제거 */
+.react-renderer.ProseMirror-selectednode:has(.qn-database-block),
+.ProseMirror-selectednode:has([data-node-view-wrapper].qn-database-block),
+.qn-database-block.ProseMirror-selectednode,
+.dark .react-renderer.ProseMirror-selectednode:has(.qn-database-block),
+.dark .ProseMirror-selectednode:has([data-node-view-wrapper].qn-database-block),
+.dark .qn-database-block.ProseMirror-selectednode {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* fileBlock(동영상/첨부파일)도 atom 선택 파란 배경 제거 — 리사이즈 핸들만 표시 */
+.react-renderer.ProseMirror-selectednode:has(.qn-file-shell),
+.ProseMirror-selectednode:has([data-node-view-wrapper].qn-file-shell),
+.qn-file-shell.ProseMirror-selectednode,
+.dark .react-renderer.ProseMirror-selectednode:has(.qn-file-shell),
+.dark .ProseMirror-selectednode:has([data-node-view-wrapper].qn-file-shell),
+.dark .qn-file-shell.ProseMirror-selectednode {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* 이미지 블록도 정렬 지원으로 div 블록 wrapper 가 되면서 selectednode 가 행 전체를 덮는다 — 배경 제거. */
+.react-renderer.ProseMirror-selectednode:has(.qn-image-shell),
+.ProseMirror-selectednode:has([data-node-view-wrapper].qn-image-shell),
+.qn-image-shell.ProseMirror-selectednode,
+.dark .react-renderer.ProseMirror-selectednode:has(.qn-image-shell),
+.dark .ProseMirror-selectednode:has([data-node-view-wrapper].qn-image-shell),
+.dark .qn-image-shell.ProseMirror-selectednode {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+/* 선택 시 실제 이미지에만 파란 링 표시 */
+.ProseMirror-selectednode .qn-image-shell > img,
+.ProseMirror-selectednode.qn-image-shell > img,
+.react-renderer.ProseMirror-selectednode .qn-image-shell > img {
+  outline: 2px solid rgba(59, 130, 246, 0.7);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
+li.ProseMirror-selectednode {
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+li.ProseMirror-selectednode::after {
+  content: "";
+  position: absolute;
+  border: none !important;
+  border-radius: 8px;
+  background-color: rgba(59, 130, 246, 0.11);
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.08);
+  pointer-events: none;
+  left: -28px;
+  right: -4px;
+  top: -3px;
+  bottom: -3px;
+}
+
+.dark li.ProseMirror-selectednode::after {
+  background-color: rgba(96, 165, 250, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.12);
+}
+
+/* NodeRangeSelection 장식 (여러 블록 드래그 시) */
+.ProseMirror .ProseMirror-selectednoderange {
+  border-radius: 8px !important;
+  outline: none !important;
+  background-color: rgba(59, 130, 246, 0.09) !important;
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.07);
+}
+
+.dark .ProseMirror .ProseMirror-selectednoderange {
+  background-color: rgba(96, 165, 250, 0.12) !important;
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.1);
+}
+
+/*
+ * 드롭 위치 표시 — prosemirror-dropcursor 가 view.dom 이 아니라 offsetParent(편집 영역 래퍼)에 붙어
+ * ProseMirror 의 자식이 아니므로 .ProseMirror 접두 선택자를 쓰면 규칙이 적용되지 않음.
+ */
+.qn-dropcursor {
+  background-color: transparent !important;
+  z-index: 100 !important;
+}
+
+.qn-block-drop-indicator {
+  position: fixed;
+  height: 3px;
+  pointer-events: none;
+  z-index: 150;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background-image: repeating-linear-gradient(
+    to right,
+    rgb(59, 130, 246) 0,
+    rgb(59, 130, 246) 5px,
+    transparent 5px,
+    transparent 10px
+  );
+}
+
+.dark .qn-block-drop-indicator {
+  background-image: repeating-linear-gradient(
+    to right,
+    rgb(96, 165, 250) 0,
+    rgb(96, 165, 250) 5px,
+    transparent 5px,
+    transparent 10px
+  );
+}
+
+body.quicknote-column-reorder-dragging .qn-block-drop-indicator {
+  display: none !important;
+}
+
+.qn-dropcursor.prosemirror-dropcursor-block {
+  /* 높이가 1~2px 일 때 그라데이션이 안 보이는 브라우저 대비 — 최소 높이 확보 */
+  min-height: 3px !important;
+  background-image: repeating-linear-gradient(
+    to right,
+    rgb(59, 130, 246) 0,
+    rgb(59, 130, 246) 5px,
+    transparent 5px,
+    transparent 10px
+  ) !important;
+  background-size: 100% 100%;
+  border-radius: 2px;
+}
+
+.qn-dropcursor.prosemirror-dropcursor-inline {
+  min-width: 3px !important;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgb(59, 130, 246) 0,
+    rgb(59, 130, 246) 4px,
+    transparent 4px,
+    transparent 8px
+  ) !important;
+  background-size: 100% 100%;
+  border-radius: 2px;
+}
+
+.dark .qn-dropcursor.prosemirror-dropcursor-block {
+  background-image: repeating-linear-gradient(
+    to right,
+    rgb(96, 165, 250) 0,
+    rgb(96, 165, 250) 5px,
+    transparent 5px,
+    transparent 10px
+  ) !important;
+}
+
+.dark .qn-dropcursor.prosemirror-dropcursor-inline {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgb(96, 165, 250) 0,
+    rgb(96, 165, 250) 4px,
+    transparent 4px,
+    transparent 8px
+  ) !important;
+}
+
+/* 코드 블록 — typography(prose) 보다 우선해 hljs 토큰 색이 살아야 함 */
+.prose pre.qn-code-block.not-prose,
+/* 코드 블록 — highlight.js github-dark 토큰 색 + 배경은 짙은 회색 */
+.ProseMirror pre.qn-code-block,
+.ProseMirror pre.hljs {
+  position: relative;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "JetBrains Mono",
+    Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  /* 우측 상단 복사 버튼 영역 */
+  padding: 2.25rem 4.25rem 12px 14px;
+  border-radius: 8px;
+  overflow-x: auto;
+  -webkit-font-smoothing: subpixel-antialiased;
+  /* github-dark 기본 #0d1117 대신 짙은 회색 */
+  background: #2d2d32 !important;
+  color: #c9d1d9;
+}
+
+/* 코드블럭 React 노드뷰 마운트 전 깜빡임 차단.
+   ReactNodeViewRenderer 는 외곽 DOM(.node-codeBlock)과 원본 텍스트 임시 stub 을
+   동기 생성하지만 실제 React 컴포넌트(미리보기 탭 UI)는 다음 프레임에 포털로 마운트된다.
+   그 1프레임 동안 마크다운 원본 소스가 노출되는 회귀를 막기 위해,
+   래퍼(.qn-markdown-code-block / .qn-codeblock-nodeview)가 마운트되기 전까지 숨긴다. */
+.ProseMirror .react-renderer.node-codeBlock:not(:has(.qn-markdown-code-block, .qn-codeblock-nodeview)) {
+  visibility: hidden;
+}
+
+/* 마크다운 언어 블록 소스: 헤더바 아래 일반 흐름 코드 영역(가로 스크롤만). */
+.ProseMirror .qn-markdown-code-block pre.qn-markdown-code-source.hljs {
+  position: static !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+  font-size: 15px !important;
+  line-height: 1.6 !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.ProseMirror pre.qn-code-block code,
+.ProseMirror pre.hljs code {
+  background: transparent !important;
+  padding: 0 !important;
+  font-family: inherit;
+  font-size: inherit;
+  /* color 미지정: pre 의 기본색 상속; span.hljs-* 토큰 색은 아래 규칙/github-dark */
+}
+
+/* github-dark 팔레트 — typography(prose) 보다 강하게 (.prose 안 에디터) */
+.prose .ProseMirror pre.hljs .hljs-doctag,
+.prose .ProseMirror pre.hljs .hljs-keyword,
+.prose .ProseMirror pre.hljs .hljs-meta .hljs-keyword,
+.prose .ProseMirror pre.hljs .hljs-template-tag,
+.prose .ProseMirror pre.hljs .hljs-template-variable,
+.prose .ProseMirror pre.hljs .hljs-type,
+.prose .ProseMirror pre.hljs .hljs-variable.language_,
+.ProseMirror pre.hljs .hljs-doctag,
+.ProseMirror pre.hljs .hljs-keyword,
+.ProseMirror pre.hljs .hljs-meta .hljs-keyword,
+.ProseMirror pre.hljs .hljs-template-tag,
+.ProseMirror pre.hljs .hljs-template-variable,
+.ProseMirror pre.hljs .hljs-type,
+.ProseMirror pre.hljs .hljs-variable.language_ {
+  color: #fb923c !important;
+}
+/* 제목·클래스명·마크다운 섹션 — 파랑/보라 대신 앰버·주황 계열 */
+.prose .ProseMirror pre.hljs .hljs-title,
+.prose .ProseMirror pre.hljs .hljs-title.class_,
+.prose .ProseMirror pre.hljs .hljs-title.class_.inherited__,
+.prose .ProseMirror pre.hljs .hljs-title.function_,
+.ProseMirror pre.hljs .hljs-title,
+.ProseMirror pre.hljs .hljs-title.class_,
+.ProseMirror pre.hljs .hljs-title.class_.inherited__,
+.ProseMirror pre.hljs .hljs-title.function_ {
+  color: #fdba74 !important;
+}
+.prose .ProseMirror pre.hljs .hljs-section,
+.ProseMirror pre.hljs .hljs-section {
+  color: #f97316 !important;
+}
+.prose .ProseMirror pre.hljs .hljs-attr,
+.prose .ProseMirror pre.hljs .hljs-attribute,
+.prose .ProseMirror pre.hljs .hljs-literal,
+.prose .ProseMirror pre.hljs .hljs-meta,
+.prose .ProseMirror pre.hljs .hljs-number,
+.prose .ProseMirror pre.hljs .hljs-operator,
+.prose .ProseMirror pre.hljs .hljs-variable,
+.prose .ProseMirror pre.hljs .hljs-selector-attr,
+.prose .ProseMirror pre.hljs .hljs-selector-class,
+.prose .ProseMirror pre.hljs .hljs-selector-id,
+.ProseMirror pre.hljs .hljs-attr,
+.ProseMirror pre.hljs .hljs-attribute,
+.ProseMirror pre.hljs .hljs-literal,
+.ProseMirror pre.hljs .hljs-meta,
+.ProseMirror pre.hljs .hljs-number,
+.ProseMirror pre.hljs .hljs-operator,
+.ProseMirror pre.hljs .hljs-variable,
+.ProseMirror pre.hljs .hljs-selector-attr,
+.ProseMirror pre.hljs .hljs-selector-class,
+.ProseMirror pre.hljs .hljs-selector-id {
+  color: #fde68a !important;
+}
+.prose .ProseMirror pre.hljs .hljs-regexp,
+.prose .ProseMirror pre.hljs .hljs-string,
+.prose .ProseMirror pre.hljs .hljs-meta .hljs-string,
+.ProseMirror pre.hljs .hljs-regexp,
+.ProseMirror pre.hljs .hljs-string,
+.ProseMirror pre.hljs .hljs-meta .hljs-string {
+  color: #ffedd5 !important;
+}
+.prose .ProseMirror pre.hljs .hljs-built_in,
+.prose .ProseMirror pre.hljs .hljs-symbol,
+.ProseMirror pre.hljs .hljs-built_in,
+.ProseMirror pre.hljs .hljs-symbol {
+  color: #ea580c !important;
+}
+.prose .ProseMirror pre.hljs .hljs-comment,
+.prose .ProseMirror pre.hljs .hljs-code,
+.prose .ProseMirror pre.hljs .hljs-formula,
+.ProseMirror pre.hljs .hljs-comment,
+.ProseMirror pre.hljs .hljs-code,
+.ProseMirror pre.hljs .hljs-formula {
+  color: #a1a1aa !important;
+}
+.prose .ProseMirror pre.hljs .hljs-name,
+.prose .ProseMirror pre.hljs .hljs-quote,
+.prose .ProseMirror pre.hljs .hljs-selector-tag,
+.prose .ProseMirror pre.hljs .hljs-selector-pseudo,
+.ProseMirror pre.hljs .hljs-name,
+.ProseMirror pre.hljs .hljs-quote,
+.ProseMirror pre.hljs .hljs-selector-tag,
+.ProseMirror pre.hljs .hljs-selector-pseudo {
+  color: #fcd34d !important;
+}
+
+.qn-code-copy-anchor {
+  position: absolute;
+  top: 0.5rem;
+  /* 스크롤바 영역(약 8px)만 남기고 우측에 가깝게 배치 */
+  right: 0.75rem;
+  z-index: 30;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.qn-code-copy-btn {
+  display: inline-flex;
+  height: 1.75rem;
+  min-width: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 8px;
+  border-radius: 0.375rem;
+  border: 1px solid rgb(82 82 91 / 0.65);
+  background: rgb(63 63 70 / 0.92);
+  color: rgb(228 228 231);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.qn-code-copy-btn .qn-code-copy-label {
+  letter-spacing: -0.02em;
+}
+
+.qn-code-copy-btn:hover {
+  border-color: rgb(161 161 170);
+  background: rgb(82 82 91);
+  color: rgb(255 255 255);
+}
+
+.qn-code-copy-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(59 130 246 / 0.45);
+}
+
+.dark .qn-code-copy-btn {
+  border-color: rgb(82 82 91);
+  background: rgb(39 39 42 / 0.95);
+}
+
+.dark .qn-code-copy-btn:hover {
+  background: rgb(63 63 70);
+}
+
+/* inline code(<p><code>) — Tailwind prose의 백틱 장식을 제거하고 회색 박스+빨간 텍스트로 표시 */
+.ProseMirror :not(pre) > code {
+  background: rgb(243, 244, 246);
+  border: 1px solid rgba(209, 213, 219, 0.95);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.82em;
+  line-height: 1.3;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "JetBrains Mono",
+    Consolas, monospace;
+  color: rgb(220, 38, 38);
+  vertical-align: baseline;
+}
+
+.ProseMirror :not(pre) > code::before,
+.ProseMirror :not(pre) > code::after {
+  content: none !important;
+}
+
+.dark .ProseMirror :not(pre) > code {
+  background: rgba(63, 63, 70, 0.85);
+  border-color: rgba(113, 113, 122, 0.9);
+  color: rgb(248, 113, 113);
+}
+
+/* 박스 선택 — 훅에서 body에 붙임; fixed 뷰포트 좌표 */
+.qn-box-select-rect {
+  position: fixed;
+  box-sizing: border-box;
+  border: 2px dashed #3b82f6;
+  background: rgba(59, 130, 246, 0.06);
+  pointer-events: none;
+  z-index: 730;
+  will-change: left, top, width, height;
+  contain: layout style paint;
+}
+
+/* 마퀴 mousedown 직후~mouseup: 임계값(몇 px) 전에도 선택·드래그가 생기지 않게 */
+body.qn-box-select-tracking [data-qn-editor-column],
+body.qn-box-select-tracking [data-qn-editor-column] *,
+body.qn-box-select-tracking .qn-peek-editor,
+body.qn-box-select-tracking .qn-peek-editor * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+body.qn-box-select-tracking iframe,
+body.qn-box-select-dragging iframe {
+  pointer-events: none !important;
+}
+
+/* 드래그 중에는 페이지 전체 텍스트 선택 억제 */
+body.qn-box-select-dragging {
+  user-select: none !important;
+}
+
+/* 박스 드래그 선택 중: 표 그립 핸들 호버 효과 차단 */
+body.qn-box-select-dragging [data-qn-table-grip-col],
+body.qn-box-select-dragging [data-qn-table-grip-row] {
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+/* 다중 블록 선택 시각은 PM DOM 밖(에디터 스크롤 호스트 내)의 그룹 오버레이(#qn-block-group-overlay)
+   에서 그린다 — useBoxSelect.ts 참고. PM view.update 가 노드를
+   재렌더해도 영향을 받지 않는다. dark 톤은 오버레이 자체에서 별도 처리하지 않음(두 톤 모두에서 가독). */
+
+/* 컬럼 레이아웃: 컬럼 사이 얇은 구분선 */
+.ProseMirror [data-column-layout] {
+  border: 1px solid rgb(244 244 245);
+  border-radius: 10px;
+  padding: 10px 12px;
+  /* 인접 블록(특히 위쪽 표/탭)과 호버 간섭 분리 */
+  margin: 1.5rem 0;
+}
+
+/* 탭 블록도 인접 블록과 호버 간섭 분리를 위해 위아래 마진 부여 */
+.ProseMirror [data-tab-block] {
+  margin: 1.5rem 0;
+}
+
+/* 콜아웃은 인접 블록과 추가 간격 없이 이어지도록 wrapper margin 제거 */
+.ProseMirror [data-callout] {
+  margin: 0;
+}
+
+.ProseMirror .qn-database-block {
+  margin: 1.5rem 0;
+}
+
+/* 데이터베이스 스크롤바 — 기본은 완전히 숨기고 마우스 호버 시에만 표시한다. */
+.qn-database-subtle-scrollbar {
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+}
+
+.qn-database-subtle-scrollbar:hover {
+  scrollbar-color: rgba(161, 161, 170, 0.22) transparent;
+}
+
+.qn-database-subtle-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.qn-database-subtle-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.qn-database-subtle-scrollbar::-webkit-scrollbar-thumb {
+  background-clip: content-box;
+  background-color: transparent;
+  border: 3px solid transparent;
+  border-radius: 9999px;
+}
+
+.qn-database-subtle-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(161, 161, 170, 0.22);
+}
+
+html.dark .qn-database-subtle-scrollbar:hover {
+  scrollbar-color: rgba(113, 113, 122, 0.22) transparent;
+}
+
+html.dark .qn-database-subtle-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(113, 113, 122, 0.22);
+}
+
+/* 스크롤은 가능하되 스크롤바를 시각적으로 숨김 — 드롭다운 메뉴 등. 자기 자신과 모든 하위 요소에 적용. */
+.qn-no-scrollbar,
+.qn-no-scrollbar * {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/legacy Edge */
+}
+
+.qn-no-scrollbar::-webkit-scrollbar,
+.qn-no-scrollbar *::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.dark .ProseMirror [data-column-layout] {
+  border-color: rgb(39 39 42);
+  background: rgba(39, 39, 42, 0.15);
+}
+
+/* "None" 프리셋: 외곽 아웃라인·컬럼 구분선 모두 숨김.
+   단, 컬럼끼리 딱 붙어 구분이 안 되므로 컬럼 사이 간격(gap)은 유지한다. */
+.ProseMirror [data-column-layout][data-preset="none"],
+.dark .ProseMirror [data-column-layout][data-preset="none"] {
+  border: none;
+  background: transparent;
+  gap: 1.5rem;
+  margin: 0;
+  padding: 0;
+}
+
+.ProseMirror
+  [data-column-layout][data-preset="none"]
+  > [data-column]:not(:last-child)::after {
+  display: none;
+}
+
+.ProseMirror [data-column-layout][data-preset="none"] > [data-column] {
+  padding: 0;
+}
+
+.ProseMirror [data-column-layout] > [data-column] {
+  position: relative;
+  padding: 2px 10px;
+}
+
+.ProseMirror [data-column-layout] > [data-column]:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 25%;
+  right: -12px;
+  width: 1px;
+  height: 50%;
+  background: rgb(244 244 245);
+  pointer-events: none;
+}
+
+.dark .ProseMirror [data-column-layout] > [data-column]:not(:last-child)::after {
+  background: rgb(39 39 42);
+}
+
+/* 컬럼 핸들 드래그 중에는 블록 드래그 시각요소를 숨겨 혼선을 줄인다. */
+body.quicknote-column-reorder-dragging [data-qn-block-grip] {
+  visibility: hidden;
+}
+
+body.quicknote-column-reorder-dragging .qn-column-drop-indicator,
+body.quicknote-column-reorder-dragging .qn-dropcursor {
+  display: none !important;
+}
+
+/* TipTap 표 행·열 순서 드래그 중: 블록 드롭·dropcursor·블록 그립 숨김 (열 레이아웃 재정렬과 동일 취지) */
+body.quicknote-table-reorder-dragging [data-qn-block-grip] {
+  visibility: hidden;
+}
+
+body.quicknote-table-reorder-dragging .qn-block-drop-indicator,
+body.quicknote-table-reorder-dragging .qn-dropcursor,
+body.quicknote-table-reorder-dragging .qn-column-drop-indicator {
+  display: none !important;
+}
+
+/* 모바일(<768): 다단 컬럼 레이아웃을 1열로 세로 스택해 가독성 확보.
+   셀의 인라인 style(flex: N 1 0%)을 덮어야 하므로 !important 사용. */
+@media (max-width: 767px) {
+  .column-layout {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+  .column-layout > [data-column] {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+  }
+}
+
+/* DB 컬럼 reorder 드래그 중 — dropcursor·블록 드롭 인디케이터 숨김 */
+body.quicknote-db-col-dragging .qn-dropcursor,
+body.quicknote-db-col-dragging .qn-block-drop-indicator {
+  display: none !important;
+}
+
+.ProseMirror [data-tab-block][data-tab-placement="left"] .qn-tab-list,
+.ProseMirror [data-tab-block][data-tab-placement="right"] .qn-tab-list {
+  flex-direction: column;
+  align-items: stretch;
+  width: 9rem;
+  min-width: 9rem;
+}
+
+.ProseMirror [data-tab-block][data-tab-placement="left"] .qn-tab-items,
+.ProseMirror [data-tab-block][data-tab-placement="right"] .qn-tab-items {
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.ProseMirror [data-tab-block][data-tab-placement="left"] .qn-tab-actions,
+.ProseMirror [data-tab-block][data-tab-placement="right"] .qn-tab-actions {
+  margin-top: auto;
+  margin-left: 0;
+  justify-content: flex-end;
+}
+
+.ProseMirror [data-tab-block][data-tab-placement="left"] .qn-tab-button,
+.ProseMirror [data-tab-block][data-tab-placement="right"] .qn-tab-button {
+  max-width: none;
+  width: 100%;
+  justify-content: flex-start;
+}
+
+/*
+ * 탭 패널 표시 백업: TipTap React 노드뷰는 .qn-tab-panels 안에 PM contentDOM(div[data-node-view-content-react])를 끼워 넣음.
+ * 그래서 패널은 .qn-tab-panels 직계가 아니라 그 안쪽 직계 — 기존 `.qn-tab-panels > .qn-tab-panel` 은 한 번도 매칭되지 않았음.
+ */
+.ProseMirror [data-tab-block] .qn-tab-panels [data-tab-panel] {
+  display: none !important;
+}
+
+/* PM 래퍼 직계 패널 (일반) */
+.ProseMirror [data-tab-block][data-active-index="0"]
+  .qn-tab-panels
+  [data-node-view-content-react]
+  > .qn-tab-panel:nth-of-type(1),
+.ProseMirror [data-tab-block][data-active-index="0"] .qn-tab-panels > .qn-tab-panel:nth-of-type(1) {
+  display: block !important;
+}
+.ProseMirror [data-tab-block][data-active-index="1"]
+  .qn-tab-panels
+  [data-node-view-content-react]
+  > .qn-tab-panel:nth-of-type(2),
+.ProseMirror [data-tab-block][data-active-index="1"] .qn-tab-panels > .qn-tab-panel:nth-of-type(2) {
+  display: block !important;
+}
+.ProseMirror [data-tab-block][data-active-index="2"]
+  .qn-tab-panels
+  [data-node-view-content-react]
+  > .qn-tab-panel:nth-of-type(3),
+.ProseMirror [data-tab-block][data-active-index="2"] .qn-tab-panels > .qn-tab-panel:nth-of-type(3) {
+  display: block !important;
+}
+.ProseMirror [data-tab-block][data-active-index="3"]
+  .qn-tab-panels
+  [data-node-view-content-react]
+  > .qn-tab-panel:nth-of-type(4),
+.ProseMirror [data-tab-block][data-active-index="3"] .qn-tab-panels > .qn-tab-panel:nth-of-type(4) {
+  display: block !important;
+}
+.ProseMirror [data-tab-block][data-active-index="4"]
+  .qn-tab-panels
+  [data-node-view-content-react]
+  > .qn-tab-panel:nth-of-type(5),
+.ProseMirror [data-tab-block][data-active-index="4"] .qn-tab-panels > .qn-tab-panel:nth-of-type(5) {
+  display: block !important;
+}
+.ProseMirror [data-tab-block][data-active-index="5"]
+  .qn-tab-panels
+  [data-node-view-content-react]
+  > .qn-tab-panel:nth-of-type(6),
+.ProseMirror [data-tab-block][data-active-index="5"] .qn-tab-panels > .qn-tab-panel:nth-of-type(6) {
+  display: block !important;
+}
+.ProseMirror [data-tab-block][data-active-index="6"]
+  .qn-tab-panels
+  [data-node-view-content-react]
+  > .qn-tab-panel:nth-of-type(7),
+.ProseMirror [data-tab-block][data-active-index="6"] .qn-tab-panels > .qn-tab-panel:nth-of-type(7) {
+  display: block !important;
+}
+.ProseMirror [data-tab-block][data-active-index="7"]
+  .qn-tab-panels
+  [data-node-view-content-react]
+  > .qn-tab-panel:nth-of-type(8),
+.ProseMirror [data-tab-block][data-active-index="7"] .qn-tab-panels > .qn-tab-panel:nth-of-type(8) {
+  display: block !important;
+}
+.ProseMirror [data-tab-block][data-active-index="8"]
+  .qn-tab-panels
+  [data-node-view-content-react]
+  > .qn-tab-panel:nth-of-type(9),
+.ProseMirror [data-tab-block][data-active-index="8"] .qn-tab-panels > .qn-tab-panel:nth-of-type(9) {
+  display: block !important;
+}
+.ProseMirror [data-tab-block][data-active-index="9"]
+  .qn-tab-panels
+  [data-node-view-content-react]
+  > .qn-tab-panel:nth-of-type(10),
+.ProseMirror [data-tab-block][data-active-index="9"] .qn-tab-panels > .qn-tab-panel:nth-of-type(10) {
+  display: block !important;
+}
+.ProseMirror [data-tab-block][data-active-index="10"]
+  .qn-tab-panels
+  [data-node-view-content-react]
+  > .qn-tab-panel:nth-of-type(11),
+.ProseMirror [data-tab-block][data-active-index="10"] .qn-tab-panels > .qn-tab-panel:nth-of-type(11) {
+  display: block !important;
+}
+.ProseMirror [data-tab-block][data-active-index="11"]
+  .qn-tab-panels
+  [data-node-view-content-react]
+  > .qn-tab-panel:nth-of-type(12),
+.ProseMirror [data-tab-block][data-active-index="11"] .qn-tab-panels > .qn-tab-panel:nth-of-type(12) {
+  display: block !important;
+}
+.ProseMirror [data-tab-block][data-active-index="12"]
+  .qn-tab-panels
+  [data-node-view-content-react]
+  > .qn-tab-panel:nth-of-type(13),
+.ProseMirror [data-tab-block][data-active-index="12"] .qn-tab-panels > .qn-tab-panel:nth-of-type(13) {
+  display: block !important;
+}
+.ProseMirror [data-tab-block][data-active-index="13"]
+  .qn-tab-panels
+  [data-node-view-content-react]
+  > .qn-tab-panel:nth-of-type(14),
+.ProseMirror [data-tab-block][data-active-index="13"] .qn-tab-panels > .qn-tab-panel:nth-of-type(14) {
+  display: block !important;
+}
+.ProseMirror [data-tab-block][data-active-index="14"]
+  .qn-tab-panels
+  [data-node-view-content-react]
+  > .qn-tab-panel:nth-of-type(15),
+.ProseMirror [data-tab-block][data-active-index="14"] .qn-tab-panels > .qn-tab-panel:nth-of-type(15) {
+  display: block !important;
+}
+
+/* 다른 구성원의 미확인 댓글이 있을 때 블록 강조 */
+.ProseMirror .qn-block-comment-glow {
+  background-color: rgba(16, 185, 129, 0.1);
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.35);
+}
+html.dark .ProseMirror .qn-block-comment-glow {
+  background-color: rgba(16, 185, 129, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.4);
+}
+
+/* 댓글이 하나라도 달린 블록 — 하단 앰버 라인(배경보다 NodeView에서도 잘 보임) */
+.ProseMirror .qn-block-has-comments {
+  border-radius: 4px;
+  background-color: rgba(254, 249, 195, 0.55) !important;
+  box-shadow: inset 0 -2px 0 rgba(234, 179, 8, 0.45);
+}
+html.dark .ProseMirror .qn-block-has-comments {
+  background-color: rgba(113, 63, 18, 0.32) !important;
+  box-shadow: inset 0 -2px 0 rgba(250, 204, 21, 0.5);
+}
+
+/* 미확인 댓글 강조가 노란 배경 위에서도 보이도록 */
+.ProseMirror .qn-block-has-comments.qn-block-comment-glow {
+  box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.5);
+}
+html.dark .ProseMirror .qn-block-has-comments.qn-block-comment-glow {
+  box-shadow: inset 0 0 0 2px rgba(52, 211, 153, 0.55);
+}
+
+/* 댓글이 달린 텍스트 자체의 배경·밑줄 — 표 셀/리스트 항목/콜아웃/컬럼/탭 등
+   블록 배경이 가려지는 중첩 컨텍스트에서도 텍스트에 직접 입혀 항상 보이게 한다.
+   inline decoration 으로 적용되므로 줄바꿈 구간마다 동일하게 그려진다. */
+.ProseMirror .qn-block-comment-text {
+  background-color: rgba(254, 240, 138, 0.6);
+  border-radius: 3px;
+  box-shadow: inset 0 -2px 0 rgba(234, 179, 8, 0.6);
+}
+html.dark .ProseMirror .qn-block-comment-text {
+  background-color: rgba(133, 77, 14, 0.5);
+  box-shadow: inset 0 -2px 0 rgba(250, 204, 21, 0.6);
+}
+
+/* 검색/블록 링크 이동 시 대상 위치 시각화 — body 포털 오버레이(PM DOM 밖이라 본문 재조정에 안 지워짐).
+   position:fixed 좌표는 JS 가 매 프레임 대상 블록 rect 로 갱신한다. 약 1.6s 후 자동 페이드아웃. */
+.qn-block-spotlight {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  border-radius: 8px;
+  background-color: rgba(250, 204, 21, 0.18);
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.8), 0 0 0 6px rgba(234, 179, 8, 0.22);
+  animation: qn-block-spotlight 1.6s ease-out forwards;
+}
+@keyframes qn-block-spotlight {
+  0%   { opacity: 0; }
+  12%  { opacity: 1; }
+  65%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* 블록 배경색 프리셋 */
+.ProseMirror [data-bg-color] { border-radius: 4px; }
+.ProseMirror [data-bg-color="yellow"]  { background-color: #f8f3de; }
+.ProseMirror [data-bg-color="orange"]  { background-color: rgba(255,228,196,0.70); }
+.ProseMirror [data-bg-color="red"]     { background-color: #f9eae7; }
+.ProseMirror [data-bg-color="pink"]    { background-color: rgba(255,215,235,0.65); }
+.ProseMirror [data-bg-color="purple"]  { background-color: rgba(230,215,255,0.65); }
+.ProseMirror [data-bg-color="blue"]    { background-color: rgba(210,230,255,0.65); }
+.ProseMirror [data-bg-color="teal"]    { background-color: rgba(200,245,240,0.65); }
+.ProseMirror [data-bg-color="green"]   { background-color: rgba(210,245,210,0.65); }
+.ProseMirror [data-bg-color="gray"]    { background-color: rgba(230,230,235,0.65); }
+.ProseMirror [data-bg-color="brown"]   { background-color: rgba(240,225,205,0.65); }
+
+html.dark .ProseMirror [data-bg-color="yellow"]  { background-color: rgba(113,103,0,0.35); }
+html.dark .ProseMirror [data-bg-color="orange"]  { background-color: rgba(130,70,0,0.35); }
+html.dark .ProseMirror [data-bg-color="red"]     { background-color: rgba(120,20,20,0.35); }
+html.dark .ProseMirror [data-bg-color="pink"]    { background-color: rgba(120,30,70,0.35); }
+html.dark .ProseMirror [data-bg-color="purple"]  { background-color: rgba(80,30,130,0.35); }
+html.dark .ProseMirror [data-bg-color="blue"]    { background-color: rgba(20,60,130,0.35); }
+html.dark .ProseMirror [data-bg-color="teal"]    { background-color: rgba(10,80,70,0.35); }
+html.dark .ProseMirror [data-bg-color="green"]   { background-color: rgba(20,80,20,0.35); }
+html.dark .ProseMirror [data-bg-color="gray"]    { background-color: rgba(70,70,80,0.40); }
+html.dark .ProseMirror [data-bg-color="brown"]   { background-color: rgba(90,55,20,0.38); }
+
+/* 블록 단위 텍스트 색상 */
+.ProseMirror [data-text-color="default"] { color: rgb(39 39 42); }
+.ProseMirror [data-text-color="gray"] { color: rgb(107 114 128); }
+.ProseMirror [data-text-color="brown"] { color: rgb(146 64 14); }
+.ProseMirror [data-text-color="orange"] { color: rgb(234 88 12); }
+.ProseMirror [data-text-color="yellow"] { color: rgb(161 98 7); }
+.ProseMirror [data-text-color="green"] { color: rgb(22 163 74); }
+.ProseMirror [data-text-color="blue"] { color: rgb(37 99 235); }
+.ProseMirror [data-text-color="purple"] { color: rgb(147 51 234); }
+.ProseMirror [data-text-color="pink"] { color: rgb(219 39 119); }
+.ProseMirror [data-text-color="red"] { color: rgb(225 29 72); }
+
+/* 토글 제목(summary)은 details/toggleHeader 어느 쪽에 색상이 붙어도 동일하게 반영 */
+.ProseMirror .toggle-header[data-text-color="default"],
+.ProseMirror details[data-text-color="default"] > .toggle-header { color: rgb(39 39 42); }
+.ProseMirror .toggle-header[data-text-color="gray"],
+.ProseMirror details[data-text-color="gray"] > .toggle-header { color: rgb(107 114 128); }
+.ProseMirror .toggle-header[data-text-color="brown"],
+.ProseMirror details[data-text-color="brown"] > .toggle-header { color: rgb(146 64 14); }
+.ProseMirror .toggle-header[data-text-color="orange"],
+.ProseMirror details[data-text-color="orange"] > .toggle-header { color: rgb(234 88 12); }
+.ProseMirror .toggle-header[data-text-color="yellow"],
+.ProseMirror details[data-text-color="yellow"] > .toggle-header { color: rgb(161 98 7); }
+.ProseMirror .toggle-header[data-text-color="green"],
+.ProseMirror details[data-text-color="green"] > .toggle-header { color: rgb(22 163 74); }
+.ProseMirror .toggle-header[data-text-color="blue"],
+.ProseMirror details[data-text-color="blue"] > .toggle-header { color: rgb(37 99 235); }
+.ProseMirror .toggle-header[data-text-color="purple"],
+.ProseMirror details[data-text-color="purple"] > .toggle-header { color: rgb(147 51 234); }
+.ProseMirror .toggle-header[data-text-color="pink"],
+.ProseMirror details[data-text-color="pink"] > .toggle-header { color: rgb(219 39 119); }
+.ProseMirror .toggle-header[data-text-color="red"],
+.ProseMirror details[data-text-color="red"] > .toggle-header { color: rgb(225 29 72); }
+
+html.dark .ProseMirror [data-text-color="default"] { color: rgb(228 228 231); }
+html.dark .ProseMirror [data-text-color="gray"] { color: rgb(161 161 170); }
+html.dark .ProseMirror [data-text-color="brown"] { color: rgb(251 191 36); }
+html.dark .ProseMirror [data-text-color="orange"] { color: rgb(251 146 60); }
+html.dark .ProseMirror [data-text-color="yellow"] { color: rgb(250 204 21); }
+html.dark .ProseMirror [data-text-color="green"] { color: rgb(74 222 128); }
+html.dark .ProseMirror [data-text-color="blue"] { color: rgb(96 165 250); }
+html.dark .ProseMirror [data-text-color="purple"] { color: rgb(196 181 253); }
+html.dark .ProseMirror [data-text-color="pink"] { color: rgb(244 114 182); }
+html.dark .ProseMirror [data-text-color="red"] { color: rgb(251 113 133); }
+
+html.dark .ProseMirror .toggle-header[data-text-color="default"],
+html.dark .ProseMirror details[data-text-color="default"] > .toggle-header { color: rgb(228 228 231); }
+html.dark .ProseMirror .toggle-header[data-text-color="gray"],
+html.dark .ProseMirror details[data-text-color="gray"] > .toggle-header { color: rgb(161 161 170); }
+html.dark .ProseMirror .toggle-header[data-text-color="brown"],
+html.dark .ProseMirror details[data-text-color="brown"] > .toggle-header { color: rgb(251 191 36); }
+html.dark .ProseMirror .toggle-header[data-text-color="orange"],
+html.dark .ProseMirror details[data-text-color="orange"] > .toggle-header { color: rgb(251 146 60); }
+html.dark .ProseMirror .toggle-header[data-text-color="yellow"],
+html.dark .ProseMirror details[data-text-color="yellow"] > .toggle-header { color: rgb(250 204 21); }
+html.dark .ProseMirror .toggle-header[data-text-color="green"],
+html.dark .ProseMirror details[data-text-color="green"] > .toggle-header { color: rgb(74 222 128); }
+html.dark .ProseMirror .toggle-header[data-text-color="blue"],
+html.dark .ProseMirror details[data-text-color="blue"] > .toggle-header { color: rgb(96 165 250); }
+html.dark .ProseMirror .toggle-header[data-text-color="purple"],
+html.dark .ProseMirror details[data-text-color="purple"] > .toggle-header { color: rgb(196 181 253); }
+html.dark .ProseMirror .toggle-header[data-text-color="pink"],
+html.dark .ProseMirror details[data-text-color="pink"] > .toggle-header { color: rgb(244 114 182); }
+html.dark .ProseMirror .toggle-header[data-text-color="red"],
+html.dark .ProseMirror details[data-text-color="red"] > .toggle-header { color: rgb(251 113 133); }
+
+/* bold가 prose 기본 색을 강제하지 않도록 상속 처리 */
+.ProseMirror strong,
+.ProseMirror b {
+  color: inherit;
+}
+
+/* 블록 들여쓰기 레벨 (Tab/Shift+Tab) */
+[data-indent="1"] { margin-left: 1.5rem; }
+[data-indent="2"] { margin-left: 3rem; }
+[data-indent="3"] { margin-left: 4.5rem; }
+[data-indent="4"] { margin-left: 6rem; }
+[data-indent="5"] { margin-left: 7.5rem; }
+[data-indent="6"] { margin-left: 9rem; }
+/* 리스트 아이템 내부에서는 들여쓰기 CSS 적용 제외 */
+li [data-indent] { margin-left: 0; }
+
+/* ===== 이모지 피커 QuickNote 스타일 오버라이드 ===== */
+
+/* 라이브러리 자체 border/shadow/radius 제거 */
+.EmojiPickerReact.epr-main {
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  font-family: inherit !important;
+}
+
+/* 배경색 — 라이트/다크 */
+.EmojiPickerReact.epr-main {
+  --epr-bg-color: #ffffff;
+  --epr-category-label-bg-color: #ffffff;
+  --epr-text-color: #3f3f46;
+  --epr-hover-bg-color: #f4f4f5;
+  --epr-picker-border-color: transparent;
+  --epr-emoji-size: 26px;
+  --epr-emoji-padding: 4px;
+}
+.EmojiPickerReact.epr-main.epr-dark-theme {
+  --epr-bg-color: #18181b;
+  --epr-category-label-bg-color: #18181b;
+  --epr-text-color: #e4e4e7;
+  --epr-hover-bg-color: #27272a;
+  --epr-picker-border-color: transparent;
+  --epr-dark-bg-color: #18181b;
+  --epr-dark-category-label-bg-color: #18181b;
+  --epr-dark-hover-bg-color: #27272a;
+}
+
+/* 카테고리 레이블 */
+.EmojiPickerReact .epr-emoji-category-label {
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.05em !important;
+  color: #a1a1aa !important;
+  text-transform: uppercase !important;
+}
+.EmojiPickerReact.epr-dark-theme .epr-emoji-category-label {
+  color: #71717a !important;
+}
+
+/* 실시간 협업 원격 커서(yCursorPlugin cursorBuilder 와 매칭) */
+.qn-collab-cursor {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid;
+  border-right: none;
+  word-break: normal;
+  pointer-events: none;
+}
+.qn-collab-cursor-label {
+  position: absolute;
+  top: -1.4em;
+  left: -2px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  color: #fff;
+  white-space: nowrap;
+  padding: 2px 4px;
+  border-radius: 4px 4px 4px 0;
+  user-select: none;
+  pointer-events: none;
+}
+.qn-collab-selection {
+  border-radius: 2px;
+}

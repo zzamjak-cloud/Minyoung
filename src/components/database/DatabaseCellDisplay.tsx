@@ -1,0 +1,296 @@
+import { memo } from "react";
+import type { CellValue, ColumnDef } from "../../types/database";
+import { OptionChip } from "./cells/OptionChip";
+import {
+  formatPlainDisplay,
+  stringArrayValue,
+} from "./databaseCellDisplayUtils";
+import { useDatabaseStore } from "../../store/databaseStore";
+import { useMemberStore } from "../../store/memberStore";
+import { usePageStore } from "../../store/pageStore";
+import {
+  computeProgressFromSource,
+  isCellValueDerived,
+  resolveDerivedCellValue,
+  shouldUseManualCellValueForAutomation,
+} from "../../lib/database/columnSource";
+import { resolvePageLinkMirrorValue } from "../../lib/database/pageLinkMirror";
+import { normalizePersonValue, personChipColor } from "./cells/utils";
+import { useEffectiveOptions } from "./useEffectiveOptions";
+
+type Props = {
+  column: ColumnDef;
+  value: CellValue;
+  textClassName?: string;
+  /** 현재 행 pageId — sourceFromDb.viaPageLinkColumnId 로 연결된 페이지에서 값 자동 미러링 시 필요 */
+  rowId?: string;
+};
+
+// person 미사용 셀이 멤버 변경에 리렌더되지 않도록 selector 가 반환하는 고정 빈 배열.
+const EMPTY_MEMBERS: ReturnType<typeof useMemberStore.getState>["members"] = [];
+
+// cross-store 미구독 셀이 사용할 고정 빈 참조(안정 신원 — 무관 변경에 리렌더 안 됨).
+// 아래 needsCrossStore 가 false 인 컬럼은 pages/databases 를 조회하는 분기에 절대
+// 도달하지 않으므로(타입·값 조건으로 보장) 빈 객체로 대체해도 출력이 동일하다.
+const EMPTY_PAGES: ReturnType<typeof usePageStore.getState>["pages"] = {};
+const EMPTY_DATABASES: ReturnType<typeof useDatabaseStore.getState>["databases"] = {};
+
+function resolveSourceDisplayColumn(
+  column: ColumnDef,
+  databases: ReturnType<typeof useDatabaseStore.getState>["databases"],
+): ColumnDef {
+  let current = column;
+  const seen = new Set<string>();
+  for (let depth = 0; depth < 6; depth++) {
+    const src = current.config?.sourceFromDb;
+    if (!src) break;
+    const key = `${src.databaseId}:${src.columnId}`;
+    if (seen.has(key)) break;
+    seen.add(key);
+    const sourceColumn = databases[src.databaseId]?.columns.find((c) => c.id === src.columnId);
+    if (!sourceColumn) break;
+    current = sourceColumn;
+  }
+  return current;
+}
+
+function pageTitlePartsFromIds(
+  value: CellValue,
+  pages: ReturnType<typeof usePageStore.getState>["pages"],
+  opts?: { knownOnly?: boolean; requireAllKnown?: boolean },
+): { titles: string[]; rest: number } | null {
+  const rawIds = stringArrayValue(value);
+  if (rawIds.length === 0) return null;
+  const knownIds = rawIds.filter((id) => pages[id]);
+  if (opts?.requireAllKnown && knownIds.length !== rawIds.length) return null;
+  const ids = opts?.knownOnly || opts?.requireAllKnown ? knownIds : rawIds;
+  if (ids.length === 0) return null;
+  return {
+    titles: ids
+      .map((id) => pages[id]?.title?.trim() || "제목 없음")
+      .slice(0, 2),
+    rest: Math.max(0, ids.length - 2),
+  };
+}
+
+// memo: 한 셀/멤버/페이지 변경이 같은 행/뷰의 모든 표시 셀 리렌더로 번지지 않게 props 얕은 비교.
+// props(column/value/rowId/textClassName)는 불변 패턴으로 전달되므로 memo 효과 있음.
+export const DatabaseCellDisplay = memo(function DatabaseCellDisplay({
+  column,
+  value,
+  textClassName,
+  rowId,
+}: Props) {
+  // pages/databases 횡단 조회가 실제로 필요한 컬럼만 구독한다. 그 외 일반 셀
+  // (text/number/date/checkbox/status/select 등 단일 값)은 구독을 생략해, 무관한
+  // 행/페이지 변경이 같은 뷰의 전체 표시셀 리렌더로 번지는 것을 차단한다.
+  //  - sourceFromDb/파생/pageLink/itemFetch/dbLink/progress: pages·databases 조회 필요
+  //  - 배열 값: 하단 암묵적 page-id 제목 폴백이 pages 를 조회(비배열 값은 폴백이 항상 null이라 무관)
+  const needsCrossStore =
+    Boolean(column.config?.sourceFromDb)
+    || isCellValueDerived(column)
+    || column.type === "pageLink"
+    || column.type === "itemFetch"
+    || column.type === "dbLink"
+    || column.type === "progress"
+    || Array.isArray(value);
+  const databases = useDatabaseStore((s) => (needsCrossStore ? s.databases : null)) ?? EMPTY_DATABASES;
+  const pages = usePageStore((s) => (needsCrossStore ? s.pages : null)) ?? EMPTY_PAGES;
+  // members 는 person 표시에서만 사용 — 그 외 컬럼은 멤버 변경에 리렌더되지 않도록 구독 생략.
+  // sourceFromDb 는 displayColumn 이 person 으로 해석될 수 있어 함께 포함(누락 방지).
+  const mayUseMembers = column.type === "person" || Boolean(column.config?.sourceFromDb);
+  const members = useMemberStore((s) => (mayUseMembers ? s.members : EMPTY_MEMBERS));
+  const usingSourceDisplay = Boolean(column.config?.sourceFromDb);
+  const displayColumn = usingSourceDisplay
+    ? resolveSourceDisplayColumn(column, databases)
+    : column;
+  // sourceFromDb 또는 linkedScope 가 설정된 select/multiSelect/status 컬럼은 외부 소스 옵션 사용
+  const options = useEffectiveOptions(displayColumn);
+  // viaPageLinkColumnId 미러 — 연결된 페이지의 셀값 자동 사용
+  const rowCells = rowId ? pages[rowId]?.dbCells : undefined;
+  const derived = resolveDerivedCellValue(column, rowCells, pages, {
+    currentRowPageId: rowId,
+    databases,
+  });
+  const usesManualAutomationValue = shouldUseManualCellValueForAutomation(column, derived);
+  const effectiveValue: CellValue = isCellValueDerived(column) && !usesManualAutomationValue
+    ? ((derived as CellValue) ?? null)
+    : value;
+  // 이후 로직은 effectiveValue 기반
+  value = effectiveValue;
+  column = displayColumn;
+
+  if (column.type === "status") {
+    const raw = typeof value === "string" ? value : "";
+    const current = options.find((option) => option.id === raw) ?? options[0];
+    return current ? <OptionChip option={current} columnType="status" /> : null;
+  }
+
+  if (column.type === "select") {
+    const raw = typeof value === "string" ? value : "";
+    const current = options.find((option) => option.id === raw);
+    return current ? <OptionChip option={current} columnType="select" /> : null;
+  }
+
+  if (column.type === "multiSelect") {
+    const ids = stringArrayValue(value);
+    const selected = options.filter((option) => ids.includes(option.id));
+    if (selected.length === 0) return null;
+    return (
+      <span className="inline-flex max-w-full flex-wrap items-center gap-1">
+        {selected.map((option) => (
+          <OptionChip
+            key={option.id}
+            option={option}
+            columnType="multiSelect"
+          />
+        ))}
+      </span>
+    );
+  }
+
+  if (column.type === "dbLink") {
+    const dbId = typeof value === "string" ? value : null;
+    const db = dbId ? databases[dbId] : null;
+    if (!db) return null;
+    return (
+      <span className={textClassName ?? "text-zinc-500 dark:text-zinc-400"}>
+        {db.meta.title || "제목 없음"}
+      </span>
+    );
+  }
+
+  if (column.type === "person") {
+    const personValue = typeof value === "string"
+      ? value
+      : Array.isArray(value)
+        ? stringArrayValue(value)
+        : null;
+    const ids = normalizePersonValue(personValue);
+    if (ids.length === 0) return null;
+    // 편집 셀(PersonCell)과 동일하게 실제 멤버 이름 컬러 칩으로 표시한다.
+    // 색상은 편집 셀과 맞추기 위해 원본 값(id) 기준, 라벨은 멤버 이름으로 해석한다.
+    return (
+      <span className="inline-flex max-w-full flex-wrap items-center gap-1">
+        {ids.map((id, idx) => {
+          const member = members.find((candidate) => candidate.memberId === id);
+          const label = member?.name?.trim() || member?.email?.trim() || id;
+          return (
+            <span
+              key={`${id}-${idx}`}
+              className="inline-flex items-center whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium text-white"
+              style={{ backgroundColor: personChipColor(id) }}
+            >
+              {label}
+            </span>
+          );
+        })}
+      </span>
+    );
+  }
+
+  if (column.type === "pageLink") {
+    const mirrorValue = rowId && !usingSourceDisplay
+      ? resolvePageLinkMirrorValue({
+          databases,
+          pages,
+          currentDatabaseId: pages[rowId]?.databaseId,
+          rowId,
+          column,
+        })
+      : undefined;
+    const sourceValue = mirrorValue ?? value;
+    const pageTitles = pageTitlePartsFromIds(sourceValue, pages);
+    if (!pageTitles) return null;
+    return (
+      <span className={textClassName ?? "text-zinc-500 dark:text-zinc-400"}>
+        {pageTitles.titles.join(", ")}{pageTitles.rest > 0 ? ` 외 ${pageTitles.rest}개` : ""}
+      </span>
+    );
+  }
+
+  if (column.type === "itemFetch") {
+    const resolvedPageTitles = pageTitlePartsFromIds(value, pages, { knownOnly: true });
+    if (resolvedPageTitles) {
+      return (
+        <span className={textClassName ?? "text-zinc-500 dark:text-zinc-400"}>
+          {resolvedPageTitles.titles.join(", ")}{resolvedPageTitles.rest > 0 ? ` 외 ${resolvedPageTitles.rest}개` : ""}
+        </span>
+      );
+    }
+    const sourceDbId = column.config?.itemFetchSourceDatabaseId;
+    const matchColId = column.config?.itemFetchMatchColumnId;
+    if (!sourceDbId || !matchColId || !rowId) return null;
+    const sourceDb = databases[sourceDbId];
+    if (!sourceDb) return null;
+    const currentTitle = pages[rowId]?.title ?? "";
+    const matchCol = sourceDb.columns.find((c) => c.id === matchColId);
+    const isPageLinkCol = matchCol?.type === "pageLink";
+    const titles = sourceDb.rowPageOrder
+      .map((pid) => pages[pid])
+      .filter((page): page is NonNullable<typeof page> => {
+        if (!page) return false;
+        const cv = page.dbCells?.[matchColId];
+        if (isPageLinkCol) return Array.isArray(cv) && (cv as string[]).includes(rowId);
+        return typeof cv === "string" && cv === currentTitle;
+      })
+      .map((p) => p.title || "제목 없음")
+      .slice(0, 2);
+    if (titles.length === 0) return null;
+    return (
+      <span className={textClassName ?? "text-zinc-500 dark:text-zinc-400"}>
+        {titles.join(", ")}
+      </span>
+    );
+  }
+
+  if (usingSourceDisplay) {
+    const sourcePageTitles = pageTitlePartsFromIds(value, pages, { knownOnly: true });
+    if (sourcePageTitles) {
+      return (
+        <span className={textClassName ?? "text-zinc-500 dark:text-zinc-400"}>
+          {sourcePageTitles.titles.join(", ")}{sourcePageTitles.rest > 0 ? ` 외 ${sourcePageTitles.rest}개` : ""}
+        </span>
+      );
+    }
+  }
+
+  if (column.type === "progress") {
+    // progressSource가 설정되어 있으면 자동 계산값으로 표시
+    const computed = computeProgressFromSource(column, databases, pages, { currentRowPageId: rowId });
+    const rawPct =
+      computed !== null
+        ? computed
+        : typeof value === "number"
+          ? value
+          : 0;
+    const pct = Math.min(100, Math.max(0, Math.round(rawPct)));
+    return (
+      <div className="flex w-full items-center gap-2 px-1">
+        <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+          <div className="h-full rounded-full bg-blue-500" style={{ width: `${pct}%` }} />
+        </div>
+        <span className="w-8 shrink-0 text-right text-xs text-zinc-500 dark:text-zinc-400">{pct}%</span>
+      </div>
+    );
+  }
+
+  if (column.type !== "json" && column.type !== "file") {
+    const implicitPageTitles = pageTitlePartsFromIds(value, pages, { requireAllKnown: true });
+    if (implicitPageTitles) {
+      return (
+        <span className={textClassName ?? "text-zinc-500 dark:text-zinc-400"}>
+          {implicitPageTitles.titles.join(", ")}{implicitPageTitles.rest > 0 ? ` 외 ${implicitPageTitles.rest}개` : ""}
+        </span>
+      );
+    }
+  }
+
+  const display = formatPlainDisplay(value, column);
+  if (!display) return null;
+  return (
+    <span className={textClassName ?? "text-zinc-500 dark:text-zinc-400"}>
+      {display}
+    </span>
+  );
+});

@@ -1,0 +1,666 @@
+// 일정 카드 — react-rnd로 드래그(이동)·리사이즈(좌우) 지원.
+// Phase 2: x축 드래그 이동 + 좌/우 핸들 리사이즈. 수직 이동 비활성.
+import { memo, useState, useRef, useCallback, useEffect, useLayoutEffect, type MouseEvent as ReactMouseEvent } from "react";
+import { createPortal } from "react-dom";
+import { Rnd } from "react-rnd";
+import { ExternalLink } from "lucide-react";
+import type { Schedule } from "../../store/schedulerStore";
+import { useSchedulerStore } from "../../store/schedulerStore";
+import { useMemberStore } from "../../store/memberStore";
+import { useSchedulerProjectsStore } from "../../store/schedulerProjectsStore";
+import { useOrganizationStore } from "../../store/organizationStore";
+import { useTeamStore } from "../../store/teamStore";
+import { useSchedulerViewStore } from "../../store/schedulerViewStore";
+import { dateToX, widthForRange, xToDate } from "../../lib/scheduler/gridUtils";
+import { CARD_MARGIN, getScheduleCardHeight, getScheduleCardVOffset } from "../../lib/scheduler/grid";
+import { daysInYear, parseIsoDate, toIsoStartOfDay, toIsoEndOfDay } from "../../lib/scheduler/dateUtils";
+import { hasCollision } from "../../lib/scheduler/collisionDetection";
+import {
+  ANNUAL_LEAVE_COLOR,
+  DEFAULT_SCHEDULE_COLOR,
+  GLOBAL_EVENT_COLOR,
+  pickTextColor,
+} from "../../lib/scheduler/colors";
+import { ContextMenu, announceSchedulerContextMenuOpen } from "./ContextMenu";
+import {
+  getScheduleCardContentOffset,
+  getScheduleScopeName,
+  shouldUseCompactScheduleCard,
+} from "./scheduleCardDisplay";
+import { ScheduleCardPropertyLabels } from "./ScheduleCardPropertyLabels";
+import { ScheduleCardDetailRows } from "../database/ScheduleCardDetailRows";
+import { usePageStore } from "../../store/pageStore";
+import { parseScheduleInstanceId } from "../../lib/scheduler/taskAdapter";
+import { useDoubleTap } from "../../hooks/useDoubleTap";
+
+type Props = {
+  schedule: Schedule;
+  year: number;
+  cellWidth: number;
+  rowHeight: number;
+  rowCount: number;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+  onEdit: (id: string) => void;
+  isMultiSelected?: boolean;
+  multiDragDeltaX?: number | null;
+  multiDragDeltaY?: number | null;
+  scrollLeft?: number;
+  onMultiDragStart?: (id: string) => void;
+  onMultiDragMove?: (deltaX: number, deltaY: number) => void;
+  onMultiDragEnd?: (deltaX: number, deltaY: number) => void;
+};
+
+type TooltipPos = { top: number; left: number; placement?: "above" | "below" };
+type ContextPointerEvent = {
+  button?: number;
+  clientX: number;
+  clientY: number;
+  preventDefault: () => void;
+  stopPropagation: () => void;
+};
+
+function ScheduleCardImpl({
+  schedule,
+  year,
+  cellWidth,
+  rowHeight,
+  rowCount,
+  isSelected,
+  onSelect,
+  onEdit,
+  isMultiSelected = false,
+  multiDragDeltaX = null,
+  multiDragDeltaY = null,
+  scrollLeft = 0,
+  onMultiDragStart,
+  onMultiDragMove,
+  onMultiDragEnd,
+}: Props) {
+  const updateSchedule = useSchedulerStore((s) => s.updateSchedule);
+  const createSchedule = useSchedulerStore((s) => s.createSchedule);
+  const members = useMemberStore((s) => s.members);
+  const projects = useSchedulerProjectsStore((s) => s.projects);
+  const organizations = useOrganizationStore((s) => s.organizations);
+  const teams = useTeamStore((s) => s.teams);
+  const zoomLevel = useSchedulerViewStore((s) => s.zoomLevel);
+  // 호버 툴팁에 표시 설정 속성을 함께 보여주기 위한 원본 작업 DB 행 참조.
+  const taskPageId = parseScheduleInstanceId(schedule.id)?.pageId;
+  const taskDatabaseId = usePageStore((s) => (taskPageId ? s.pages[taskPageId]?.databaseId : undefined));
+
+  const startDate = parseIsoDate(schedule.startAt);
+  const endDate = parseIsoDate(schedule.endAt);
+
+  // 절대 좌표 계산
+  const x = dateToX(year, startDate, cellWidth);
+  const w = widthForRange(startDate, endDate, cellWidth);
+  const rowIdx = schedule.rowIndex ?? 0;
+  const slotHeight = rowCount > 0 ? rowHeight / rowCount : rowHeight;
+  const y = rowIdx * slotHeight;
+  // 카드 높이는 모든 뷰·탭 공통 헬퍼로 통일(22~30px), 슬롯 높이 중앙 배치.
+  const cardHeight = getScheduleCardHeight(slotHeight);
+  const cardVOffset = getScheduleCardVOffset(slotHeight, cardHeight);
+
+  const isAnnualLeave = schedule.kind === "leave";
+  const isPast = !isAnnualLeave && endDate.getTime() < Date.now();
+  const color = isAnnualLeave
+    ? ANNUAL_LEAVE_COLOR
+    : isPast
+      ? "#9ca3af"
+      : (schedule.color ?? (schedule.assigneeId == null ? GLOBAL_EVENT_COLOR : DEFAULT_SCHEDULE_COLOR));
+  const textColor = schedule.textColor ?? "#ffffff";
+  const scopeText = getScheduleScopeName(schedule, { projects, teams, organizations });
+  const compactLayout = shouldUseCompactScheduleCard(zoomLevel);
+
+  // 드래그/리사이즈 중 로컬 위치 상태 (mouseup 전까지 서버 호출 안 함)
+  const [localX, setLocalX] = useState<number>(x);
+  const [localW, setLocalW] = useState<number>(w);
+  const [localY, setLocalY] = useState<number>(y);
+
+  // 드래그가 실제 이동이었는지 판별 (클릭 vs 드래그 구분)
+  const dragMovedRef = useRef(false);
+  const isShiftDragRef = useRef(false);
+  const resizeStartRef = useRef<{ startIdx: number; endIdx: number } | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<TooltipPos | null>(null);
+  const [contextMenuPos, setContextMenuPos] = useState<TooltipPos | null>(null);
+
+  useLayoutEffect(() => {
+    setLocalX(x);
+    setLocalW(w);
+    setLocalY(y);
+  }, [x, w, y]);
+
+  // 호버 시 툴팁 위치 계산
+  const rndRef = useRef<Rnd>(null);
+
+  const handleMouseEnter = useCallback(() => {
+    // rnd 내부 DOM에서 위치 계산
+    const el = rndRef.current?.getSelfElement();
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const GAP = 6;
+    const placement = rect.top > 96 ? "above" : "below";
+    setTooltipPos({
+      top: placement === "above" ? rect.top - GAP : rect.bottom + GAP,
+      left: rect.left,
+      placement,
+    });
+  }, []);
+
+  const handleMouseLeave = useCallback(() => setTooltipPos(null), []);
+
+  const findAvailableRowIndex = useCallback(
+    (startAt: string, endAt: string, preferredRowIndex: number) => {
+      const schedules = useSchedulerStore.getState().schedules;
+      const tryRow = (rowIndex: number) => {
+        const candidate: Schedule = {
+          ...schedule,
+          startAt,
+          endAt,
+          rowIndex,
+        };
+        return !hasCollision(candidate, schedules);
+      };
+
+      if (tryRow(preferredRowIndex)) return preferredRowIndex;
+      for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+        if (rowIndex === preferredRowIndex) continue;
+        if (tryRow(rowIndex)) return rowIndex;
+      }
+      return null;
+    },
+    [rowCount, schedule],
+  );
+
+  // 드래그 시작 시 이동 여부 초기화
+  const handleDragStart = useCallback((e: unknown) => {
+    dragMovedRef.current = false;
+    setTooltipPos(null);
+    setContextMenuPos(null);
+    if (typeof e === "object" && e && "shiftKey" in e) {
+      isShiftDragRef.current = Boolean((e as { shiftKey?: boolean }).shiftKey);
+    }
+    if (isMultiSelected) {
+      onMultiDragStart?.(schedule.id);
+    }
+  }, [isMultiSelected, onMultiDragStart, schedule.id]);
+
+  // 드래그 중에는 자유롭게 따라가고, 드롭 시점에만 셀/행으로 스냅한다.
+  const handleDrag = useCallback((_e: unknown, data: { x: number; y: number }) => {
+    dragMovedRef.current = true;
+    if (isMultiSelected) {
+      const adjustedX = data.x - CARD_MARGIN;
+      const adjustedY = data.y - cardVOffset;
+      const deltaX = adjustedX - x;
+      const deltaY = adjustedY - y;
+      onMultiDragMove?.(deltaX, deltaY);
+      return;
+    }
+    setLocalX(data.x - CARD_MARGIN);
+    setLocalY(data.y - cardVOffset);
+  }, [isMultiSelected, onMultiDragMove, x, y, cardVOffset]);
+
+  // 드래그 완료 — 이동이 있었을 때만 서버 업데이트
+  const handleDragStop = useCallback(
+    (_e: unknown, data: { x: number; y: number }) => {
+      if (!dragMovedRef.current) {
+        // 실제 이동 없음 → 클릭으로 처리
+        onSelect(schedule.id);
+        return;
+      }
+      if (isMultiSelected) {
+        const deltaX = multiDragDeltaX ?? 0;
+        const deltaY = multiDragDeltaY ?? 0;
+        onMultiDragEnd?.(deltaX, deltaY);
+        return;
+      }
+      const wasShiftDrag = isShiftDragRef.current;
+      isShiftDragRef.current = false;
+      const adjustedX = data.x - CARD_MARGIN;
+      const adjustedY = data.y - cardVOffset;
+      const snappedX = Math.round(adjustedX / cellWidth) * cellWidth;
+      const snappedY = Math.round(adjustedY / slotHeight) * slotHeight;
+      const newStart = xToDate(year, snappedX, cellWidth);
+      // 기존 기간(일 수) 유지하여 종료일 계산
+      const origStartMs = parseIsoDate(schedule.startAt).getTime();
+      const origEndMs = parseIsoDate(schedule.endAt).getTime();
+      const durationMs = origEndMs - origStartMs;
+      const newEndMs = newStart.getTime() + durationMs;
+      const newEnd = new Date(newEndMs);
+
+      const newStartIso = toIsoStartOfDay(newStart);
+      const newEndIso = toIsoEndOfDay(newEnd);
+      const preferredRowIndex = Math.max(0, Math.min(rowCount - 1, Math.round(snappedY / slotHeight)));
+      const newRowIndex = findAvailableRowIndex(newStartIso, newEndIso, preferredRowIndex);
+      if (newRowIndex == null) {
+        setLocalX(x);
+        setLocalY(y);
+        return;
+      }
+
+      // 로컬 상태 즉시 반영
+      const nextLocalX = dateToX(year, newStart, cellWidth);
+      const nextLocalW = widthForRange(newStart, newEnd, cellWidth);
+      const nextLocalY = newRowIndex * slotHeight;
+
+      if (wasShiftDrag) {
+        void createSchedule({
+          workspaceId: schedule.workspaceId,
+          title: schedule.title,
+          comment: schedule.comment ?? null,
+          link: schedule.link ?? null,
+          projectId: schedule.projectId ?? null,
+          assigneeId: schedule.assigneeId ?? null,
+          color: schedule.color ?? null,
+          textColor: schedule.textColor ?? null,
+          startAt: newStartIso,
+          endAt: newEndIso,
+          rowIndex: newRowIndex,
+        });
+        setLocalX(x);
+        setLocalW(w);
+        setLocalY(y);
+        return;
+      }
+
+      setLocalX(nextLocalX);
+      setLocalW(nextLocalW);
+      setLocalY(nextLocalY);
+
+      updateSchedule({
+        id: schedule.id,
+        workspaceId: schedule.workspaceId,
+        startAt: newStartIso,
+        endAt: newEndIso,
+        rowIndex: newRowIndex,
+      }).catch(() => {
+        // 실패 시 원래 위치로 복구
+        setLocalX(x);
+        setLocalW(w);
+        setLocalY(y);
+      });
+    },
+    [
+      schedule,
+      year,
+      cellWidth,
+      findAvailableRowIndex,
+      rowCount,
+      slotHeight,
+      cardVOffset,
+      x,
+      y,
+      w,
+      isMultiSelected,
+      createSchedule,
+      multiDragDeltaX,
+      multiDragDeltaY,
+      onMultiDragEnd,
+      onSelect,
+      updateSchedule,
+    ],
+  );
+
+  const handleResizeStart = useCallback(() => {
+    const startIdx = Math.round(x / cellWidth);
+    const endIdx = Math.max(startIdx, Math.round((x + w) / cellWidth) - 1);
+    resizeStartRef.current = { startIdx, endIdx };
+    setTooltipPos(null);
+    setContextMenuPos(null);
+  }, [cellWidth, w, x]);
+
+  // 리사이즈 완료 — 시작 시점의 정수 셀 경계를 기준으로 한쪽 경계를 고정한다.
+  const handleResizeStop = useCallback(
+    (
+      _e: unknown,
+      direction: string,
+      _ref: HTMLElement,
+      delta: { width: number },
+      _position: { x: number },
+    ) => {
+      const start = resizeStartRef.current ?? {
+        startIdx: Math.round(x / cellWidth),
+        endIdx: Math.max(Math.round(x / cellWidth), Math.round((x + w) / cellWidth) - 1),
+      };
+      const totalDays = daysInYear(year);
+      const cellDelta = Math.round(delta.width / cellWidth);
+      const nextStartIdx = direction.includes("left")
+        ? Math.max(0, Math.min(start.endIdx, start.startIdx - cellDelta))
+        : start.startIdx;
+      const nextEndIdx = direction.includes("left")
+        ? start.endIdx
+        : Math.max(start.startIdx, Math.min(totalDays - 1, start.endIdx + cellDelta));
+      const nextX = nextStartIdx * cellWidth;
+      const nextW = Math.max(cellWidth, (nextEndIdx - nextStartIdx + 1) * cellWidth);
+
+      const newStart = xToDate(year, nextStartIdx * cellWidth, cellWidth);
+      const newEnd = xToDate(year, nextEndIdx * cellWidth, cellWidth);
+      const newStartIso = toIsoStartOfDay(newStart);
+      const newEndIso = toIsoEndOfDay(newEnd);
+
+      const nextSchedule: Schedule = {
+        ...schedule,
+        startAt: newStartIso,
+        endAt: newEndIso,
+      };
+      if (hasCollision(nextSchedule, useSchedulerStore.getState().schedules)) {
+        setLocalX(x);
+        setLocalW(w);
+        resizeStartRef.current = null;
+        return;
+      }
+
+      setLocalX(nextX);
+      setLocalW(nextW);
+      resizeStartRef.current = null;
+
+      updateSchedule({
+        id: schedule.id,
+        workspaceId: schedule.workspaceId,
+        startAt: newStartIso,
+        endAt: newEndIso,
+      }).catch(() => {
+        // 실패 시 원래 크기로 복구
+        setLocalX(x);
+        setLocalW(w);
+        resizeStartRef.current = null;
+      });
+    },
+    [schedule, year, cellWidth, x, w, updateSchedule],
+  );
+
+  const baseX = isMultiSelected ? x : localX;
+  const baseY = isMultiSelected ? y : localY;
+  const effectiveX = multiDragDeltaX != null ? x + multiDragDeltaX : baseX;
+  const effectiveY = multiDragDeltaY != null ? y + multiDragDeltaY : baseY;
+  const visualWidth = Math.max(0, localW - CARD_MARGIN * 2);
+  const contentOffset = getScheduleCardContentOffset({
+    scrollLeft,
+    cardLeft: effectiveX + CARD_MARGIN,
+    cardWidth: visualWidth,
+  });
+
+  const handleColorChange = useCallback(
+    (color: string) => {
+      void updateSchedule({
+        id: schedule.id,
+        workspaceId: schedule.workspaceId,
+        color,
+        textColor: pickTextColor(color),
+        colorScope: "card",
+      }).catch(() => {
+        window.alert("색상 변경에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      });
+    },
+    [schedule.id, schedule.workspaceId, updateSchedule],
+  );
+
+  const openContextMenu = useCallback(
+    (event: ContextPointerEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      announceSchedulerContextMenuOpen();
+      onSelect(schedule.id);
+      setTooltipPos(null);
+      setContextMenuPos({ left: event.clientX, top: event.clientY });
+    },
+    [onSelect, schedule.id],
+  );
+
+  const handleContextMenu = useCallback(
+    (e: ReactMouseEvent<HTMLElement>) => openContextMenu(e),
+    [openContextMenu],
+  );
+
+  const handleRndMouseDown = useCallback(
+    (e: MouseEvent) => {
+      if (e.button === 2) {
+        openContextMenu(e);
+      }
+    },
+    [openContextMenu],
+  );
+
+  const handleCardMouseDown = useCallback(
+    (e: ReactMouseEvent<HTMLElement>) => {
+      if (e.button === 2) {
+        openContextMenu(e);
+        return;
+      }
+      if (!isMultiSelected) {
+        onSelect(schedule.id);
+      }
+    },
+    [isMultiSelected, onSelect, openContextMenu, schedule.id],
+  );
+
+  useEffect(() => {
+    const handleNativeContextMenu = (event: MouseEvent) => {
+      const element = rndRef.current?.getSelfElement();
+      if (!element || !(event.target instanceof Node) || !element.contains(event.target)) return;
+      openContextMenu(event);
+    };
+
+    document.addEventListener("contextmenu", handleNativeContextMenu, true);
+    return () => document.removeEventListener("contextmenu", handleNativeContextMenu, true);
+  }, [openContextMenu]);
+
+  const handleDuplicate = useCallback(() => {
+    const schedules = useSchedulerStore.getState().schedules;
+    const memberSchedules = schedules.filter((item) => item.assigneeId === schedule.assigneeId);
+    let targetRowIndex = schedule.rowIndex ?? 0;
+    const tryRow = (rowIndex: number) => {
+      const candidate: Schedule = {
+        ...schedule,
+        id: `tmp-${schedule.id}`,
+        rowIndex,
+      };
+      return !hasCollision(candidate, memberSchedules);
+    };
+
+    if (!tryRow(targetRowIndex)) {
+      targetRowIndex = rowCount;
+    }
+
+    void createSchedule({
+      workspaceId: schedule.workspaceId,
+      title: schedule.title,
+      comment: schedule.comment ?? null,
+      link: schedule.link ?? null,
+      projectId: schedule.projectId ?? null,
+      assigneeId: schedule.assigneeId ?? null,
+      color: schedule.color ?? null,
+      textColor: schedule.textColor ?? null,
+      startAt: schedule.startAt,
+      endAt: schedule.endAt,
+      rowIndex: targetRowIndex,
+    }).catch(() => {
+      window.alert("일정 복제에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    });
+  }, [createSchedule, rowCount, schedule]);
+
+  const handleTransfer = useCallback(
+    (targetMemberId: string) => {
+      const schedules = useSchedulerStore.getState().schedules;
+      const targetSchedules = schedules.filter((item) => item.assigneeId === targetMemberId);
+      let targetRowIndex = 0;
+      for (; targetRowIndex <= targetSchedules.length; targetRowIndex += 1) {
+        const candidate: Schedule = {
+          ...schedule,
+          assigneeId: targetMemberId,
+          rowIndex: targetRowIndex,
+        };
+        if (!hasCollision(candidate, schedules)) break;
+      }
+
+      void updateSchedule({
+        id: schedule.id,
+        workspaceId: schedule.workspaceId,
+        assigneeId: targetMemberId,
+        rowIndex: targetRowIndex,
+      }).catch(() => {
+        window.alert("업무 이관에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      });
+    },
+    [schedule, updateSchedule],
+  );
+
+  useEffect(() => {
+    if (!isSelected) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        handleDuplicate();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleDuplicate, isSelected]);
+
+  // 터치 더블탭 → 편집. react-draggable 이 touchstart 를 preventDefault 해
+  // 합성 dblclick 이 안 생기므로 터치는 별도 감지가 필요하다.
+  const doubleTapHandlers = useDoubleTap(() => onEdit(schedule.id));
+
+  return (
+    <>
+      <Rnd
+        ref={rndRef}
+        data-schedule-card-interactive="true"
+        // x축만 드래그 허용 (수직 이동 비활성)
+        dragAxis={rowCount > 1 ? "both" : "x"}
+        // 이동 중에는 자유 이동, 드롭 결과만 셀/행 기준으로 스냅한다.
+        dragGrid={[1, 1]}
+        resizeGrid={[cellWidth, 1]}
+        minWidth={cellWidth - CARD_MARGIN * 2}
+        // 위치·크기 (CARD_MARGIN 반영)
+        position={{ x: effectiveX + CARD_MARGIN, y: effectiveY + cardVOffset }}
+        size={{ width: visualWidth, height: cardHeight }}
+        // 좌우 리사이즈만 활성
+        enableResizing={{ left: true, right: true, top: false, bottom: false, topLeft: false, topRight: false, bottomLeft: false, bottomRight: false }}
+        // 이동·리사이즈 핸들러
+        onDragStart={handleDragStart}
+        onDrag={handleDrag}
+        onDragStop={handleDragStop}
+        onResizeStart={handleResizeStart}
+        onResizeStop={handleResizeStop}
+        onContextMenu={handleContextMenu}
+        onMouseDown={handleRndMouseDown}
+        // 리사이즈 핸들 커서 스타일
+        resizeHandleStyles={{
+          left: { cursor: "ew-resize", width: 8, left: 0 },
+          right: { cursor: "ew-resize", width: 8, right: 0 },
+        }}
+        // 위치 고정 (Rnd 내부 상태 무시, 우리 localX/localW가 진실)
+        disableDragging={false}
+        style={{ position: "absolute" }}
+        className={`rounded-md select-none overflow-hidden border-2 transition-shadow cursor-move schedule-card ${
+          isSelected || isMultiSelected
+            ? "ring-2 ring-blue-500 border-white shadow-lg"
+            : "border-transparent hover:border-white/40 hover:shadow-sm"
+        }`}
+        // 배경색·텍스트색·z-index
+        // Rnd의 style prop은 wrapper div에 적용됨
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        <div
+          className="relative w-full h-full overflow-hidden"
+          style={{ backgroundColor: color, color: textColor }}
+          onMouseDown={handleCardMouseDown}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect(schedule.id);
+          }}
+          onContextMenu={handleContextMenu}
+          onDoubleClick={() => onEdit(schedule.id)}
+          {...doubleTapHandlers}
+        >
+          <div
+            className="absolute inset-y-0 flex items-center gap-1.5 overflow-hidden whitespace-nowrap"
+            style={{ left: contentOffset + 6, right: 6 }}
+          >
+            <span className="shrink-0 text-xs font-medium leading-tight">
+              {schedule.title || "제목 없음"}
+            </span>
+            {!compactLayout && (
+              <ScheduleCardPropertyLabels
+                scheduleId={schedule.id}
+                className="text-[10px] leading-tight opacity-80"
+              />
+            )}
+            {schedule.link && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(schedule.link ?? "", "_blank", "noopener,noreferrer");
+                }}
+                className="shrink-0 p-0.5 rounded bg-black/25 hover:bg-black/35 transition-colors"
+                title="링크 열기"
+              >
+                <ExternalLink size={10} />
+              </button>
+            )}
+          </div>
+        </div>
+      </Rnd>
+
+      {/* 더블클릭 편집 — Rnd 외부 클릭 이벤트로 처리 */}
+      {/* Rnd는 onDoubleClick을 직접 지원하지 않으므로 wrapper div 사용 */}
+      {/* 단, Rnd가 pointer-events를 관리하므로 onDoubleClick은 Rnd의 children에서 처리 */}
+
+      {/* 호버 툴팁 */}
+      {tooltipPos !== null &&
+        createPortal(
+          <div
+            className="fixed bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-md shadow-lg px-3 py-2 z-[600] text-xs pointer-events-none"
+            style={{
+              top: tooltipPos.top,
+              left: tooltipPos.left,
+              maxWidth: 240,
+              transform: tooltipPos.placement === "above" ? "translateY(-100%)" : undefined,
+            }}
+          >
+            <div className="text-[10px] text-zinc-500 dark:text-zinc-400 mb-1">
+              {scopeText}
+            </div>
+            <div className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
+              {schedule.title || "제목 없음"}
+            </div>
+            {schedule.comment && (
+              <div className="text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed whitespace-pre-line">
+                {schedule.comment}
+              </div>
+            )}
+            <ScheduleCardDetailRows
+              databaseId={taskDatabaseId}
+              pageId={taskPageId}
+              excludeDateColumns
+            />
+          </div>,
+          document.body,
+        )}
+
+      {contextMenuPos &&
+        createPortal(
+          <ContextMenu
+            x={contextMenuPos.left}
+            y={contextMenuPos.top}
+            currentColor={color}
+            onColorChange={handleColorChange}
+            members={members}
+            currentMemberId={schedule.assigneeId ?? null}
+            onTransfer={schedule.assigneeId ? handleTransfer : undefined}
+            onClose={() => setContextMenuPos(null)}
+          />,
+          document.body,
+        )}
+    </>
+  );
+}
+
+// 가시 카드 전량 리렌더 방지 — schedule 객체는 불변 스토어에서 변경 시에만 새 참조가
+// 되고, 나머지 prop 은 원시값 또는 안정 콜백이므로 기본 shallow 비교로 정확히 갱신된다.
+export const ScheduleCard = memo(ScheduleCardImpl);

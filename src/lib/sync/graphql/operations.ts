@@ -1,0 +1,134 @@
+// 수동 작성 GraphQL operations. infra/lib/sync/schema.graphql 와 일관성 유지.
+export {
+  LIST_MY_ASSETS,
+  GET_ASSET_USAGES,
+  DELETE_MY_ASSETS,
+  RENAME_ASSET,
+  REPLACE_ASSET_REF,
+  MIGRATE_ASSET_USAGE,
+  type GqlAsset,
+  type GqlAssetUsage,
+  type MigrateAssetUsageResult,
+} from "../queries/asset";
+export {
+  LIST_CUSTOM_ICONS,
+  CREATE_CUSTOM_ICON,
+  DELETE_CUSTOM_ICON,
+  ON_CUSTOM_ICON_CHANGED,
+  type GqlCustomIcon,
+} from "../queries/customIcon";
+export {
+  GET_WORKSPACE_META,
+} from "../queries/workspaceMeta";
+export {
+  GET_PAGE,
+  GET_PAGE_BY_ID,
+  LIST_DATABASE_ROW_INDEX,
+  LIST_DATABASE_ROWS,
+  LIST_PAGE_METAS,
+  LIST_PAGES,
+  LIST_TRASHED_PAGES,
+  ON_PAGE_CHANGED,
+  RESTORE_PAGE,
+  SOFT_DELETE_PAGE,
+  UPSERT_PAGE,
+  UPSERT_PAGE_META,
+  type GqlPage,
+  type GqlDatabaseRowIndexPage,
+  type GqlPageMeta,
+} from "../queries/page";
+export {
+  LIST_PAGE_HISTORY,
+  LIST_DATABASE_ROW_HISTORY,
+  RESTORE_PAGE_VERSION,
+  SAVE_PAGE_VERSION,
+  DELETE_PAGE_HISTORY_EVENTS,
+  type GqlPageHistoryEntry,
+} from "../queries/pageHistory";
+export {
+  LIST_DATABASE_HISTORY,
+  RESTORE_DATABASE_VERSION,
+  SAVE_DATABASE_VERSION,
+  DELETE_DATABASE_HISTORY_EVENTS,
+  type GqlDatabaseHistoryEntry,
+} from "../queries/databaseHistory";
+export {
+  GET_DATABASE,
+  LIST_DATABASES,
+  LIST_TRASHED_DATABASES,
+  RESTORE_DATABASE,
+  ON_DATABASE_CHANGED,
+  SOFT_DELETE_DATABASE,
+  UPSERT_DATABASE,
+  type GqlDatabase,
+} from "../queries/database";
+
+const IMAGE_ASSET_FIELDS = `
+  id ownerId mimeType size sha256 status createdAt
+`;
+
+export const GET_IMAGE_DOWNLOAD_URL = `
+  query GetImageDownloadUrl($imageId: ID!) {
+    getImageDownloadUrl(imageId: $imageId)
+  }
+`;
+
+// Mutations
+export const GET_IMAGE_UPLOAD_URL = `
+  mutation GetImageUploadUrl($input: ImageUploadInput!) {
+    getImageUploadUrl(input: $input) { imageId uploadUrl expiresAt alreadyUploaded }
+  }
+`;
+export const CONFIRM_IMAGE = `
+  mutation ConfirmImage($imageId: ID!) {
+    confirmImage(imageId: $imageId) { ${IMAGE_ASSET_FIELDS} }
+  }
+`;
+
+// Subscriptions
+// 모델 타입 (스토어와 호환)
+export type GqlImageAsset = {
+  id: string;
+  ownerId: string;
+  mimeType: string;
+  size: number;
+  sha256: string;
+  status: "PENDING" | "READY";
+  createdAt: string;
+};
+
+export {
+  LIST_SCHEDULES,
+  CREATE_SCHEDULE,
+  UPDATE_SCHEDULE,
+  DELETE_SCHEDULE,
+  ON_SCHEDULE_CHANGED,
+  type GqlSchedule,
+} from "./queries/schedule";
+export {
+  LIST_PROJECTS,
+  CREATE_PROJECT,
+  UPDATE_PROJECT,
+  DELETE_PROJECT,
+  ON_PROJECT_CHANGED,
+  type GqlProject,
+} from "./queries/project";
+export {
+  LIST_HOLIDAYS,
+  CREATE_HOLIDAY,
+  UPDATE_HOLIDAY,
+  DELETE_HOLIDAY,
+  ON_HOLIDAY_CHANGED,
+  type GqlHoliday,
+} from "./queries/holiday";
+export {
+  LIST_MM_ENTRIES,
+  LIST_MM_REVISIONS,
+  UPSERT_MM_ENTRY,
+  REVIEW_MM_ENTRY,
+  LOCK_MM_ENTRY,
+  UNLOCK_MM_ENTRY,
+  ON_MM_ENTRY_CHANGED,
+  type GqlMmEntry,
+  type GqlMmRevision,
+} from "./queries/mm";

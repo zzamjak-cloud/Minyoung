@@ -1,0 +1,187 @@
+import { Extension } from "@tiptap/core";
+
+export type BlockBgColor =
+  | "yellow"
+  | "blue"
+  | "gray"
+  | "brown"
+  | "red"
+  | "orange"
+  | "green"
+  | "purple"
+  | "pink"
+  | "teal"
+  | null;
+
+export type BlockTextColor =
+  | "default"
+  | "gray"
+  | "brown"
+  | "orange"
+  | "yellow"
+  | "green"
+  | "blue"
+  | "purple"
+  | "pink"
+  | "red"
+  | null;
+
+export type BlockBgPreset = {
+  id: BlockBgColor;
+  label: string;
+  lightStyle: string;
+  darkStyle: string;
+  dot: string;
+};
+
+export type BlockTextPreset = {
+  id: Exclude<BlockTextColor, null>;
+  label: string;
+  dot: string;
+};
+
+export const BLOCK_BG_PRESETS: BlockBgPreset[] = [
+  {
+    id: "yellow",
+    label: "노랑",
+    lightStyle: "#f8f3de",
+    darkStyle: "rgba(113,103,0,0.35)",
+    dot: "#f8f3de",
+  },
+  {
+    id: "orange",
+    label: "주황",
+    lightStyle: "rgba(255,228,196,0.7)",
+    darkStyle: "rgba(130,70,0,0.35)",
+    dot: "#f4a22d",
+  },
+  {
+    id: "red",
+    label: "빨강",
+    lightStyle: "#f9eae7",
+    darkStyle: "rgba(120,20,20,0.35)",
+    dot: "#f9eae7",
+  },
+  {
+    id: "pink",
+    label: "분홍",
+    lightStyle: "rgba(255,215,235,0.65)",
+    darkStyle: "rgba(120,30,70,0.35)",
+    dot: "#e87dac",
+  },
+  {
+    id: "purple",
+    label: "보라",
+    lightStyle: "rgba(230,215,255,0.65)",
+    darkStyle: "rgba(80,30,130,0.35)",
+    dot: "#9b5de5",
+  },
+  {
+    id: "blue",
+    label: "파랑",
+    lightStyle: "rgba(210,230,255,0.65)",
+    darkStyle: "rgba(20,60,130,0.35)",
+    dot: "#4b8ae8",
+  },
+  {
+    id: "teal",
+    label: "청록",
+    lightStyle: "rgba(200,245,240,0.65)",
+    darkStyle: "rgba(10,80,70,0.35)",
+    dot: "#1eb8a0",
+  },
+  {
+    id: "green",
+    label: "초록",
+    lightStyle: "rgba(210,245,210,0.65)",
+    darkStyle: "rgba(20,80,20,0.35)",
+    dot: "#3aaa52",
+  },
+  {
+    id: "gray",
+    label: "회색",
+    lightStyle: "rgba(230,230,235,0.65)",
+    darkStyle: "rgba(70,70,80,0.40)",
+    dot: "#a0a0b0",
+  },
+  {
+    id: "brown",
+    label: "갈색",
+    lightStyle: "rgba(240,225,205,0.65)",
+    darkStyle: "rgba(90,55,20,0.38)",
+    dot: "#b07d4a",
+  },
+];
+
+export const BLOCK_TEXT_PRESETS: BlockTextPreset[] = [
+  { id: "default", label: "기본", dot: "#3f3f46" },
+  { id: "gray", label: "회색", dot: "#6b7280" },
+  { id: "brown", label: "갈색", dot: "#92400e" },
+  { id: "orange", label: "주황", dot: "#ea580c" },
+  { id: "yellow", label: "노랑", dot: "#ca8a04" },
+  { id: "green", label: "초록", dot: "#16a34a" },
+  { id: "blue", label: "파랑", dot: "#2563eb" },
+  { id: "purple", label: "보라", dot: "#9333ea" },
+  { id: "pink", label: "분홍", dot: "#db2777" },
+  { id: "red", label: "빨강", dot: "#e11d48" },
+];
+
+/** 텍스트 기반 블록에 backgroundColor 속성을 추가하는 GlobalAttributes 확장 */
+export const BlockBackground = Extension.create({
+  name: "blockBackground",
+
+  addGlobalAttributes() {
+    const colorAttr = {
+      default: null as string | null,
+      keepOnSplit: false,
+      parseHTML: (el: HTMLElement) => el.getAttribute("data-text-color") || null,
+      renderHTML: (attrs: { blockTextColor?: string | null }) => {
+        if (typeof attrs.blockTextColor !== "string" || !attrs.blockTextColor) return {};
+        return { "data-text-color": attrs.blockTextColor };
+      },
+    };
+    const bgAttr = {
+      default: null as string | null,
+      keepOnSplit: false,
+      parseHTML: (el: HTMLElement) => el.getAttribute("data-bg-color") || null,
+      renderHTML: (attrs: { backgroundColor?: string | null }) => {
+        if (typeof attrs.backgroundColor !== "string" || !attrs.backgroundColor) return {};
+        return { "data-bg-color": attrs.backgroundColor };
+      },
+    };
+    return [
+      {
+        types: [
+          "paragraph",
+          "heading",
+          "blockquote",
+          "toggle",
+          "toggleHeader",
+          "bulletList",
+          "orderedList",
+          "taskList",
+          "listItem",
+          "taskItem",
+        ],
+        attributes: {
+          backgroundColor: bgAttr,
+        },
+      },
+      {
+        // 글머리/번호 목록 텍스트 색은 listItem·taskItem 단위만 — ul/ol 에 두면 자식 항목까지 연쇄 적용된다.
+        types: [
+          "paragraph",
+          "heading",
+          "blockquote",
+          "toggle",
+          "toggleHeader",
+          "listItem",
+          "taskItem",
+        ],
+        attributes: {
+          blockTextColor: colorAttr,
+        },
+      },
+    ];
+  },
+});

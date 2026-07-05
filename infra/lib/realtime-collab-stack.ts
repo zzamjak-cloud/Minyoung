@@ -1,0 +1,197 @@
+import * as path from "node:path";
+import * as cdk from "aws-cdk-lib";
+import { Construct } from "constructs";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as nodejs from "aws-cdk-lib/aws-lambda-nodejs";
+import * as iam from "aws-cdk-lib/aws-iam";
+import * as logs from "aws-cdk-lib/aws-logs";
+// WebSocket L2 구문은 aws-cdk-lib 2.252 의 stable 패키지에 포함되어 있다.
+import * as apigw from "aws-cdk-lib/aws-apigatewayv2";
+import * as integ from "aws-cdk-lib/aws-apigatewayv2-integrations";
+
+export interface RealtimeCollabStackProps extends cdk.StackProps {
+  /** 리소스 이름 접두사. dev 환경은 "dev-", live 환경은 "" */
+  envPrefix: string;
+  // CognitoStack / SyncStack 의 출력값을 cross-stack reference 로 받는다.
+  userPoolId: string;
+  userPoolClientId: string;
+  // 데스크톱 앱 클라이언트 ID. 협업 WS 인증은 웹·데스크톱 토큰(서로 다른 aud)을 모두 허용해야 한다.
+  userPoolDesktopClientId?: string;
+  pageTableName: string;
+  pageTableArn: string;
+  // $connect 멤버십 인가에 필요한 테이블(이름 + ARN). members 는 byCognitoSub GSI 조회 필요.
+  membersTableName: string;
+  membersTableArn: string;
+  memberTeamsTableName: string;
+  memberTeamsTableArn: string;
+  workspaceAccessTableName: string;
+  workspaceAccessTableArn: string;
+  databaseTableName: string;
+  databaseTableArn: string;
+}
+
+/**
+ * 실시간 협업 백엔드 스택.
+ * API Gateway WebSocket API + 3개 DynamoDB 테이블 + 3개 Lambda 핸들러를 프로비저닝한다.
+ *   - connections: WS 연결 추적(byPageId GSI, ttl 자동 만료)
+ *   - ydoc: Yjs 문서 스냅샷
+ *   - ydocUpdates: Yjs 증분 업데이트(seq 정렬키)
+ */
+export class QuicknoteRealtimeCollabStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props: RealtimeCollabStackProps) {
+    super(scope, id, props);
+
+    const envPrefix = props.envPrefix;
+
+    // WS 연결 추적 테이블. ttl 속성으로 좀비 연결을 자동 만료한다.
+    const connections = new dynamodb.Table(this, "RtConnections", {
+      tableName: `${envPrefix}quicknote-rt-connections`,
+      partitionKey: { name: "connectionId", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: "ttl",
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+    // 페이지별 연결 목록 조회용 GSI (브로드캐스트 fan-out).
+    connections.addGlobalSecondaryIndex({
+      indexName: "byPageId",
+      partitionKey: { name: "pageId", type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.KEYS_ONLY,
+    });
+
+    // Yjs 문서 스냅샷 테이블.
+    const ydoc = new dynamodb.Table(this, "YDoc", {
+      tableName: `${envPrefix}quicknote-rt-ydoc`,
+      partitionKey: { name: "pageId", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    // Yjs 증분 업데이트 테이블. seq(정렬키)로 순차 적용한다.
+    const ydocUpdates = new dynamodb.Table(this, "YDocUpdates", {
+      tableName: `${envPrefix}quicknote-rt-ydoc-updates`,
+      partitionKey: { name: "pageId", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "seq", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    // 대용량 메시지 chunk 재조립 버퍼. ttl(60s)로 미완성 청크를 자동 만료한다.
+    // 클라→서버 큰 프레임(노션 import 페이지 sv-reply 등)이 90KB 초과 시 chunk 로
+    // 나뉘어 도착하므로, stateless Lambda 가 여기서 누적·재조립한다.
+    const chunks = new dynamodb.Table(this, "RtChunks", {
+      tableName: `${envPrefix}quicknote-rt-chunks`,
+      partitionKey: { name: "bufKey", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "i", type: dynamodb.AttributeType.NUMBER },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: "ttl",
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    // 모든 핸들러에 공통 주입하는 환경변수.
+    const environment = {
+      CONNECTIONS_TABLE: connections.tableName,
+      YDOC_TABLE: ydoc.tableName,
+      YDOC_UPDATES_TABLE: ydocUpdates.tableName,
+      CHUNKS_TABLE: chunks.tableName,
+      PAGE_TABLE: props.pageTableName,
+      MEMBERS_TABLE: props.membersTableName,
+      MEMBER_TEAMS_TABLE: props.memberTeamsTableName,
+      WORKSPACE_ACCESS_TABLE: props.workspaceAccessTableName,
+      DATABASE_TABLE: props.databaseTableName,
+      USER_POOL_ID: props.userPoolId,
+      USER_POOL_CLIENT_ID: props.userPoolClientId,
+      // 데스크톱 앱 클라이언트 ID(별도 env). auth.ts 가 웹+데스크톱 두 aud 를 모두 허용한다.
+      // 별도 env 로 두어 기존 웹 client cross-ref 를 건드리지 않는다(배포 블래스트 반경 최소화).
+      USER_POOL_DESKTOP_CLIENT_ID: props.userPoolDesktopClientId ?? "",
+    };
+
+    // realtime 핸들러 Lambda 팩토리.
+    const makeFn = (name: string, entry: string) =>
+      new nodejs.NodejsFunction(this, name, {
+        entry: path.join(__dirname, "..", "lambda", "realtime", entry),
+        handler: "handler",
+        runtime: lambda.Runtime.NODEJS_20_X,
+        timeout: cdk.Duration.seconds(15),
+        memorySize: 256,
+        logRetention: logs.RetentionDays.ONE_MONTH,
+        environment,
+        bundling: {
+          format: nodejs.OutputFormat.ESM,
+          target: "node20",
+          externalModules: ["@aws-sdk/*"],
+        },
+      });
+
+    const connectFn = makeFn("ConnectFn", "connect.ts");
+    const disconnectFn = makeFn("DisconnectFn", "disconnect.ts");
+    const syncFn = makeFn("SyncFn", "sync.ts");
+
+    // 권한 부여: 모든 핸들러는 연결 테이블 읽기/쓰기. sync 만 Yjs 테이블 접근.
+    [connectFn, disconnectFn, syncFn].forEach((f) => connections.grantReadWriteData(f));
+    ydoc.grantReadWriteData(syncFn);
+    ydocUpdates.grantReadWriteData(syncFn);
+    chunks.grantReadWriteData(syncFn);
+    // sync 핸들러는 DB 룸 첫 진입 시드(buildDbSeedUpdate)를 위해
+    // Database 항목과 행 페이지(dbCells)를 GetItem 한다. (slice A 부터 필요했으나 누락돼 있던 권한 포함)
+    syncFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["dynamodb:GetItem"],
+        resources: [props.databaseTableArn, props.pageTableArn],
+      }),
+    );
+    // connect 핸들러는 페이지 존재/워크스페이스 귀속 확인을 위해 Pages 테이블 GetItem 필요.
+    connectFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["dynamodb:GetItem"],
+        resources: [props.pageTableArn],
+      }),
+    );
+    // 멤버십 인가: members(byCognitoSub GSI), memberTeams, workspaceAccess 를 Query/GetItem.
+    connectFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["dynamodb:Query", "dynamodb:GetItem"],
+        resources: [
+          props.membersTableArn,
+          `${props.membersTableArn}/index/*`,
+          props.memberTeamsTableArn,
+          props.workspaceAccessTableArn,
+        ],
+      }),
+    );
+    // DB 방 인가: database 테이블에서 페이지 소속 DB 확인을 위해 GetItem 필요.
+    connectFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["dynamodb:GetItem"],
+        resources: [props.databaseTableArn],
+      }),
+    );
+
+    // WebSocket API — $connect/$disconnect 는 라우트 옵션.
+    // 데이터 메시지(hello/update/sv-reply)는 action 필드를 쓰지 않으므로 $default 라우트로 받는다.
+    // (커스텀 "sync" 라우트로 두면 route selection($request.body.action)에 매칭되지 않아 드롭된다.)
+    const api = new apigw.WebSocketApi(this, "CollabWsApi", {
+      apiName: `${envPrefix}quicknote-rt-collab`,
+      connectRouteOptions: {
+        integration: new integ.WebSocketLambdaIntegration("ConnectInteg", connectFn),
+      },
+      disconnectRouteOptions: {
+        integration: new integ.WebSocketLambdaIntegration("DisconnectInteg", disconnectFn),
+      },
+      defaultRouteOptions: {
+        integration: new integ.WebSocketLambdaIntegration("SyncInteg", syncFn),
+      },
+    });
+
+    const stage = new apigw.WebSocketStage(this, "CollabWsStage", {
+      webSocketApi: api,
+      stageName: "prod",
+      autoDeploy: true,
+    });
+
+    // sync 핸들러가 @connections API 로 클라이언트에 메시지를 push 할 수 있도록 허용.
+    api.grantManageConnections(syncFn);
+
+    new cdk.CfnOutput(this, "CollabWsUrl", { value: stage.url });
+  }
+}

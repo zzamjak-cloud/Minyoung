@@ -1,0 +1,527 @@
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+
+import { zustandStorage } from "../lib/storage/index";
+import { scheduleEnqueueClientPrefs } from "../lib/sync/clientPrefsSync";
+import { usePageStore } from "./pageStore";
+import { useWorkspaceStore } from "./workspaceStore";
+import type { PersistedObject } from "../lib/migrations/persistedStore";
+import { migratePersistedStore } from "../lib/migrations/persistedStore";
+
+export type Tab = {
+  pageId: string | null;
+  databaseId?: string | null;
+  back?: string[];
+  refreshKey?: number;
+};
+export type ClosedTabSnapshot = { tab: Tab; index: number };
+export type FavoritePageMeta = {
+  pageId: string;
+  workspaceId: string | null;
+  workspaceName: string;
+  pageTitle: string;
+  pageIcon: string | null;
+};
+
+type SettingsState = {
+  darkMode: boolean;
+  fullWidth: boolean;
+  /** pageId -> fullWidth. 없으면 전역 fullWidth를 fallback으로 사용. */
+  pageFullWidthById: Record<string, boolean>;
+  /** 전체 너비 설정 LWW 타임스탬프(epoch ms). 서버 clientPrefs 도 동일 필드명. */
+  fullWidthUpdatedAt: number;
+  /** DB 항목 속성 패널 열림 여부(글로벌) — 기본값: true */
+  dbPropertyPanelOpen: boolean;
+  /** 조직/팀/프로젝트/워크스페이스 아이콘 (엔티티 ID → icon 문자열) */
+  entityIcons: Record<string, string | null>;
+  /** 조직/팀/프로젝트 설명 (엔티티 ID → 설명 문자열) */
+  entityDescriptions: Record<string, string>;
+  sidebarWidth: number;
+  rightPanelWidth: number;
+  /** 사이드바 접힘 — 접힘 시 좌측 얇은 레일만 표시 */
+  sidebarCollapsed: boolean;
+  /** 개인 즐겨찾기 페이지 id 순서 */
+  favoritePageIds: string[];
+  /** 즐겨찾기 표시를 위한 메타(워크스페이스/제목/아이콘 캐시) */
+  favoritePageMetaById: Record<string, FavoritePageMeta>;
+  /** 즐겨찾기 LWW 타임스탬프(epoch ms). 서버 clientPrefs 도 동일 필드명. */
+  favoritePageIdsUpdatedAt: number;
+  expandedIds: string[];
+  // 페이지 탭. activeTabIndex 위치의 탭 pageId가 곧 활성 페이지.
+  tabs: Tab[];
+  activeTabIndex: number;
+  /** 직전에 닫은 탭. 탭 컨텍스트 메뉴의 다시 열기에 사용한다. */
+  lastClosedTab: ClosedTabSnapshot | null;
+  /** 워크스페이스별 마지막으로 연 페이지 id(복원용) */
+  lastVisitedPageIdByWorkspaceId: Record<string, string>;
+};
+
+type SettingsActions = {
+  toggleDarkMode: () => void;
+  setSidebarWidth: (width: number) => void;
+  setRightPanelWidth: (width: number) => void;
+  toggleSidebarCollapsed: () => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  toggleFavoritePage: (pageId: string) => void;
+  updateFavoritePageMeta: (
+    pageId: string,
+    meta: FavoritePageMeta,
+    opts?: { sync?: boolean },
+  ) => void;
+  reorderFavorites: (orderedIds: string[]) => void;
+  removeFavoritePage: (pageId: string) => void;
+  /** 페이지 삭제 시 즐겨찾기 배열에서 제거 */
+  removeFavoritesForPages: (pageIds: string[]) => void;
+  toggleExpanded: (id: string) => void;
+  setExpanded: (id: string, expanded: boolean) => void;
+  // 현재 탭의 pageId만 갱신
+  setCurrentTabPage: (pageId: string | null) => void;
+  setCurrentTabDatabase: (databaseId: string | null) => void;
+  /** 탭 pageId만 교체 — 방문 이력(back)은 초기화(헤더 부모 이동 등) */
+  replaceCurrentTabPage: (pageId: string | null) => void;
+  // 새 탭 열기
+  openTab: (pageId: string | null) => void;
+  openDatabaseTab: (databaseId: string) => void;
+  duplicateTab: (index: number) => void;
+  refreshTab: (index: number) => void;
+  // 특정 탭 닫기
+  closeTab: (index: number) => void;
+  reopenLastClosedTab: () => void;
+  // 탭 활성화
+  setActiveTab: (index: number) => void;
+  prevTab: () => void;
+  nextTab: () => void;
+  toggleFullWidth: () => void;
+  toggleFullWidthForPage: (pageId: string | null) => void;
+  setDbPropertyPanelOpen: (open: boolean) => void;
+  setEntityIcon: (id: string, icon: string | null) => void;
+  setEntityDescription: (id: string, description: string) => void;
+  /** 워크스페이스 방문 페이지 기억(pageId null 이면 해당 워크스페이스 키만 제거 가능) */
+  setLastVisitedPageForWorkspace: (
+    workspaceId: string | null,
+    pageId: string | null,
+  ) => void;
+};
+
+export type SettingsStore = SettingsState & SettingsActions;
+
+export const SETTINGS_STORE_VERSION = 12;
+
+export function migrateSettingsStore(
+  persisted: unknown,
+  fromVersion: number,
+): PersistedObject {
+  return migratePersistedStore(
+    persisted,
+    fromVersion,
+    [
+      {
+        version: 2,
+        migrate: (state) => ({
+          ...state,
+          sidebarCollapsed: false,
+          favoritePageIds: [],
+          favoritePageMetaById: {},
+          favoritePageIdsUpdatedAt: 0,
+        }),
+      },
+      {
+        version: 3,
+        migrate: (state) => {
+          const ids = Array.isArray(state.favoritePageIds)
+            ? (state.favoritePageIds as string[])
+            : [];
+          const prevTs = Number(state.favoritePageIdsUpdatedAt);
+          const favoritePageIdsUpdatedAt =
+            Number.isFinite(prevTs) && prevTs > 0
+              ? prevTs
+              : ids.length > 0
+                ? Date.now()
+                : 0;
+          return { ...state, favoritePageIdsUpdatedAt };
+        },
+      },
+      {
+        version: 4,
+        migrate: (state) => {
+          const ids = Array.isArray(state.favoritePageIds)
+            ? (state.favoritePageIds as string[])
+            : [];
+          let ts = Number(state.favoritePageIdsUpdatedAt);
+          if (ids.length > 0 && (!Number.isFinite(ts) || ts <= 0)) {
+            ts = Date.now();
+          }
+          return { ...state, favoritePageIdsUpdatedAt: ts };
+        },
+      },
+      {
+        version: 5,
+        migrate: (state) => {
+          const rawMeta = state.favoritePageMetaById;
+          const favoritePageMetaById =
+            rawMeta && typeof rawMeta === "object" && !Array.isArray(rawMeta)
+              ? (rawMeta as Record<string, FavoritePageMeta>)
+              : {};
+          return { ...state, favoritePageMetaById };
+        },
+      },
+      {
+        version: 6,
+        migrate: (state) => ({
+          ...state,
+          lastVisitedPageIdByWorkspaceId: {},
+        }),
+      },
+      {
+        version: 7,
+        migrate: (state) => ({
+          ...state,
+          pageFullWidthById: {},
+        }),
+      },
+      {
+        version: 8,
+        migrate: (state) => ({
+          ...state,
+          dbPropertyPanelOpen: true,
+        }),
+      },
+      {
+        version: 9,
+        migrate: (state) => ({
+          ...state,
+          entityIcons: {},
+        }),
+      },
+      {
+        version: 10,
+        migrate: (state) => ({
+          ...state,
+          entityDescriptions: {},
+        }),
+      },
+      {
+        version: 11,
+        migrate: (state) => ({
+          ...state,
+          fullWidthUpdatedAt:
+            typeof state.fullWidthUpdatedAt === "number" &&
+            Number.isFinite(state.fullWidthUpdatedAt)
+              ? state.fullWidthUpdatedAt
+              : 0,
+        }),
+      },
+      {
+        // v12: 과거 LC스케줄러 구성원 순서 개인화(clientPrefs) 필드를 제거한다.
+        // 구성원 순서는 공유 DB panelState 로 일원화됨.
+        version: 12,
+        migrate: (state) => {
+          const next = { ...state };
+          delete next.schedulerMemberOrder;
+          delete next.schedulerMemberOrderUpdatedAt;
+          return next;
+        },
+      },
+    ],
+    {
+      darkMode: false,
+      fullWidth: false,
+      pageFullWidthById: {},
+      fullWidthUpdatedAt: 0,
+      dbPropertyPanelOpen: true,
+      entityIcons: {},
+      entityDescriptions: {},
+      sidebarWidth: 260,
+      rightPanelWidth: 320,
+      sidebarCollapsed: false,
+      favoritePageIds: [],
+      favoritePageMetaById: {},
+      favoritePageIdsUpdatedAt: 0,
+      expandedIds: [],
+      tabs: [{ pageId: null }],
+      activeTabIndex: 0,
+      lastClosedTab: null,
+      lastVisitedPageIdByWorkspaceId: {},
+    },
+  );
+}
+
+export const useSettingsStore = create<SettingsStore>()(
+  persist(
+    (set) => ({
+      darkMode: false,
+      fullWidth: false,
+      pageFullWidthById: {},
+      fullWidthUpdatedAt: 0,
+      dbPropertyPanelOpen: true,
+      entityIcons: {},
+      entityDescriptions: {},
+      sidebarWidth: 260,
+      rightPanelWidth: 320,
+      sidebarCollapsed: false,
+      favoritePageIds: [],
+      favoritePageMetaById: {},
+      favoritePageIdsUpdatedAt: 0,
+      expandedIds: [],
+      tabs: [{ pageId: null }],
+      activeTabIndex: 0,
+      lastClosedTab: null,
+      lastVisitedPageIdByWorkspaceId: {},
+      toggleDarkMode: () => set((s) => ({ darkMode: !s.darkMode })),
+      setSidebarWidth: (width) =>
+        set({ sidebarWidth: Math.max(180, Math.min(480, width)) }),
+      setRightPanelWidth: (width) =>
+        set({ rightPanelWidth: Math.max(240, Math.min(560, width)) }),
+      toggleSidebarCollapsed: () =>
+        set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+      setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+      toggleFavoritePage: (pageId) =>
+        set((s) => {
+          const exists = s.favoritePageIds.includes(pageId);
+          const favoritePageIds = exists
+            ? s.favoritePageIds.filter((id) => id !== pageId)
+            : [...s.favoritePageIds, pageId];
+          const favoritePageMetaById = { ...s.favoritePageMetaById };
+          if (exists) {
+            delete favoritePageMetaById[pageId];
+          } else {
+            const page = usePageStore.getState().pages[pageId];
+            const ws = useWorkspaceStore.getState();
+            const workspaceId = ws.currentWorkspaceId;
+            const workspaceName =
+              ws.workspaces.find((w) => w.workspaceId === workspaceId)?.name ?? "";
+            favoritePageMetaById[pageId] = {
+              pageId,
+              workspaceId,
+              workspaceName,
+              pageTitle: page?.title ?? "제목 없음",
+              pageIcon: page?.icon ?? null,
+            };
+          }
+          const favoritePageIdsUpdatedAt = Date.now();
+          queueMicrotask(() => scheduleEnqueueClientPrefs());
+          return { favoritePageIds, favoritePageMetaById, favoritePageIdsUpdatedAt };
+        }),
+      updateFavoritePageMeta: (pageId, meta, opts) =>
+        set((s) => {
+          if (!s.favoritePageIds.includes(pageId)) return s;
+          const prev = s.favoritePageMetaById[pageId];
+          const same =
+            prev?.workspaceId === meta.workspaceId &&
+            prev?.workspaceName === meta.workspaceName &&
+            prev?.pageTitle === meta.pageTitle &&
+            prev?.pageIcon === meta.pageIcon;
+          if (same) return s;
+          const favoritePageMetaById = {
+            ...s.favoritePageMetaById,
+            [pageId]: meta,
+          };
+          if (opts?.sync === false) return { favoritePageMetaById };
+          const favoritePageIdsUpdatedAt = Date.now();
+          queueMicrotask(() => scheduleEnqueueClientPrefs());
+          return { favoritePageMetaById, favoritePageIdsUpdatedAt };
+        }),
+      reorderFavorites: (orderedIds) =>
+        set(() => {
+          const favoritePageIds = [...orderedIds];
+          const favoritePageIdsUpdatedAt = Date.now();
+          queueMicrotask(() => scheduleEnqueueClientPrefs());
+          return { favoritePageIds, favoritePageIdsUpdatedAt };
+        }),
+      removeFavoritePage: (pageId) =>
+        set((s) => {
+          const favoritePageIds = s.favoritePageIds.filter((id) => id !== pageId);
+          if (favoritePageIds.length === s.favoritePageIds.length) return s;
+          const favoritePageMetaById = { ...s.favoritePageMetaById };
+          delete favoritePageMetaById[pageId];
+          const favoritePageIdsUpdatedAt = Date.now();
+          queueMicrotask(() => scheduleEnqueueClientPrefs());
+          return { favoritePageIds, favoritePageMetaById, favoritePageIdsUpdatedAt };
+        }),
+      removeFavoritesForPages: (pageIds) =>
+        set((s) => {
+          const rm = new Set(pageIds);
+          const next = s.favoritePageIds.filter((id) => !rm.has(id));
+          if (next.length === s.favoritePageIds.length) return s;
+          const favoritePageMetaById = { ...s.favoritePageMetaById };
+          for (const pageId of pageIds) delete favoritePageMetaById[pageId];
+          const favoritePageIdsUpdatedAt = Date.now();
+          queueMicrotask(() => scheduleEnqueueClientPrefs());
+          return { favoritePageIds: next, favoritePageMetaById, favoritePageIdsUpdatedAt };
+        }),
+      toggleExpanded: (id) =>
+        set((s) => ({
+          expandedIds: s.expandedIds.includes(id)
+            ? s.expandedIds.filter((x) => x !== id)
+            : [...s.expandedIds, id],
+        })),
+      setExpanded: (id, expanded) =>
+        set((s) => ({
+          expandedIds: expanded
+            ? Array.from(new Set([...s.expandedIds, id]))
+            : s.expandedIds.filter((x) => x !== id),
+        })),
+      setCurrentTabPage: (pageId) =>
+        set((s) => {
+          const curTab = s.tabs[s.activeTabIndex];
+          const cur = curTab?.pageId ?? null;
+          if (cur === pageId && (curTab?.databaseId ?? null) === null) return s;
+          const back = cur !== null
+            ? [...(curTab?.back ?? []), cur].slice(-50)
+            : (curTab?.back ?? []);
+          const tabs = [...s.tabs];
+          tabs[s.activeTabIndex] = { pageId, databaseId: null, back };
+          return { tabs };
+        }),
+      setCurrentTabDatabase: (databaseId) =>
+        set((s) => {
+          const curTab = s.tabs[s.activeTabIndex];
+          const cur = curTab?.databaseId ?? null;
+          if (cur === databaseId && (curTab?.pageId ?? null) === null) return s;
+          const back = curTab?.pageId != null
+            ? [...(curTab?.back ?? []), curTab.pageId].slice(-50)
+            : (curTab?.back ?? []);
+          const tabs = [...s.tabs];
+          tabs[s.activeTabIndex] = { pageId: null, databaseId, back };
+          return { tabs };
+        }),
+      replaceCurrentTabPage: (pageId) =>
+        set((s) => {
+          const tabs = [...s.tabs];
+          const i = s.activeTabIndex;
+          const prev = tabs[i];
+          if ((prev?.pageId ?? null) === pageId && (prev?.databaseId ?? null) === null) return s;
+          tabs[i] = { pageId, databaseId: null, back: [] };
+          return { tabs };
+        }),
+      openTab: (pageId) =>
+        set((s) => ({
+          tabs: [...s.tabs, { pageId, databaseId: null }],
+          activeTabIndex: s.tabs.length,
+        })),
+      openDatabaseTab: (databaseId) =>
+        set((s) => ({
+          tabs: [...s.tabs, { pageId: null, databaseId }],
+          activeTabIndex: s.tabs.length,
+        })),
+      duplicateTab: (index) =>
+        set((s) => {
+          const source = s.tabs[index];
+          if (!source) return s;
+          return {
+            tabs: [
+              ...s.tabs.slice(0, index + 1),
+              {
+                pageId: source.pageId ?? null,
+                databaseId: source.databaseId ?? null,
+                back: [...(source.back ?? [])],
+              },
+              ...s.tabs.slice(index + 1),
+            ],
+            activeTabIndex: index + 1,
+          };
+        }),
+      refreshTab: (index) =>
+        set((s) => {
+          const source = s.tabs[index];
+          if (!source) return s;
+          const tabs = [...s.tabs];
+          tabs[index] = {
+            ...source,
+            refreshKey: (source.refreshKey ?? 0) + 1,
+          };
+          return { tabs, activeTabIndex: index };
+        }),
+      closeTab: (index) =>
+        set((s) => {
+          if (s.tabs.length <= 1) return s;
+          const closedTab = s.tabs[index];
+          if (!closedTab) return s;
+          const tabs = s.tabs.filter((_, i) => i !== index);
+          let activeTabIndex = s.activeTabIndex;
+          if (index < s.activeTabIndex) activeTabIndex -= 1;
+          if (activeTabIndex >= tabs.length) activeTabIndex = tabs.length - 1;
+          if (activeTabIndex < 0) activeTabIndex = 0;
+          return {
+            tabs,
+            activeTabIndex,
+            lastClosedTab: { tab: { ...closedTab, back: [...(closedTab.back ?? [])] }, index },
+          };
+        }),
+      reopenLastClosedTab: () =>
+        set((s) => {
+          const closed = s.lastClosedTab;
+          if (!closed) return s;
+          const insertIndex = Math.max(0, Math.min(closed.index, s.tabs.length));
+          return {
+            tabs: [
+              ...s.tabs.slice(0, insertIndex),
+              { ...closed.tab, back: [...(closed.tab.back ?? [])] },
+              ...s.tabs.slice(insertIndex),
+            ],
+            activeTabIndex: insertIndex,
+            lastClosedTab: null,
+          };
+        }),
+      setActiveTab: (index) =>
+        set((s) => ({
+          activeTabIndex: Math.max(0, Math.min(index, s.tabs.length - 1)),
+        })),
+      prevTab: () =>
+        set((s) => ({
+          activeTabIndex: Math.max(0, s.activeTabIndex - 1),
+        })),
+      nextTab: () =>
+        set((s) => ({
+          activeTabIndex: Math.min(s.tabs.length - 1, s.activeTabIndex + 1),
+        })),
+      toggleFullWidth: () =>
+        set((s) => {
+          queueMicrotask(() => scheduleEnqueueClientPrefs());
+          return { fullWidth: !s.fullWidth, fullWidthUpdatedAt: Date.now() };
+        }),
+      toggleFullWidthForPage: (pageId) =>
+        set((s) => {
+          const fullWidthUpdatedAt = Date.now();
+          queueMicrotask(() => scheduleEnqueueClientPrefs());
+          if (!pageId) return { fullWidth: !s.fullWidth, fullWidthUpdatedAt };
+          const current = s.pageFullWidthById[pageId] ?? s.fullWidth;
+          return {
+            pageFullWidthById: {
+              ...s.pageFullWidthById,
+              [pageId]: !current,
+            },
+            fullWidthUpdatedAt,
+          };
+        }),
+      setDbPropertyPanelOpen: (open) => set({ dbPropertyPanelOpen: open }),
+      setEntityIcon: (id, icon) =>
+        set((s) => ({ entityIcons: { ...s.entityIcons, [id]: icon } })),
+      setEntityDescription: (id, description) =>
+        set((s) => ({ entityDescriptions: { ...s.entityDescriptions, [id]: description } })),
+      setLastVisitedPageForWorkspace: (workspaceId, pageId) => {
+        if (!workspaceId) return;
+        set((s) => {
+          const next = { ...s.lastVisitedPageIdByWorkspaceId };
+          if (!pageId) {
+            delete next[workspaceId];
+          } else {
+            next[workspaceId] = pageId;
+          }
+          return { lastVisitedPageIdByWorkspaceId: next };
+        });
+      },
+    }),
+    {
+      name: "quicknote.settings.v1",
+      storage: createJSONStorage(() => zustandStorage),
+      version: SETTINGS_STORE_VERSION,
+      migrate: migrateSettingsStore,
+      partialize: (state) => {
+        const persisted: Partial<SettingsStore> = { ...state };
+        delete persisted.lastClosedTab;
+        return persisted;
+      },
+    },
+  ),
+);

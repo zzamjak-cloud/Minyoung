@@ -11,7 +11,6 @@ import {
   applyRemotePageMetasToStore,
   applyRemoteDatabaseToStore,
 } from "./lib/sync/storeApply";
-import { applyRemoteCommentToStore } from "./lib/sync/storeApply/commentApply";
 import {
   applyWorkspaceSwitch,
   cacheBelongsToWorkspace,
@@ -44,8 +43,6 @@ import {
 import { useTeamStore } from "./store/teamStore";
 import { useOrganizationStore } from "./store/organizationStore";
 import { useUiStore } from "./store/uiStore";
-import { migrateLegacyBlockCommentsToPagesOnce } from "./lib/comments/migrateLegacyBlockCommentsToPages";
-import { migratePageBlockCommentsToServerOnce } from "./lib/comments/migratePageBlockCommentsToServer";
 import { useNotificationStore } from "./store/notificationStore";
 import { LC_SCHEDULER_WORKSPACE_ID } from "./lib/scheduler/scope";
 import {
@@ -246,7 +243,6 @@ function useSyncBootstrap(): void {
               fetchMode.kind === "full" &&
               fetchMode.reason === "no-cache"
             );
-          await migrateLegacyBlockCommentsToPagesOnce();
           const applyRemote = async (
             nextUpdatedAfter: string | undefined,
             logPrefix: string,
@@ -259,7 +255,6 @@ function useSyncBootstrap(): void {
               cancelled: () => cancelled,
               clearWorkspaceBeforeApply:
                 !nextUpdatedAfter && switchResult.reason === "deferred-switch",
-              clearBlockCommentsBeforeApply: true,
               applyLandingAfterApply: true,
               // 워크스페이스 진입(전환·새로고침·강제 새로고침)에서 활성 탭이 DB 탭/풀페이지 DB 홈이면
               // ensureFullPagePageForDatabase 가 메타 상태에서 홈을 재생성해 유령 페이지가 생기므로
@@ -299,7 +294,6 @@ function useSyncBootstrap(): void {
               workspaceId: currentWorkspaceId,
               cancelled: () => cancelled,
               clearWorkspaceBeforeApply: false,
-              clearBlockCommentsBeforeApply: true,
               applyLandingAfterApply: true,
               landingForceFirstRoot: true,
               refreshSnapshotAfterApply: true,
@@ -308,7 +302,6 @@ function useSyncBootstrap(): void {
             });
           }
           if (cancelled) return;
-          migratePageBlockCommentsToServerOnce(currentWorkspaceId);
         };
         const fetchApplyFull = async (): Promise<void> => fetchApply({ forceFull: true });
         const setHold = useUiStore.getState().setOutboxWorkspaceSwitchHold;
@@ -392,7 +385,6 @@ function useSyncBootstrap(): void {
           onDatabase: (d) => {
             applyRemoteDatabaseToStore(d);
           },
-          onComment: applyRemoteCommentToStore,
           ...(currentWorkspaceId === LC_SCHEDULER_WORKSPACE_ID
             ? {
                 onProject: applySchedulerProject,
@@ -537,7 +529,6 @@ function useSyncBootstrap(): void {
       onDatabase: (d) => {
         applyRemoteDatabaseToStore(d);
       },
-      onComment: applyRemoteCommentToStore,
       onProject: applySchedulerProject,
     });
     return () => {

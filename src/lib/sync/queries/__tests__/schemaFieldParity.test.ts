@@ -9,7 +9,6 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import * as pageQueries from "../page";
 import * as databaseQueries from "../database";
-import * as commentQueries from "../comment";
 import * as assetQueries from "../asset";
 import * as pageHistoryQueries from "../pageHistory";
 
@@ -88,7 +87,6 @@ function collectItemQueries(): Array<{ name: string; query: string }> {
   const modules: Record<string, unknown>[] = [
     pageQueries,
     databaseQueries,
-    commentQueries,
     assetQueries,
     pageHistoryQueries,
   ];
@@ -131,7 +129,6 @@ describe("Page 스칼라 타입 ↔ SDL 정합 (알려진 표류 allowlist)", ()
     updatedAt: { sdl: "AWSDateTime" },
     doc: { sdl: "AWSJSON" },
     dbCells: { sdl: "AWSJSON" },
-    blockComments: { sdl: "AWSJSON" },
   };
 
   const sdlTypes = schemaTypeFieldTypes("Page");

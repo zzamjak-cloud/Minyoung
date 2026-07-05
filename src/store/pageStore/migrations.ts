@@ -3,7 +3,6 @@
 
 import type { JSONContent } from "@tiptap/react";
 import type { Page, PageMap } from "../../types/page";
-import { coercePageBlockComments } from "../../lib/comments/blockCommentSnapshot";
 import {
   attachPersistedMeta,
   attachQuarantine,
@@ -55,12 +54,6 @@ function coercePage(value: unknown): Page | null {
       typeof value.coverImage === "string" ? value.coverImage : null,
     createdAt,
     updatedAt,
-    ...(value.blockComments != null
-      ? (() => {
-          const bc = coercePageBlockComments(value.blockComments);
-          return bc ? { blockComments: bc } : {};
-        })()
-      : {}),
   };
 }
 

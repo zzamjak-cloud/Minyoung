@@ -5,7 +5,6 @@ import {
   useState,
   useCallback,
 } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
 import { HandleLayerBase } from "./handles/HandleLayerBase";
 import type { Editor } from "@tiptap/react";
 import {
@@ -19,8 +18,6 @@ import {
   MoreHorizontal,
   LayoutTemplate,
   Link2,
-  MessageSquare,
-  MessageSquarePlus,
   PaintBucket,
   Pilcrow,
   Trash2,
@@ -49,17 +46,11 @@ import { topLevelBlockStartsInSelectionRange } from "../../lib/pm/topLevelBlocks
 import { reportNonFatal } from "../../lib/reportNonFatal";
 import { usePageStore } from "../../store/pageStore";
 import { useDatabaseStore } from "../../store/databaseStore";
-import { useUiStore } from "../../store/uiStore";
-import { useBlockCommentStore } from "../../store/blockCommentStore";
-import { useMemberStore } from "../../store/memberStore";
 import { POINTER_PRESS_FEEDBACK_CLASS } from "../common/interactionClasses";
-import { ensureBlockId } from "../../lib/comments/ensureBlockId";
-import { canBlockHaveComment } from "../../lib/comments/blockCommentTargets";
+import { ensureBlockId } from "../../lib/mentions/ensureBlockId";
 import { buildQuickNotePageUrl } from "../../lib/navigation/quicknoteLinks";
 import {
-  COMMENT_BTN_GAP_PX,
   GUTTER_LEFT_PX,
-  HANDLE_TOP_OFFSET_PX,
   type HoverInfo,
   RECT_PAD_X,
   RECT_PAD_Y,
@@ -80,7 +71,7 @@ import {
 } from "./blockHandles/helpers";
 import { HoverMenuGroup, HoverMenuRow } from "./blockHandles/HoverMenuRow";
 import { useIsMobile } from "../../hooks/useViewport";
-import type { PinnedCommentBadge, DownloadNotice } from "./blockHandles/BlockHandlesTypes";
+import type { DownloadNotice } from "./blockHandles/BlockHandlesTypes";
 import { computeBlockTypeFlags } from "./blockHandles/blockTypeFlags";
 import { DownloadNoticeToast } from "./blockHandles/DownloadNoticeToast";
 import {
@@ -98,8 +89,6 @@ type Props = {
   onClearBoxSelection?: () => void;
   /** Editor 가 편집 중인 페이지 ID — activePageId 와 다른 페이지(피크 뷰 등) 용도 */
   pageId?: string | null;
-  /** 피크 뷰처럼 좁은 컨텍스트에서 댓글을 작은 아이콘+카운트 배지로 표시 */
-  compactComments?: boolean;
 };
 
 export function BlockHandles({
@@ -107,7 +96,6 @@ export function BlockHandles({
   boxSelectedStarts,
   onClearBoxSelection,
   pageId,
-  compactComments = false,
 }: Props) {
   const isMobile = useIsMobile();
   const boxSelectionActive =
@@ -127,7 +115,6 @@ export function BlockHandles({
   const globalActivePageId = usePageStore((s) => s.activePageId);
   // pageId prop 우선 — 피크 뷰처럼 활성 페이지와 다른 페이지를 편집할 때 정확한 페이지 ID 사용
   const activePageId = pageId ?? globalActivePageId;
-  const openCommentThread = useUiStore((s) => s.openCommentThread);
   const [isDownloading, setIsDownloading] = useState(false);
   const [boxSelecting, setBoxSelecting] = useState(false);
   const dragCommittedRef = useRef(false);
@@ -207,20 +194,6 @@ export function BlockHandles({
           return prev;
         }
 
-        // prev 블록의 우측 댓글 추가 아이콘 영역(rect.right+8 ~ rect.right+32 × rect.top-4 ~ rect.top+24)에
-        // 커서가 있다면 prev 유지. 인접 블록(컬럼·리스트 부모 등)으로 hover 가 전환되거나
-        // next === null 이 되어도 아이콘이 사라지지 않도록 보장. 블록 타입(리스트 여부)과 무관하게 적용.
-        if (
-          prev &&
-          (!next || next.blockStart !== prev.blockStart) &&
-          e.clientX > prev.rect.right &&
-          e.clientX <= prev.rect.right + COMMENT_BTN_GAP_PX + 24 &&
-          e.clientY >= prev.rect.top - 4 &&
-          e.clientY <= prev.rect.top + 24
-        ) {
-          return prev;
-        }
-
         /** 같은 블록 위에서 커서만 움직일 때 매 프레임 새 객체 → 전체 리렌더·동영상 재로드 유발 방지 */
         if (
           next &&
@@ -267,8 +240,7 @@ export function BlockHandles({
           if (
             !isPrevListItem &&
             e.clientX >= rect.left - GUTTER_LEFT_PX &&
-            // 우측 댓글 추가 아이콘(rect.right + COMMENT_BTN_GAP_PX 위치, 20px 너비)을 호버 유지 영역에 포함
-            e.clientX <= rect.right + Math.max(RECT_PAD_X, COMMENT_BTN_GAP_PX + 24) &&
+            e.clientX <= rect.right + RECT_PAD_X &&
             e.clientY >= rect.top - RECT_PAD_Y &&
             e.clientY <= rect.bottom + RECT_PAD_Y
           ) {
@@ -425,183 +397,6 @@ export function BlockHandles({
         }
       : bar;
 
-  const [pinnedCommentBadges, setPinnedCommentBadges] = useState<
-    PinnedCommentBadge[]
-  >([]);
-  // setState 반복 방지 — 안정 키(blockId·count·messageIds)가 같으면 업데이트 건너뜀
-  const pinnedStableKeyRef = useRef<string>("");
-  // 렌더된 카드 DOM 참조(key→element) — 실제 높이 측정용
-  const badgeElRef = useRef<Map<string, HTMLDivElement>>(new Map());
-  // 겹침 보정 후 카드별 top(key→px). 비어 있으면 자연 위치(pin.top) 사용
-  const [stackedTops, setStackedTops] = useState<Record<string, number>>({});
-
-  useLayoutEffect(() => {
-    if (!editor || !activePageId) {
-      setPinnedCommentBadges([]);
-      return;
-    }
-
-    let rafId: number | null = null;
-
-    // 실제 계산 및 setState — 항상 RAF 안에서만 호출되므로 React 커밋 단계와 겹치지 않음
-    const computeAndSet = (): void => {
-      const root = containerRef.current?.parentElement;
-      if (!editor || editor.isDestroyed || !root) return;
-      const wrapperRectInner = root.getBoundingClientRect();
-
-      // 블록별 모든 댓글 수집 — createdAt 오름차순(오래된 → 최신)으로 정렬
-      const messagesByBlockId = new Map<
-        string,
-        Array<{ id: string; bodyText: string; authorMemberId: string; createdAt: number }>
-      >();
-      for (const m of useBlockCommentStore.getState().messages) {
-        if (m.pageId !== activePageId) continue;
-        // 페이지 레벨 댓글(sentinel)은 블록 배지에서 제외
-        if (m.blockId === "__page__") continue;
-        const arr = messagesByBlockId.get(m.blockId) ?? [];
-        arr.push({
-          id: m.id,
-          bodyText: m.bodyText,
-          authorMemberId: m.authorMemberId,
-          createdAt: m.createdAt,
-        });
-        messagesByBlockId.set(m.blockId, arr);
-      }
-      for (const arr of messagesByBlockId.values()) {
-        arr.sort((a, b) => a.createdAt - b.createdAt);
-      }
-
-      const members = useMemberStore.getState().members;
-
-      const items: PinnedCommentBadge[] = [];
-      // ID 중복(예: 엔터로 블록 분할 시 일시적으로 같은 id) 가 있을 때 첫 번째만 카드 렌더 — 카드 복제 방지
-      const seenIds = new Set<string>();
-      editor.state.doc.descendants((node, pos) => {
-        if (!node.isBlock) return;
-        const id = node.attrs?.id as string | undefined;
-        if (!id) return;
-        if (seenIds.has(id)) return;
-        seenIds.add(id);
-        const msgs = messagesByBlockId.get(id);
-        const count = msgs?.length ?? 0;
-        if (count === 0) return;
-
-        const dom = editor.view.nodeDOM(pos);
-        const el = dom instanceof HTMLElement ? dom : dom?.parentElement;
-        if (!el) return;
-        const rectEl = visualElementForBlockNode(node.type.name, el);
-        const rect = rectEl.getBoundingClientRect();
-        const top = rect.top - wrapperRectInner.top + HANDLE_TOP_OFFSET_PX;
-        const commentLeft =
-          rect.right - wrapperRectInner.left + COMMENT_BTN_GAP_PX;
-        const rendered = (msgs ?? []).map((m) => ({
-          id: m.id,
-          bodyText: m.bodyText,
-          authorName:
-            members.find((mb) => mb.memberId === m.authorMemberId)?.name ||
-            "구성원",
-        }));
-        items.push({
-          key: `${pos}-${id}`,
-          blockStart: pos,
-          blockId: id,
-          count,
-          top,
-          commentLeft,
-          messages: rendered,
-        });
-      });
-
-      // 같은 행(컬럼 블록 등)에 달린 카드들이 right:12 에 정렬돼 겹치는 문제는
-      // 실제 렌더 높이를 알아야 정확히 나열할 수 있으므로, 여기서는 자연 위치(top)만
-      // 둔다. 겹침 보정은 렌더 후 높이를 측정하는 별도 layout effect 에서 수행한다.
-      // 단, 측정 전 첫 페인트에서 완전히 겹쳐 보이지 않도록 top 오름차순으로 정렬해 둔다.
-      if (!compactComments && items.length > 1) {
-        items.sort((a, b) => a.top - b.top || a.commentLeft - b.commentLeft);
-      }
-
-      const nextKey = items
-        .map((i) => `${i.blockId}:${i.count}:${i.messages.map((m) => m.id).join(",")}`)
-        .join("|");
-      if (nextKey !== pinnedStableKeyRef.current) {
-        pinnedStableKeyRef.current = nextKey;
-        setPinnedCommentBadges(items);
-      }
-    };
-
-    // 여러 이벤트가 동시에 몰려도 한 프레임에 한 번만 계산 — 동기 setState 금지
-    const refreshPinned = (): void => {
-      if (rafId !== null) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        rafId = null;
-        computeAndSet();
-      });
-    };
-
-    // 초기 계산도 RAF로 미뤄 React 커밋 단계를 완전히 벗어난 뒤 실행
-    rafId = requestAnimationFrame(() => {
-      rafId = null;
-      computeAndSet();
-    });
-
-    const resizeObserver =
-      typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(refreshPinned)
-        : null;
-    const root = containerRef.current?.parentElement;
-    if (resizeObserver && root) resizeObserver.observe(root);
-    const unsub = useBlockCommentStore.subscribe(refreshPinned);
-    const unsubMembers = useMemberStore.subscribe(refreshPinned);
-    editor.on("update", refreshPinned);
-    const scroller = containerRef.current?.closest(".overflow-y-auto") ?? window;
-    scroller.addEventListener("scroll", refreshPinned, { passive: true });
-    window.addEventListener("resize", refreshPinned, { passive: true });
-    return () => {
-      if (rafId !== null) cancelAnimationFrame(rafId);
-      resizeObserver?.disconnect();
-      unsub();
-      unsubMembers();
-      editor.off("update", refreshPinned);
-      scroller.removeEventListener("scroll", refreshPinned);
-      window.removeEventListener("resize", refreshPinned);
-    };
-  }, [editor, activePageId, compactComments]);
-
-  // 렌더된 카드의 실제 높이를 측정해 겹치지 않게 세로로 나열한다(카드 높이에 맞춰 자동 보정).
-  // 자연 위치(pin.top)에서 시작하되, 위 카드와 겹치면 그 카드 '실측 높이 + 간격'만큼만 밀어낸다.
-  useLayoutEffect(() => {
-    if (compactComments || pinnedCommentBadges.length === 0) {
-      setStackedTops((prev) => (Object.keys(prev).length === 0 ? prev : {}));
-      return;
-    }
-    const GAP_PX = 8;
-    const sorted = [...pinnedCommentBadges].sort(
-      (a, b) => a.top - b.top || a.commentLeft - b.commentLeft,
-    );
-    const next: Record<string, number> = {};
-    let prevBottom = Number.NEGATIVE_INFINITY;
-    for (const pin of sorted) {
-      const el = badgeElRef.current.get(pin.key);
-      const height = el?.offsetHeight ?? 0;
-      const top =
-        prevBottom === Number.NEGATIVE_INFINITY
-          ? pin.top
-          : Math.max(pin.top, prevBottom + GAP_PX);
-      next[pin.key] = top;
-      prevBottom = top + height;
-    }
-    setStackedTops((prev) => {
-      const keys = Object.keys(next);
-      const same =
-        keys.length === Object.keys(prev).length &&
-        keys.every(
-          (k) =>
-            Math.abs((prev[k] ?? Number.NaN) - (next[k] ?? Number.NaN)) < 0.5,
-        );
-      return same ? prev : next;
-    });
-  }, [pinnedCommentBadges, compactComments]);
-
   const onGripPointerDown = (e: React.PointerEvent) => {
     dragCommittedRef.current = false;
     pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
@@ -687,33 +482,6 @@ export function BlockHandles({
       })
       .run();
     setMenuOpen(false);
-  };
-
-  const openBlockCommentAtStart = (
-    e: ReactMouseEvent<HTMLElement>,
-    blockStart: number,
-  ) => {
-    if (!editor || !activePageId) return;
-    const blockId = ensureBlockId(editor, blockStart);
-    if (!blockId) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    openCommentThread({
-      pageId: activePageId,
-      blockId,
-      blockStart,
-      skipScroll: true,
-      anchorViewport: {
-        top: r.top,
-        left: r.left,
-        right: r.right,
-        bottom: r.bottom,
-      },
-    });
-  };
-
-  const openBlockComment = (e: ReactMouseEvent<HTMLButtonElement>) => {
-    if (!hover) return;
-    openBlockCommentAtStart(e, hover.blockStart);
   };
 
   const copyBlockLink = () => {
@@ -1010,22 +778,6 @@ export function BlockHandles({
                 }
               >
                 <HoverMenuGroup>
-                {hover && canBlockHaveComment(hover.node.type.name) ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      openBlockComment(e);
-                      setMenuOpen(false);
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
-                  >
-                    <MessageSquare size={14} />
-                    댓글 추가
-                  </button>
-                ) : null}
-
                 {isAttachmentBlock ? (
                   <button
                     type="button"
@@ -1502,133 +1254,6 @@ export function BlockHandles({
         </div>
         </>
       ) : null}
-      {pinnedCommentBadges.map((pin) => (
-        <div
-          key={pin.key}
-          ref={(el) => {
-            if (el) badgeElRef.current.set(pin.key, el);
-            else badgeElRef.current.delete(pin.key);
-          }}
-          data-qn-comment-badge-block-id={pin.blockId}
-          role="button"
-          tabIndex={0}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-          }}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            openBlockCommentAtStart(e, pin.blockStart);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              e.stopPropagation();
-              openBlockCommentAtStart(
-                e as unknown as React.MouseEvent<HTMLElement>,
-                pin.blockStart,
-              );
-            }
-          }}
-          title={`댓글 ${pin.count}개 — 클릭해서 열기`}
-          aria-label={`블록 댓글 ${pin.count}개`}
-          className={
-            compactComments
-              ? "pointer-events-auto absolute z-30 flex h-7 w-7 cursor-pointer select-none items-center justify-center rounded-md border border-zinc-200 bg-white shadow-sm hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-300 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-amber-950/30"
-              : "pointer-events-auto absolute z-30 cursor-pointer select-none overflow-hidden rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-left shadow-sm transition hover:border-amber-300 hover:bg-amber-50/40 focus:outline-none focus:ring-2 focus:ring-amber-300 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-amber-700 dark:hover:bg-amber-950/30"
-          }
-          // 컴팩트(피크): 작은 정사각 배지(블록 우측 가장자리)
-          // 일반: 232px 카드 — wrapper 우측 가장자리 사이드바 컬럼에 고정 정렬 (전체너비 토글 시 자연스러운 확장)
-          style={
-            compactComments
-              ? { top: pin.top, left: pin.commentLeft }
-              : {
-                  top: stackedTops[pin.key] ?? pin.top,
-                  right: 12,
-                  width: 232,
-                  maxHeight: 240,
-                }
-          }
-        >
-          {compactComments ? (
-            <div className="relative flex items-center justify-center">
-              <MessageSquare
-                size={14}
-                strokeWidth={2}
-                className="text-amber-500 dark:text-amber-400"
-              />
-              <span className="absolute -right-1.5 -top-1.5 flex min-h-[14px] min-w-[14px] items-center justify-center rounded-full bg-amber-500 px-[3px] text-[9px] font-bold tabular-nums leading-none text-white shadow-sm dark:bg-amber-600">
-                {pin.count > 99 ? "99+" : pin.count}
-              </span>
-            </div>
-          ) : (
-            <>
-              <div className="mb-1 flex items-center gap-1.5">
-                <MessageSquare
-                  size={11}
-                  strokeWidth={2}
-                  className="shrink-0 text-amber-500 dark:text-amber-400"
-                />
-                <span className="min-w-0 flex-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">
-                  댓글 {pin.count}개
-                </span>
-              </div>
-              <div className="space-y-1.5">
-                {pin.messages.map((m, idx) => (
-                  <div
-                    key={m.id}
-                    className={
-                      idx > 0
-                        ? "border-t border-zinc-100 pt-1.5 dark:border-zinc-800"
-                        : ""
-                    }
-                  >
-                    <div className="truncate text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">
-                      {m.authorName}
-                    </div>
-                    <div className="line-clamp-3 whitespace-pre-wrap text-[11px] leading-snug text-zinc-600 dark:text-zinc-300">
-                      {m.bodyText || (
-                        <span className="italic text-zinc-400">내용 없음</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      ))}
-      {/* 댓글이 없는 호버 블록의 오른쪽 바깥에 작은 댓글 추가 버튼 표시 — 블록 바로 오른쪽에 정렬 */}
-      {!boxSelecting && hover && wrapperRect && (() => {
-        const hBlockId = hover.node.attrs?.id as string | undefined;
-        if (!hBlockId) return null;
-        if (pinnedCommentBadges.some((p) => p.blockId === hBlockId)) return null;
-        // 컨테이너 블록(컬럼/탭/콜아웃/인용/코드/표 등) 자체에는 댓글 입력 불허
-        if (!canBlockHaveComment(hover.node.type.name)) return null;
-        const top = hover.rect.top - wrapperRect.top + HANDLE_TOP_OFFSET_PX + 2;
-        const left = hover.rect.right - wrapperRect.left + COMMENT_BTN_GAP_PX;
-        return (
-          <div
-            className="pointer-events-auto absolute z-30 flex items-start"
-            style={{ top, left }}
-          >
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                openBlockCommentAtStart(e, hover.blockStart);
-              }}
-              title="댓글 추가"
-              aria-label="댓글 추가"
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-zinc-300 opacity-0 transition-opacity hover:bg-amber-50 hover:text-amber-500 group-hover:opacity-100 dark:text-zinc-600 dark:hover:bg-amber-950/30 dark:hover:text-amber-400"
-              style={{ opacity: 1 }}
-            >
-              <MessageSquarePlus size={14} />
-            </button>
-          </div>
-        );
-      })()}
       <DownloadNoticeToast notice={downloadNotice} />
     </HandleLayerBase>
   );

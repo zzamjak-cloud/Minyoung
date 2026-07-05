@@ -100,7 +100,6 @@ export function toPageInputPayload(
       stringifyAwsJson(p.doc) ??
       "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}",
     dbCells: stringifyAwsJson(p.dbCells),
-    blockComments: stringifyAwsJson(p.blockComments),
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
     // 값이 있을 때만 싣는다 — 키 부재 시 서버가 기존 태그를 보존한다(유령 페이지 방지).

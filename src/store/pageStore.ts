@@ -16,7 +16,7 @@ import { enqueueAsync } from "../lib/sync/runtime";
 import { markLocallyDeletedEntity } from "../lib/sync/localDeleteGuards";
 import { debouncePerKey } from "../lib/sync/debouncePerKey";
 import { jsonContentEquals } from "../lib/pm/jsonDocEquals";
-import { extractMentionMemberHitsFromDoc } from "../lib/comments/extractMentions";
+import { extractMentionMemberHitsFromDoc } from "../lib/mentions/extractMentions";
 import {
   isLCSchedulerDatabaseId,
 } from "../lib/scheduler/database";

@@ -5,7 +5,7 @@ import { Globe, FileText, X } from "lucide-react";
 import {
   loadMergedMentionItems,
   type MentionListItem,
-} from "../../lib/comments/mentionItems";
+} from "../../lib/mentions/mentionItems";
 import { stripPagePrefix } from "../../lib/tiptapExtensions/mentionKind";
 import type { FlowchartNodeLink } from "../../types/flowchart";
 

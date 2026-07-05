@@ -33,7 +33,7 @@ describe("realGqlBridge.upsertPage", () => {
     expect(mocks.graphql).toHaveBeenCalledTimes(1);
     const args = mocks.graphql.mock.calls[0]?.[0];
     expect(args.query).toContain("mutation UpsertPageMeta");
-    expect(args.query).not.toContain("doc dbCells blockComments");
+    expect(args.query).not.toContain("doc dbCells lastEditedByMemberId");
     expect(args.variables.input).not.toHaveProperty("__metaOnly");
     expect(args.variables.input.fullPageDatabaseId).toBe("db-home");
     expect(args.variables.input.doc).toBe(JSON.stringify({

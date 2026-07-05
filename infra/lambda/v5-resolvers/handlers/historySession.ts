@@ -4,7 +4,7 @@
  * - 세션: 같은 페이지/DB 에 대한 연속 편집을 하나의 버전 엔트리로 머지한다.
  *   경계 = idle 10분 또는 세션 최대 20분(Google Docs/Notion 류 활동 기반 체크포인트 캐던스).
  *   다음 upsert 가 자연히 새 세션을 연다(스케줄러 불필요).
- * - 의미 변화: 빈 블럭 추가/삭제, 동일 내용 블럭의 위치 이동(밀림), order/blockComments/updatedAt
+ * - 의미 변화: 빈 블럭 추가/삭제, 동일 내용 블럭의 위치 이동(밀림), order/updatedAt
  *   변화는 버전을 만들지 않는다. 블럭 매칭은 TipTap uniqueId(attrs.id) 기준.
  * - changedUnits: UI 가 재계산 없이 변경 단위를 조회하는 키 목록.
  *   페이지: "block:<id>" | "cell:<columnId>" | "meta:title|titleColor|icon|coverImage|parent"
@@ -138,7 +138,7 @@ const PAGE_META_UNIT_FIELDS: Array<[field: string, unit: string]> = [
 
 /**
  * 페이지 의미 변화 단위. 빈 배열이면 버전을 만들지 않는다.
- * order(형제 재배열 밀림)·blockComments(읽음 시각)·updatedAt 은 무시한다.
+ * order(형제 재배열 밀림)·updatedAt 은 무시한다.
  */
 export function diffMeaningfulPageUnits(
   beforeSnap: Record<string, unknown> | null,

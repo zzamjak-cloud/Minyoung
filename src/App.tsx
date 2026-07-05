@@ -50,11 +50,6 @@ const DatabaseRowPeek = lazy(() =>
     default: m.DatabaseRowPeek,
   })),
 );
-const BlockCommentThreadPanel = lazy(() =>
-  import("./components/comments/BlockCommentThreadPanel").then((m) => ({
-    default: m.BlockCommentThreadPanel,
-  })),
-);
 function isLCSchedulerModalOpen(): boolean {
   return Boolean(document.querySelector("[data-lc-scheduler-modal='true']"));
 }
@@ -598,7 +593,6 @@ function App() {
         <FavoritesPanel />
         <Suspense fallback={null}>
           <DatabaseRowPeek />
-          <BlockCommentThreadPanel editor={null} />
         </Suspense>
         <SearchCommandPalette
           open={searchOpen}

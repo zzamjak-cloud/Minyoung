@@ -12,8 +12,6 @@ export interface GqlBridge {
   softDeleteDatabase(id: string, workspaceId: string, updatedAt: string): Promise<void>;
   /** 멤버 본인 clientPrefs(즐겨찾기 등) 동기화. */
   updateMyClientPrefs(clientPrefsJson: string): Promise<void>;
-  upsertComment(input: unknown): Promise<void>;
-  softDeleteComment(id: string, workspaceId: string, updatedAt: string): Promise<void>;
 }
 
 export type EnqueuePayload = {
@@ -98,28 +96,6 @@ export const SYNC_OP_REGISTRY: Record<OutboxOp, SyncOpSpec> = {
       if (isLCSchedulerDatabaseId(p.id)) return Promise.resolve();
       return gql.softDeleteDatabase(p.id, p.workspaceId ?? "", p.updatedAt ?? "");
     },
-  },
-  upsertComment: {
-    entityType: "comment",
-    isDelete: false,
-    supersededUpsertOp: null,
-    tombstoneEntity: null,
-    workspaceScoped: true,
-    capturesBaseVersion: true,
-    // workspaceId 없는 comment 는 워크스페이스 전환 시 영영 flush 안 될 수 있으므로 경고.
-    warnIfMissingWorkspace: true,
-    execute: (gql, p) => gql.upsertComment(p),
-  },
-  softDeleteComment: {
-    // comment 는 별도 tombstone 가드 시스템이 없으므로 tombstoneEntity 는 null.
-    entityType: "comment",
-    isDelete: true,
-    supersededUpsertOp: "upsertComment",
-    tombstoneEntity: null,
-    workspaceScoped: true,
-    capturesBaseVersion: false,
-    warnIfMissingWorkspace: false,
-    execute: (gql, p) => gql.softDeleteComment(p.id, p.workspaceId ?? "", p.updatedAt ?? ""),
   },
   updateMyClientPrefs: {
     entityType: "memberPrefs",

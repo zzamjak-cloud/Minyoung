@@ -13,8 +13,8 @@ import {
   loadMergedMentionItems,
   rememberMentionItemTarget,
   type MentionListItem,
-} from "../../lib/comments/mentionItems";
-import { ensureBlockId } from "../../lib/comments/ensureBlockId";
+} from "../../lib/mentions/mentionItems";
+import { ensureBlockId } from "../../lib/mentions/ensureBlockId";
 import { useMemberStore } from "../../store/memberStore";
 import { useUiStore } from "../../store/uiStore";
 import { stripMemberPrefix } from "../../lib/tiptapExtensions/mentionKind";

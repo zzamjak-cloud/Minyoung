@@ -6,10 +6,8 @@ import {
   AlignRight,
   Captions,
   Download,
-  MessageSquarePlus,
 } from "lucide-react";
 import { useUiStore } from "../../store/uiStore";
-import { ensureBlockId } from "../../lib/comments/ensureBlockId";
 import { focusCaptionInput } from "../../lib/tiptapExtensions/mediaCaption";
 import { decodeImageRef } from "../../lib/sync/imageScheme";
 import { decodeFileRef } from "../../lib/files/scheme";
@@ -17,7 +15,6 @@ import { imageUrlCache } from "../../lib/images/registry";
 
 type Props = {
   editor: Editor;
-  pageId: string | null;
 };
 
 type Align = "left" | "center" | "right";
@@ -38,9 +35,8 @@ async function fetchDownloadBlob(assetId: string | null, rawSrc: string): Promis
 }
 
 // 이미지/동영상(fileBlock) 선택 시 표시되는 미디어 전용 툴바.
-// 좌/중앙/우 정렬 · 캡션 토글 · 댓글 추가.
-export function ImageBubbleToolbar({ editor, pageId }: Props) {
-  const openCommentThread = useUiStore((s) => s.openCommentThread);
+// 좌/중앙/우 정렬 · 캡션 토글 · 다운로드.
+export function ImageBubbleToolbar({ editor }: Props) {
   const showToast = useUiStore((s) => s.showToast);
 
   const sel = editor.state.selection;
@@ -81,24 +77,6 @@ export function ImageBubbleToolbar({ editor, pageId }: Props) {
       })
       .run();
     if (!hasCaption) focusCaptionInput(editor, blockStart);
-  };
-
-  const addComment = () => {
-    if (!pageId) return;
-    const blockId = ensureBlockId(editor, blockStart);
-    if (!blockId) return;
-    const dom = editor.view.nodeDOM(blockStart);
-    const el = dom instanceof HTMLElement ? dom : dom?.parentElement ?? null;
-    const r = el?.getBoundingClientRect();
-    openCommentThread({
-      pageId,
-      blockId,
-      blockStart,
-      skipScroll: true,
-      anchorViewport: r
-        ? { top: r.top, left: r.left, right: r.right, bottom: r.bottom }
-        : undefined,
-    });
   };
 
   const downloadMedia = async () => {
@@ -144,9 +122,6 @@ export function ImageBubbleToolbar({ editor, pageId }: Props) {
       </AlignBtn>
       <AlignBtn active={false} title="다운로드" onClick={() => void downloadMedia()}>
         <Download size={14} />
-      </AlignBtn>
-      <AlignBtn active={false} title="댓글 추가" onClick={addComment}>
-        <MessageSquarePlus size={14} />
       </AlignBtn>
     </div>
   );

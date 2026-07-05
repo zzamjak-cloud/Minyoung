@@ -62,9 +62,6 @@ import { FileBlock } from "../../lib/tiptapExtensions/fileBlock";
 import { BlockBackground } from "../../lib/tiptapExtensions/blockBackground";
 import UniqueID from "@tiptap/extension-unique-id";
 import {
-  createBlockCommentDecorations,
-} from "../../lib/tiptapExtensions/blockCommentDecorations";
-import {
   EDITOR_UNIQUE_ID_TYPES,
 } from "../../lib/blocks/editorPolicy";
 import {
@@ -79,7 +76,6 @@ type UseEditorExtensionsParams = {
   lowlightApi: LowlightApi | null;
   isFullPageDatabase: boolean;
   effectivePageId: string | null | undefined;
-  myMemberId: string | undefined;
 };
 
 /**
@@ -90,7 +86,6 @@ export function useEditorExtensions({
   lowlightApi,
   isFullPageDatabase,
   effectivePageId,
-  myMemberId,
 }: UseEditorExtensionsParams) {
   const extensions = useMemo(
     () => [
@@ -173,7 +168,6 @@ export function useEditorExtensions({
       ToggleHeader,
       ToggleContent,
       MentionExtension,
-      createBlockCommentDecorations(effectivePageId ?? undefined, myMemberId),
       EmojiShortcode,
       DatabaseBlock,
       FlowchartBlock,
@@ -218,7 +212,7 @@ export function useEditorExtensions({
         filterTransaction: editorUniqueIdFilterTransaction,
       }),
     ],
-    [lowlightApi, isFullPageDatabase, effectivePageId, myMemberId],
+    [lowlightApi, isFullPageDatabase, effectivePageId],
   );
 
   return extensions;

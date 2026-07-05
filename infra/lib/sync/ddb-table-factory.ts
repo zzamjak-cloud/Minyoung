@@ -9,7 +9,7 @@ export type SyncModelName =
   | "Flowchart"
   | "Contact"
   | "ImageAsset"
-  | "Comment";
+
 
 export interface ModelTable {
   table: dynamodb.Table;

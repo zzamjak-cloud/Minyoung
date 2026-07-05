@@ -12,7 +12,6 @@ import { usePageStore } from "../../store/pageStore";
 import { usePageMetaRemoteStore } from "../../store/pageMetaRemoteStore";
 import { useDatabaseStore } from "../../store/databaseStore";
 import { useSettingsStore } from "../../store/settingsStore";
-import { useBlockCommentStore } from "../../store/blockCommentStore";
 import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
 import { markLocallyDeletedEntity } from "../../lib/sync/localDeleteGuards";
 
@@ -50,7 +49,6 @@ beforeEach(() => {
   usePageMetaRemoteStore.setState({ nextTokenByWorkspaceId: {}, loadingByWorkspaceId: {} });
   useDatabaseStore.setState({ databases: {}, cacheWorkspaceId: null });
   useSettingsStore.setState({ tabs: [{ pageId: null }], activeTabIndex: 0 });
-  useBlockCommentStore.setState({ messages: [] });
   setPending(0);
   setSnapshot(null);
 });
@@ -116,53 +114,6 @@ describe("applyWorkspaceSwitch", () => {
     expect(result.cleared).toBe(false);
     expect(result.reason).toBe("same-workspace");
     expect(Object.keys(usePageStore.getState().pages).length).toBe(1);
-  });
-
-  it("워크스페이스 스냅샷 복원 시 댓글도 함께 복원한다", async () => {
-    usePageStore.setState({
-      cacheWorkspaceId: "ws-1",
-      activePageId: "page-1",
-      pages: {
-        "page-1": {
-          id: "page-1",
-          title: "페이지",
-          doc: { type: "doc", content: [{ type: "paragraph" }] },
-          parentId: null,
-          order: 1,
-          createdAt: 0,
-          updatedAt: 0,
-        },
-      },
-    });
-    useBlockCommentStore.setState({
-      messages: [
-        {
-          id: "comment-1",
-          workspaceId: "ws-1",
-          pageId: "page-1",
-          blockId: "block-1",
-          authorMemberId: "member-1",
-          bodyText: "댓글",
-          mentionMemberIds: [],
-          parentId: null,
-          createdAt: 1,
-        },
-      ],
-    });
-    refreshWorkspaceSnapshot("ws-1");
-
-    usePageStore.setState({
-      cacheWorkspaceId: "ws-2",
-      activePageId: null,
-      pages: {},
-    });
-    useBlockCommentStore.setState({ messages: [] });
-
-    const result = await applyWorkspaceSwitch("ws-2", "ws-1");
-    expect(result.reason).toBe("restored-snapshot");
-    expect(usePageStore.getState().pages["page-1"]).toBeDefined();
-    expect(useBlockCommentStore.getState().messages).toHaveLength(1);
-    expect(useBlockCommentStore.getState().messages[0]?.bodyText).toBe("댓글");
   });
 
   it("워크스페이스 스냅샷 복원 시 로컬에서 삭제한 페이지는 되살리지 않는다", async () => {

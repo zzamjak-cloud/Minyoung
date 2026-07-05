@@ -44,7 +44,6 @@ function ReadOnlyBlocksPane({ blocks, tone }: { blocks: BlockNode[]; tone: PaneT
     lowlightApi: null,
     isFullPageDatabase: false,
     effectivePageId: null,
-    myMemberId: undefined,
   });
   const content = useMemo<JSONContent>(
     () => ({ type: "doc", content: blocks as JSONContent[] }),

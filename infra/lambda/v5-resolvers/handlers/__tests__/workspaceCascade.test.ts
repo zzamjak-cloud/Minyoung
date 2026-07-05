@@ -9,7 +9,7 @@ import { deleteWorkspace } from "../workspace";
 import type { Member } from "../_auth";
 import type { Tables } from "../member";
 
-// 회귀: deleteWorkspace 가 위성 데이터(Comments/Page·DatabaseHistory/CustomIcons/
+// 회귀: deleteWorkspace 가 위성 데이터(Page·DatabaseHistory/CustomIcons/
 // Holidays/Projects/MmEntries/AssetUsage)를 정리하지 않아 고아 행이 축적되던 문제.
 // (없으면 고아 AssetUsage 가 자산을 영구 "사용 중"으로 만들어 image-gc 오염)
 
@@ -21,7 +21,6 @@ const TABLES: Tables = {
   MemberTeams: "T_MemberTeams",
   Pages: "T_Pages",
   Databases: "T_Databases",
-  Comments: "T_Comments",
   Notifications: "T_Notifications",
   Projects: "T_Projects",
   Holidays: "T_Holidays",
@@ -52,8 +51,6 @@ function makeFakeDoc() {
         return [{ id: "p1", workspaceId: WS }];
       case TABLES.Databases:
         return [{ id: "d1", workspaceId: WS }];
-      case TABLES.Comments:
-        return [{ id: "c1", workspaceId: WS }];
       case TABLES.CustomIcons:
         return [{ id: "ic1", workspaceId: WS }];
       case TABLES.PageHistory:
@@ -115,7 +112,6 @@ describe("deleteWorkspace cascade", () => {
       TABLES.WorkspaceAccess,
       TABLES.Pages,
       TABLES.Databases,
-      TABLES.Comments,
       TABLES.CustomIcons,
       TABLES.PageHistory,
       TABLES.DatabaseHistory,

@@ -42,18 +42,16 @@ describe("diffMeaningfulPageUnits", () => {
     expect(diffMeaningfulPageUnits(before, after)).toEqual(["block:a", "block:b"]);
   });
 
-  it("order·blockComments·updatedAt 변경은 무시하고 메타·셀 변경은 잡는다", () => {
+  it("order·updatedAt 변경은 무시하고 메타·셀 변경은 잡는다", () => {
     const before = {
       title: "t",
       order: "1",
-      blockComments: { a: { th: 1 } },
       updatedAt: "2026-01-01T00:00:00Z",
       dbCells: { col1: "x" },
     };
     const after = {
       title: "t2",
       order: "9",
-      blockComments: { a: { th: 2 } },
       updatedAt: "2026-02-01T00:00:00Z",
       dbCells: { col1: "y" },
     };

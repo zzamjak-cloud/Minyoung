@@ -297,32 +297,6 @@ function validateCoverImageField(input: Record<string, unknown>): void {
   }
 }
 
-/** 댓글 JSON 이 DynamoDB 항목 한도를 압박하지 않도록 상한(문자열 length 기준). */
-const MAX_BLOCK_COMMENTS_JSON_CHARS = 280_000;
-
-function normalizeBlockCommentsField(input: Record<string, unknown>): void {
-  const v = input.blockComments;
-  if (v == null) return;
-  let asString: string;
-  if (typeof v === "string") {
-    asString = v;
-  } else if (typeof v === "object") {
-    try {
-      asString = JSON.stringify(v);
-    } catch {
-      badRequest("blockComments JSON 직렬화에 실패했습니다");
-    }
-  } else {
-    badRequest("blockComments 는 JSON 객체·문자열·null 이어야 합니다");
-  }
-  if (asString.length > MAX_BLOCK_COMMENTS_JSON_CHARS) {
-    badRequest(
-      `블록 댓글 데이터가 너무 큽니다(최대 약 ${MAX_BLOCK_COMMENTS_JSON_CHARS}자). 오래된 스레드를 정리해 주세요.`,
-    );
-  }
-  input.blockComments = asString;
-}
-
 export async function upsertPage(args: {
   doc: DynamoDBDocumentClient;
   tables: Tables;
@@ -338,14 +312,6 @@ export async function upsertPage(args: {
     );
     existingPage = (existing.Item as Record<string, unknown> | undefined) ?? null;
   }
-  // 구 클라이언트가 blockComments 키를 빼고 Put 하면 Dynamo 항목에서 댓글이 사라진다.
-  // 키가 없을 때만 기존 값을 이어붙인다(null 은 의도적 삭제로 본다).
-  if (!("blockComments" in input)) {
-    const prev = existingPage?.blockComments;
-    if (prev != null) {
-      input.blockComments = prev;
-    }
-  }
   // fullPageDatabaseId 도 동일하게 보존한다 — 키를 빼고 Put 하는 클라이언트(구 빌드,
   // 또는 태그가 로컬에 없는 stale 페이지의 재업서트)가 풀페이지 DB 홈 태그를 소거하면
   // 홈이 사이드바에 유령 페이지로 노출된다(wiki/pages/ghost-page-prevention.md).
@@ -358,7 +324,6 @@ export async function upsertPage(args: {
     }
   }
   validateCoverImageField(input);
-  normalizeBlockCommentsField(input);
   // byDatabaseAndOrder GSI 키는 NULL 타입을 거부한다(파티션=databaseId, 정렬=order).
   // non-row 페이지는 databaseId 가 null 이므로 속성 자체를 제거해 sparse GSI 에서 제외한다.
   // (NULL 타입으로 두면 Put/Update 모두 "Type mismatch ... actual: NULL" 로 거부된다.)
@@ -376,11 +341,11 @@ export async function upsertPage(args: {
   // 협업 모드의 materialize 도 이 upsertPage 경로를 타므로 caller 가 곧 편집 유발자.
   input.lastEditedByMemberId = args.caller.memberId;
   input.lastEditedByName = args.caller.name;
-  // AWSJSON 필드 방어 정규화 — 객체로 도착한 doc/dbCells/blockComments 를 DynamoDB 저장 전
+  // AWSJSON 필드 방어 정규화 — 객체로 도착한 doc/dbCells 를 DynamoDB 저장 전
   // 문자열로 강제한다. 객체로 저장하면 깊은 본문이 DynamoDB 32레벨 중첩 한도를 초과해
   // "Nesting Levels have exceeded the supported limit" 로 거부된다(신규 페이지 생성 불가).
   // 이미 문자열이면 그대로 둔다(idempotent) — 정상 클라이언트 영향 없음.
-  for (const key of ["doc", "dbCells", "blockComments"] as const) {
+  for (const key of ["doc", "dbCells"] as const) {
     const v = input[key];
     if (v != null && typeof v !== "string") {
       input[key] = JSON.stringify(v);

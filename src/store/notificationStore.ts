@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { zustandStorage } from "../lib/storage/index";
 import { newId } from "../lib/id";
-import { normalizeMentionMemberId } from "../lib/comments/mentionMemberIds";
+import { normalizeMentionMemberId } from "../lib/mentions/mentionMemberIds";
 import { useWorkspaceStore } from "./workspaceStore";
 import type { PersistedObject } from "../lib/migrations/persistedStore";
 import { migratePersistedStore } from "../lib/migrations/persistedStore";

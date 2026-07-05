@@ -45,25 +45,12 @@ export type OutboxWorkspaceSwitchHold = {
 /** 우측 패널(목차 / 즐겨찾기) 탭 */
 export type RightPanelTab = "toc" | "favorites";
 
-/** 블록 댓글 스레드 패널(전역 — 알림 클릭에서도 동일하게 연다) */
-export type CommentThreadPayload = {
-  pageId: string;
-  blockId: string;
-  blockStart: number;
-  /** "+" 버튼 클릭 시 화면 좌표 — 있으면 패널을 버튼 옆에 붙인다 */
-  anchorViewport?: { top: number; left: number; right: number; bottom: number };
-  /** true면 블록으로 스크롤·포커스 이동 생략(본문에서 이미 보일 때 깜빡임·임베드 재로드 완화) */
-  skipScroll?: boolean;
-};
-
 type UiStoreState = {
   /** 우측 패널(목차·즐겨찾기) 열림 */
   rightPanelOpen: boolean;
   rightPanelTab: RightPanelTab;
   /** 사이드바 알림 드롭다운 */
   notificationCenterOpen: boolean;
-  /** 블록 댓글 스레드 패널 */
-  commentThread: CommentThreadPayload | null;
   peekPageId: string | null;
   peekHistory: string[];
   openColumnMenuId: string | null;
@@ -91,8 +78,6 @@ type UiStoreActions = {
   setRightPanelTab: (tab: RightPanelTab) => void;
   toggleNotificationCenter: () => void;
   closeNotificationCenter: () => void;
-  openCommentThread: (payload: CommentThreadPayload) => void;
-  closeCommentThread: () => void;
   /** 하위 호환: 즐겨찾기 패널만 토글 */
   toggleFavoritesPanel: () => void;
   openFavoritesPanel: () => void;
@@ -135,7 +120,6 @@ export const useUiStore = create<UiStoreState & UiStoreActions>()(
   rightPanelOpen: false,
   rightPanelTab: "favorites",
   notificationCenterOpen: false,
-  commentThread: null,
   peekPageId: null,
   peekHistory: [],
   openColumnMenuId: null,
@@ -162,15 +146,6 @@ export const useUiStore = create<UiStoreState & UiStoreActions>()(
   toggleNotificationCenter: () =>
     set((s) => ({ notificationCenterOpen: !s.notificationCenterOpen })),
   closeNotificationCenter: () => set({ notificationCenterOpen: false }),
-
-  // 같은 클릭 사이클에서 포털 배경이 먼저 올라가 mouseup/click 이 배경으로 가며
-  // 즉시 닫히는 고스트 클릭을 피하기 위해, 현재 이벤트 처리가 끝난 뒤에 연다.
-  openCommentThread: (payload) => {
-    queueMicrotask(() => {
-      set({ commentThread: payload });
-    });
-  },
-  closeCommentThread: () => set({ commentThread: null }),
 
   toggleFavoritesPanel: () => get().toggleRightPanel("favorites"),
   openFavoritesPanel: () => get().openRightPanel("favorites"),

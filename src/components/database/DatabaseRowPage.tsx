@@ -5,7 +5,6 @@ import { useShallow } from "zustand/react/shallow";
 import { useDatabaseStore } from "../../store/databaseStore";
 import { Editor } from "../editor/Editor";
 import { SimpleAlertDialog } from "../ui/SimpleAlertDialog";
-import { PageCommentBar } from "../comments/PageCommentBar";
 import { computeEditorTailSpacerPx } from "../editor/editorHelpers";
 import { PageTitleBar } from "../page/PageTitleBar";
 import { DbPropertySection } from "../page/DbPropertySection";
@@ -42,7 +41,6 @@ export function DatabaseRowPage({ pageId }: { pageId: string }) {
   const [iconAlert, setIconAlert] = useState<string | null>(null);
   const [titleDuplicateAlert, setTitleDuplicateAlert] = useState(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
-  const [addCommentSignal, setAddCommentSignal] = useState(0);
   const [tailSpacerPx, setTailSpacerPx] = useState(240);
   const tailSpacerPxRef = useRef(tailSpacerPx);
 
@@ -95,7 +93,6 @@ export function DatabaseRowPage({ pageId }: { pageId: string }) {
       <div
         className={`relative mx-auto w-full ${getEditorColumnClass({
           fullWidth,
-          hasPageComments: false,
           isMobile,
         })}`}
         data-qn-row-page-header-column
@@ -125,13 +122,11 @@ export function DatabaseRowPage({ pageId }: { pageId: string }) {
               }}
               onIconChange={(icon) => setIcon(pageId, icon)}
               onIconUploadMessage={(msg) => setIconAlert(msg)}
-              onAddComment={() => setAddCommentSignal((n) => n + 1)}
               defaultIcon={<FileText size={56} className="text-zinc-400" />}
             />
           </div>
 
           <DbPropertySection databaseId={databaseId} pageId={pageId} className="mt-3" />
-          <PageCommentBar pageId={pageId} openComposerSignal={addCommentSignal} />
         </div>
       </div>
       <Editor

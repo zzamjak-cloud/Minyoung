@@ -3,7 +3,7 @@ import type { GqlPage } from "../../queries/page";
 
 const SCHEDULE_SOURCE_PAGE_FIELDS = `
   id workspaceId createdByMemberId title icon coverImage parentId order databaseId
-  doc dbCells blockComments createdAt updatedAt deletedAt
+  doc dbCells createdAt updatedAt deletedAt
 `;
 
 export const SCHEDULE_FIELDS = `

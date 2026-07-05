@@ -32,9 +32,6 @@ vi.mock("../../page/DbPropertySection", () => ({
   DbPropertySection: () => <div data-testid="peek-db-property-section" />,
 }));
 
-vi.mock("../../comments/PageCommentBar", () => ({
-  PageCommentBar: () => <div data-testid="peek-page-comment-bar" />,
-}));
 
 vi.mock("../../common/ScrollToTopButton", () => ({
   ScrollToTopButton: () => null,

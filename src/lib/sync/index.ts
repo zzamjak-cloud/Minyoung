@@ -6,8 +6,6 @@ export {
   fetchPagesByWorkspace,
   fetchDatabasesByWorkspace,
 } from "./bootstrap";
-export { fetchCommentsByWorkspace } from "./commentApi";
-export type { GqlComment } from "./queries/comment";
 export { ImageUrlCache } from "./imageUrls";
 export {
   encodeImageRef,

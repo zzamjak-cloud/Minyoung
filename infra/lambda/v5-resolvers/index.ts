@@ -86,11 +86,6 @@ import {
   upsertPage,
   validateWorkspaceSubscription,
 } from "./handlers/pageDatabase";
-import {
-  listComments,
-  upsertComment,
-  softDeleteComment,
-} from "./handlers/commentDatabase";
 import { listMyNotifications, markNotificationRead, deleteMyNotification } from "./handlers/notification";
 import {
   listSchedules,
@@ -147,7 +142,6 @@ const tables: Tables = {
   Databases: process.env.DATABASES_TABLE_NAME,
   Flowcharts: process.env.FLOWCHARTS_TABLE_NAME,
   FlowchartHistory: process.env.FLOWCHART_HISTORY_TABLE_NAME,
-  Comments: process.env.COMMENTS_TABLE_NAME,
   Notifications: process.env.NOTIFICATIONS_TABLE_NAME,
   // 조직(실) 관련 테이블 — CDK 배포 후 env 주입
   Organizations: process.env.ORGANIZATIONS_TABLE_NAME,
@@ -656,31 +650,12 @@ const RESOLVERS: Record<
       id: event.arguments.id as string,
       workspaceId: event.arguments.workspaceId as string,
     }),
-  listComments: async (event, base) =>
-    await listComments({
-      ...base,
-      workspaceId: event.arguments.workspaceId as string,
-      updatedAfter: event.arguments.updatedAfter as string | undefined,
-      limit: event.arguments.limit as number | undefined,
-      nextToken: event.arguments.nextToken as string | undefined,
-    }),
-  upsertComment: async (event, base) =>
-    await upsertComment({ ...base, input: event.arguments.input as Record<string, unknown> }),
-  softDeleteComment: async (event, base) =>
-    await softDeleteComment({
-      ...base,
-      id: event.arguments.id as string,
-      workspaceId: event.arguments.workspaceId as string,
-      updatedAt: event.arguments.updatedAt as string,
-    }),
   listMyNotifications: async (_event, base) =>
     await listMyNotifications({ doc: base.doc, tables: base.tables, caller: base.caller }),
   markNotificationRead: async (event, base) =>
     await markNotificationRead({ doc: base.doc, tables: base.tables, caller: base.caller, notificationId: event.arguments.notificationId as string }),
   deleteMyNotification: async (event, base) =>
     await deleteMyNotification({ doc: base.doc, tables: base.tables, caller: base.caller, notificationId: event.arguments.notificationId as string }),
-  onCommentChanged: async (event, base) =>
-    await validateWorkspaceSubscription({ ...base, workspaceId: event.arguments.workspaceId as string }),
   onPageChanged: async (event, base) =>
     await validateWorkspaceSubscription({ ...base, workspaceId: event.arguments.workspaceId as string }),
   onDatabaseChanged: async (event, base) =>

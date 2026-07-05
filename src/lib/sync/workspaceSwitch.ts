@@ -4,8 +4,6 @@ import { usePageMetaRemoteStore } from "../../store/pageMetaRemoteStore";
 import { useDatabaseStore } from "../../store/databaseStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import type { FavoritePageMeta } from "../../store/settingsStore";
-import { useBlockCommentStore } from "../../store/blockCommentStore";
-import type { BlockCommentMsg } from "../../store/blockCommentStore";
 import type { WorkspaceSummary } from "../../store/workspaceStore";
 import type { Page } from "../../types/page";
 import { zustandStorage } from "../storage/index";
@@ -21,7 +19,6 @@ type WorkspaceSnapshot = {
   activePageId: string | null;
   tabs: ReturnType<typeof useSettingsStore.getState>["tabs"];
   activeTabIndex: number;
-  comments: BlockCommentMsg[];
 };
 
 const workspaceSnapshotById = new Map<string, WorkspaceSnapshot>();
@@ -178,9 +175,6 @@ function sanitizeWorkspacePages(
         : rawPage.coverImage === null
           ? null
           : undefined,
-      blockComments: isRecord(rawPage.blockComments)
-        ? cloneSnapshot(rawPage.blockComments)
-        : undefined,
       createdByMemberId: typeof rawPage.createdByMemberId === "string"
         ? rawPage.createdByMemberId
         : undefined,
@@ -278,38 +272,6 @@ function sanitizeWorkspaceTabs(
   return sanitized.length > 0 ? sanitized : [{ pageId: null }];
 }
 
-function sanitizeWorkspaceComments(
-  comments: WorkspaceSnapshot["comments"],
-): WorkspaceSnapshot["comments"] {
-  if (!Array.isArray(comments)) return [];
-  const rawComments: unknown[] = comments as unknown[];
-  return rawComments
-    .filter((comment): comment is Record<string, unknown> => isRecord(comment))
-    .filter(
-      (comment) =>
-        typeof comment.id === "string" &&
-        typeof comment.pageId === "string" &&
-        typeof comment.blockId === "string" &&
-        typeof comment.authorMemberId === "string" &&
-        typeof comment.bodyText === "string" &&
-        (typeof comment.parentId === "string" || comment.parentId === null),
-    )
-    .map((comment) => ({
-      id: comment.id as string,
-      workspaceId:
-        typeof comment.workspaceId === "string" ? comment.workspaceId : null,
-      pageId: comment.pageId as string,
-      blockId: comment.blockId as string,
-      authorMemberId: comment.authorMemberId as string,
-      bodyText: comment.bodyText as string,
-      mentionMemberIds: Array.isArray(comment.mentionMemberIds)
-        ? comment.mentionMemberIds.filter((memberId): memberId is string => typeof memberId === "string")
-        : [],
-      parentId: (comment.parentId as string | null) ?? null,
-      createdAt: toFiniteNumber(comment.createdAt, Date.now()),
-    }));
-}
-
 function normalizeWorkspaceSnapshot(snapshot: WorkspaceSnapshot): WorkspaceSnapshot | null {
   const pages = sanitizeWorkspacePages(snapshot.pages);
   const databases = sanitizeWorkspaceDatabases(snapshot.databases);
@@ -324,14 +286,12 @@ function normalizeWorkspaceSnapshot(snapshot: WorkspaceSnapshot): WorkspaceSnaps
     typeof snapshot.activePageId === "string" && pages[snapshot.activePageId]
       ? snapshot.activePageId
       : tabs[safeActiveTabIndex]?.pageId ?? null;
-  const comments = sanitizeWorkspaceComments(snapshot.comments);
   return {
     pages,
     databases,
     tabs,
     activeTabIndex: safeActiveTabIndex,
     activePageId,
-    comments,
   };
 }
 
@@ -393,12 +353,8 @@ function captureWorkspaceSnapshot(workspaceId: string): void {
   const pageState = usePageStore.getState();
   const dbState = useDatabaseStore.getState();
   const settings = useSettingsStore.getState();
-  const commentState = useBlockCommentStore.getState();
   const pages = filterPagesForWorkspaceSnapshot(workspaceId, pageState.pages);
   const databases = filterDatabasesForWorkspaceSnapshot(workspaceId, dbState.databases);
-  const comments = commentState.messages.filter(
-    (message) => message.workspaceId == null || message.workspaceId === workspaceId,
-  );
   if (Object.keys(pages).length === 0 && Object.keys(databases).length === 0) {
     workspaceSnapshotById.delete(workspaceId);
     persistWorkspaceSnapshot(workspaceId, null);
@@ -410,7 +366,6 @@ function captureWorkspaceSnapshot(workspaceId: string): void {
     activePageId: pageState.activePageId,
     tabs: cloneSnapshot(settings.tabs),
     activeTabIndex: settings.activeTabIndex,
-    comments: cloneSnapshot(comments),
   };
   workspaceSnapshotById.set(workspaceId, snapshot);
   persistWorkspaceSnapshot(workspaceId, snapshot);
@@ -434,7 +389,6 @@ function isWorkspaceSnapshot(value: unknown): value is WorkspaceSnapshot {
     !!candidate.databases &&
     typeof candidate.databases === "object" &&
     Array.isArray(candidate.tabs) &&
-    Array.isArray(candidate.comments) &&
     typeof candidate.activeTabIndex === "number" &&
     (candidate.activePageId === null || typeof candidate.activePageId === "string")
   );
@@ -582,9 +536,6 @@ function applyWorkspaceSnapshot(workspaceId: string, snapshot: WorkspaceSnapshot
     activeTabIndex,
     lastClosedTab: null,
   });
-  useBlockCommentStore.setState({
-    messages: cloneSnapshot(normalized.comments),
-  });
   return true;
 }
 
@@ -698,7 +649,6 @@ export function clearWorkspaceScopedStores(nextWorkspaceId: string): void {
     activeTabIndex: 0,
     lastClosedTab: null,
   });
-  useBlockCommentStore.getState().clearMessages();
   usePageContentLoadStore.getState().clear();
 }
 

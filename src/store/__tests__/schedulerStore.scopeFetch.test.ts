@@ -94,7 +94,6 @@ function gqlSchedule(input: {
       databaseId: LC_SCHEDULER_DATABASE_ID,
       doc: { type: "doc", content: [] },
       dbCells: {},
-      blockComments: {},
       createdAt: "2026-05-31T00:00:00.000Z",
       updatedAt: "2026-05-31T00:00:00.000Z",
       deletedAt: null,

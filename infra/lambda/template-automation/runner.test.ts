@@ -246,7 +246,6 @@ describe("template automation runner", () => {
       databaseId: "db-1",
       doc: { type: "doc", content: [{ type: "paragraph" }] },
       dbCells: { status: "todo" },
-      blockComments: { messages: [] },
       deletedAt: "2026-06-08T00:00:00.000Z",
       createdAt: "2026-06-08T00:00:00.000Z",
       updatedAt: "2026-06-08T00:00:00.000Z",
@@ -261,7 +260,6 @@ describe("template automation runner", () => {
       fullPageDatabaseId: null,
       doc: "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}",
       dbCells: "{\"status\":\"todo\"}",
-      blockComments: "{\"messages\":[]}",
       createdAt: "2026-06-08T00:00:00.000Z",
       updatedAt: "2026-06-08T00:00:00.000Z",
     });

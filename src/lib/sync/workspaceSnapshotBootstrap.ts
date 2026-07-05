@@ -1,5 +1,4 @@
 import { unstable_batchedUpdates } from "react-dom";
-import { useBlockCommentStore } from "../../store/blockCommentStore";
 import { useUiStore } from "../../store/uiStore";
 import {
   fetchDatabasesByWorkspace,
@@ -8,7 +7,6 @@ import {
   fetchPagesByWorkspace,
 } from "./bootstrap";
 import { usePageMetaRemoteStore } from "../../store/pageMetaRemoteStore";
-import { fetchCommentsByWorkspace } from "./commentApi";
 import { getSyncEngine } from "./runtime";
 import {
   applyRemotePageMetasToStore,
@@ -17,7 +15,6 @@ import {
   reconcileWorkspacePagesFullSnapshot,
   reconcileWorkspaceDatabasesFullSnapshot,
 } from "./storeApply";
-import { applyRemoteCommentsToStore } from "./storeApply/commentApply";
 import { applyWorkspaceLanding } from "./workspaceLanding";
 import {
   clearWorkspaceScopedStores,
@@ -29,7 +26,6 @@ type FetchApplyWorkspaceSnapshotOptions = {
   workspaceId: string;
   cancelled?: () => boolean;
   clearWorkspaceBeforeApply?: boolean;
-  clearBlockCommentsBeforeApply?: boolean;
   applyLandingAfterApply?: boolean;
   /** 워크스페이스 전환 진입 시 true — landing 이 직전 상태를 무시하고 첫 인덱스 페이지로 리셋한다. */
   landingForceFirstRoot?: boolean;
@@ -89,7 +85,6 @@ export async function fetchApplyWorkspaceRemoteSnapshot({
   workspaceId,
   cancelled,
   clearWorkspaceBeforeApply = false,
-  clearBlockCommentsBeforeApply = false,
   applyLandingAfterApply = false,
   landingForceFirstRoot = false,
   refreshSnapshotAfterApply = false,
@@ -99,15 +94,12 @@ export async function fetchApplyWorkspaceRemoteSnapshot({
 }: FetchApplyWorkspaceSnapshotOptions): Promise<void> {
   const isDelta = Boolean(updatedAfter);
   const engine = await getSyncEngine();
-  const [[pagesResult, dbsResult, commentsResult], pendingIds] = await Promise.all([
+  const [[pagesResult, dbsResult], pendingIds] = await Promise.all([
     Promise.allSettled([
       fetchPagesByWorkspace(workspaceId, updatedAfter),
       // DB 는 워크스페이스당 소수라 항상 전체 조회한다(updatedAfter 무시). 그래야 증분 동기화에서도
       // 서버에서 사라진 좀비 DB(과거 임포트·삭제 잔재)를 prune 할 권위 있는 전체 목록을 얻는다.
       fetchDatabasesByWorkspace(workspaceId),
-      // 댓글은 로컬 persist 안 됨(messages 미저장) → 콜드로드마다 빈 상태로 시작.
-      // 공유 워터마크로 증분 조회하면 워터마크 이전 댓글을 영영 못 받으므로 항상 전체 조회.
-      fetchCommentsByWorkspace(workspaceId),
     ]),
     engine.getPendingUpsertEntityIds(),
   ]);
@@ -115,7 +107,6 @@ export async function fetchApplyWorkspaceRemoteSnapshot({
 
   const pages = pagesResult.status === "fulfilled" ? pagesResult.value : null;
   const dbs = dbsResult.status === "fulfilled" ? dbsResult.value : null;
-  const comments = commentsResult.status === "fulfilled" ? commentsResult.value : null;
 
   const failedDomains: string[] = [];
   if (pagesResult.status === "rejected") {
@@ -125,10 +116,6 @@ export async function fetchApplyWorkspaceRemoteSnapshot({
   if (dbsResult.status === "rejected") {
     failedDomains.push("databases");
     logFetchFailure("DB", dbsResult.reason, logPrefix);
-  }
-  if (commentsResult.status === "rejected") {
-    failedDomains.push("comments");
-    logFetchFailure("댓글", commentsResult.reason, logPrefix);
   }
   useUiStore
     .getState()
@@ -143,15 +130,11 @@ export async function fetchApplyWorkspaceRemoteSnapshot({
     if (clearWorkspaceBeforeApply && !isDelta) {
       clearWorkspaceScopedStores(workspaceId);
     }
-    if (clearBlockCommentsBeforeApply && !isDelta) {
-      useBlockCommentStore.getState().clearMessages();
-    }
     if (pages) applyRemotePagesToStore(pages);
     if (!isDelta && pages) {
       usePageMetaRemoteStore.getState().setNextToken(workspaceId, null);
     }
     if (dbs) applyRemoteDatabasesToStore(dbs);
-    if (comments) applyRemoteCommentsToStore(comments);
     // 페이지 좀비 정리(prune)는 전체 스냅샷에서만 안전하다. 증분 모드에서는 부분 결과만 오므로
     // prune 하면 변경되지 않은 멀쩡한 페이지까지 삭제된다 → 비-delta + pages 성공 시에만 수행.
     if (!isDelta && pages) {
@@ -187,7 +170,7 @@ export async function fetchApplyWorkspaceRemoteSnapshot({
   // 모든 도메인이 성공한 경우에만 워터마크를 전진시킨다.
   // (한 도메인이라도 실패하면 그 도메인의 미수신 변경분을 다음 증분에서 놓치지 않도록 보류.)
   if (failedDomains.length === 0) {
-    const mx = maxUpdatedAt(pages, dbs, comments);
+    const mx = maxUpdatedAt(pages, dbs);
     if (mx) useSyncWatermarkStore.getState().advance(workspaceId, mx);
   }
 
@@ -221,7 +204,6 @@ export async function fetchApplyWorkspaceRemoteMetaSnapshot({
   workspaceId,
   cancelled,
   clearWorkspaceBeforeApply = false,
-  clearBlockCommentsBeforeApply = false,
   applyLandingAfterApply = false,
   landingForceFirstRoot = false,
   refreshSnapshotAfterApply = false,
@@ -231,14 +213,11 @@ export async function fetchApplyWorkspaceRemoteMetaSnapshot({
 }: FetchApplyWorkspaceSnapshotOptions): Promise<void> {
   const isDelta = Boolean(updatedAfter);
   const engine = await getSyncEngine();
-  const [[pageMetasBatchResult, dbsResult, commentsResult], pendingIds] = await Promise.all([
+  const [[pageMetasBatchResult, dbsResult], pendingIds] = await Promise.all([
     Promise.allSettled([
       fetchPageMetasBatch({ workspaceId, updatedAfter }),
       // DB 는 워크스페이스당 소수라 항상 전체 조회한다(updatedAfter 무시) — 좀비 DB prune 용 권위 목록.
       fetchDatabasesByWorkspace(workspaceId),
-      // 댓글은 로컬 persist 안 됨(messages 미저장) → 콜드로드마다 빈 상태로 시작.
-      // 공유 워터마크로 증분 조회하면 워터마크 이전 댓글을 영영 못 받으므로 항상 전체 조회.
-      fetchCommentsByWorkspace(workspaceId),
     ]),
     engine.getPendingUpsertEntityIds(),
   ]);
@@ -246,7 +225,6 @@ export async function fetchApplyWorkspaceRemoteMetaSnapshot({
 
   const pageMetasBatch = pageMetasBatchResult.status === "fulfilled" ? pageMetasBatchResult.value : null;
   const dbs = dbsResult.status === "fulfilled" ? dbsResult.value : null;
-  const comments = commentsResult.status === "fulfilled" ? commentsResult.value : null;
 
   const failedDomains: string[] = [];
   let pageMetaSchemaUnavailable = false;
@@ -267,10 +245,6 @@ export async function fetchApplyWorkspaceRemoteMetaSnapshot({
     failedDomains.push("databases");
     logFetchFailure("DB", dbsResult.reason, logPrefix);
   }
-  if (commentsResult.status === "rejected") {
-    failedDomains.push("comments");
-    logFetchFailure("댓글", commentsResult.reason, logPrefix);
-  }
   useUiStore
     .getState()
     .setSyncPartialFetchFailed(failedDomains.length > 0 ? failedDomains : null);
@@ -279,15 +253,11 @@ export async function fetchApplyWorkspaceRemoteMetaSnapshot({
     if (clearWorkspaceBeforeApply && !isDelta) {
       clearWorkspaceScopedStores(workspaceId);
     }
-    if (clearBlockCommentsBeforeApply && !isDelta) {
-      useBlockCommentStore.getState().clearMessages();
-    }
     if (pageMetasBatch) {
       applyRemotePageMetasToStore(pageMetasBatch.items);
       usePageMetaRemoteStore.getState().setNextToken(workspaceId, pageMetasBatch.nextToken ?? null);
     }
     if (dbs) applyRemoteDatabasesToStore(dbs);
-    if (comments) applyRemoteCommentsToStore(comments);
     // DB 는 항상 전체 조회하므로 좀비 DB prune 이 안전하다(페이지는 메타 페이지네이션이라 여기서 prune 안 함).
     if (dbs) {
       const remoteDatabaseIds = new Set<string>();
@@ -307,10 +277,10 @@ export async function fetchApplyWorkspaceRemoteMetaSnapshot({
     apply();
   }
 
-  // 페이지 메타가 스키마 거부로 한 건도 안 들어온 상태에서 dbs/comments 기준으로 워터마크를
+  // 페이지 메타가 스키마 거부로 한 건도 안 들어온 상태에서 dbs 기준으로 워터마크를
   // 전진시키면, 이후 증분(delta) 모드가 그 이전 페이지를 영영 못 받는다 → 전진 보류.
   if (failedDomains.length === 0 && !pageMetaSchemaUnavailable) {
-    const mx = maxUpdatedAt(pageMetasBatch?.items ?? [], dbs, comments);
+    const mx = maxUpdatedAt(pageMetasBatch?.items ?? [], dbs);
     if (mx) useSyncWatermarkStore.getState().advance(workspaceId, mx);
   }
 

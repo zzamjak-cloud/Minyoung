@@ -106,7 +106,6 @@ export type GqlPageMetaParsed = z.infer<typeof GqlPageMetaSchema>;
 export const GqlPageSchema = GqlPageMetaSchema.extend({
   doc: z.unknown(),
   dbCells: z.unknown().nullish(),
-  blockComments: z.unknown().nullish(),
 }).passthrough();
 
 export type GqlPageParsed = z.infer<typeof GqlPageSchema>;
@@ -128,24 +127,6 @@ export const GqlDatabaseSchema = z
   .passthrough();
 
 export type GqlDatabaseParsed = z.infer<typeof GqlDatabaseSchema>;
-
-export const GqlCommentSchema = z
-  .object({
-    id: z.string(),
-    workspaceId: z.string(),
-    pageId: z.string(),
-    blockId: z.string(),
-    authorMemberId: z.string(),
-    bodyText: z.string(),
-    mentionMemberIds: z.unknown(),
-    parentId: z.string().nullish(),
-    createdAt: z.string(),
-    updatedAt: z.string(),
-    deletedAt: z.string().nullish(),
-  })
-  .passthrough();
-
-export type GqlCommentParsed = z.infer<typeof GqlCommentSchema>;
 
 export const GqlProjectSchema = z
   .object({

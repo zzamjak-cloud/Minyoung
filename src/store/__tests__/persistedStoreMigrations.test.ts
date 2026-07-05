@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { migrateBlockCommentStore } from "../blockCommentStore";
 import { migrateDatabaseStore } from "../databaseStore";
 import { migrateNotificationStore } from "../notificationStore";
 import { migratePageStore } from "../pageStore";
@@ -86,30 +85,6 @@ describe("persisted store migrations", () => {
         read: false,
       },
     ]);
-  });
-
-  it("blockCommentStore migration은 messages를 비우고 threadVisitedAt을 빈 객체로 반환한다 (messages는 서버에서 재로드)", () => {
-    const migrated = migrateBlockCommentStore(
-      {
-        messages: [
-          {
-            id: "c1",
-            pageId: "p1",
-            blockId: "b1",
-            authorMemberId: "author",
-            bodyText: "body",
-            mentionMemberIds: ["m:me", "p:page"],
-            parentId: undefined,
-            createdAt: 11,
-          },
-        ],
-        threadVisitedAt: { "p1:b1": "22" },
-      },
-      1,
-    );
-
-    expect(migrated.messages).toEqual([]);
-    expect(migrated.threadVisitedAt).toEqual({});
   });
 
   it("pageStore migration preserves valid pages and quarantines invalid records", () => {

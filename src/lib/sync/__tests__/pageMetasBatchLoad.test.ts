@@ -6,7 +6,6 @@ import {
   fetchPageMetasBatch,
   fetchDatabasesByWorkspace,
 } from "../bootstrap";
-import { fetchCommentsByWorkspace } from "../commentApi";
 import { getSyncEngine } from "../runtime";
 import { loadMorePageMetas } from "../pageMetasLoad";
 import { refreshWorkspaceSnapshot } from "../workspaceSwitch";
@@ -16,9 +15,6 @@ vi.mock("../bootstrap", () => ({
   fetchPageMetasBatch: vi.fn(),
   fetchDatabasesByWorkspace: vi.fn(),
   fetchPagesByWorkspace: vi.fn(),
-}));
-vi.mock("../commentApi", () => ({
-  fetchCommentsByWorkspace: vi.fn(),
 }));
 vi.mock("../runtime", () => ({
   getSyncEngine: vi.fn(),
@@ -33,7 +29,6 @@ vi.mock("../workspaceSwitch", () => ({
 
 const fetchPageMetasMock = vi.mocked(fetchPageMetasBatch);
 const fetchDatabasesMock = vi.mocked(fetchDatabasesByWorkspace);
-const fetchCommentsMock = vi.mocked(fetchCommentsByWorkspace);
 const getSyncEngineMock = vi.mocked(getSyncEngine);
 const refreshWorkspaceSnapshotMock = vi.mocked(refreshWorkspaceSnapshot);
 
@@ -50,7 +45,6 @@ beforeEach(() => {
   useSyncWatermarkStore.setState({ byWorkspace: {} });
   getSyncEngineMock.mockResolvedValue({ getPendingUpsertEntityIds: vi.fn().mockResolvedValue({ pages: new Set(), databases: new Set() }) } as never);
   fetchDatabasesMock.mockResolvedValue([]);
-  fetchCommentsMock.mockResolvedValue([]);
 });
 
 describe("fetchApplyWorkspaceRemoteMetaSnapshot — 단일 배치 로드", () => {

@@ -33,7 +33,6 @@ import { useDatabaseStore } from "../../store/databaseStore";
 import type { ColumnType } from "../../types/database";
 import type { JSONContent } from "@tiptap/react";
 import { Loader2 } from "lucide-react";
-import { useBlockCommentStore } from "../../store/blockCommentStore";
 import { useWorkspaceStore } from "../../store/workspaceStore";
 import { useMemberStore } from "../../store/memberStore";
 import { refreshWorkspaceMeta } from "../../lib/sync/workspaceMetaCache";
@@ -41,12 +40,6 @@ import { useUiStore } from "../../store/uiStore";
 import { hydrateStructuralChildPageMentions } from "../../lib/notionImport/hydrateChildPageMentions";
 import { MENTION_PAGE_PREFIX, stripPagePrefix } from "../../lib/tiptapExtensions/mentionKind";
 import { resolveNotionPageHref } from "../../lib/notionImport/resolveNotionPageHref";
-import {
-  extractNotionInlineComments,
-  ensureCommentAnchorBlockIds,
-  resolveImportedCommentAuthorMemberId,
-  resolveNotionCommentBlockId,
-} from "../../lib/notionImport/commentImport";
 import {
   inferNotionColumnType,
   mapNotionColorToQuickNote,
@@ -90,9 +83,7 @@ export function NotionImportTab() {
   const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
   const [previewContent, setPreviewContent] = useState<string>("");
   const showToast = useUiStore((s) => s.showToast);
-  const addComment = useBlockCommentStore((s) => s.addMessage);
   const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
-  const me = useMemberStore((s) => s.me);
   const [sharedSource, setSharedSource] = useState<NotionImportSource | null>(null);
   const [hasDetectedDbSource, setHasDetectedDbSource] = useState(false);
   const [importCompleted, setImportCompleted] = useState(false);
@@ -570,40 +561,11 @@ export function NotionImportTab() {
           })
           : notionMarkdownToDoc(contentByPath.get(source.path) ?? "", { pageTitle: source.title });
 
-        const docWithAnchorIds = ensureCommentAnchorBlockIds(doc);
-        updateDoc(pageId, docWithAnchorIds);
+        updateDoc(pageId, doc);
         if (source.format === "html") {
           void applyImportedPageIcon(pageId, source.path, contentByPath.get(source.path));
         } else {
           setIcon(pageId, "📝");
-        }
-        if (source.format === "html") {
-          const comments = extractNotionInlineComments(contentByPath.get(source.path) ?? "");
-          comments.forEach((comment) => {
-            const mappedBlockId =
-              resolveNotionCommentBlockId(docWithAnchorIds as { content?: Array<unknown> }, comment.blockText)
-              ?? "__page__";
-            const authorMemberId = resolveImportedCommentAuthorMemberId(
-              comment.authorName,
-              useMemberStore.getState().members,
-              me?.memberId ?? "notion-import",
-            );
-            const authorPrefix = authorMemberId === (me?.memberId ?? "notion-import")
-              ? `${comment.authorName ? `${comment.authorName}: ` : ""}`
-              : "";
-            addComment({
-              workspaceId: currentWorkspaceId,
-              pageId,
-              blockId: mappedBlockId,
-              authorMemberId,
-              // 서버가 스푸핑 방지로 작성자를 호출자로 강제하므로, 가져오기 원본 작성자를 별도로 전송해
-              // 유효 구성원일 때 서버가 보존하도록 한다(그 외엔 호출자 강제 = 기존 동작).
-              importedAuthorMemberId: authorMemberId,
-              bodyText: `${authorPrefix}${comment.bodyText}`.trim(),
-              mentionMemberIds: [],
-              parentId: null,
-            });
-          });
         }
         importedDocByPath.add(source.path);
         importingPath.delete(source.path);

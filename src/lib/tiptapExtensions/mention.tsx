@@ -191,7 +191,7 @@ function showMemberProfilePopup(memberId: string, anchor: HTMLElement): void {
   window.setTimeout(() => document.addEventListener("mousedown", close), 0);
 }
 
-/** 인라인 @ 제안은 사용하지 않음 — Editor/CommentComposer 에서 @ 키로 검색 모달 연결 */
+/** 인라인 @ 제안은 사용하지 않음 — Editor 에서 @ 키로 검색 모달 연결 */
 const MentionNode = Mention.extend({
   addNodeView() {
     return ReactNodeViewRenderer(MentionNodeView);

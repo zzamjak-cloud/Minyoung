@@ -36,8 +36,6 @@ export const GRIP_SIZE_PX = 28;
 export const GRIP_ZONE_PAD_PX = 14;
 export const GUTTER_LEFT_PX = 56;
 export const RECT_PAD_X = 20;
-/** 블록 오른쪽 바깥 — 댓글 수 배지가 본문과 겹치지 않도록 간격 */
-export const COMMENT_BTN_GAP_PX = 8;
 export const RECT_PAD_Y = 18;
 export const HANDLE_TOP_OFFSET_PX = -2;
 const LIST_ITEM_HANDLE_EXTRA_LEFT_PX = 18;

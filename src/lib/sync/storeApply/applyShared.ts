@@ -1,10 +1,10 @@
-// 워크스페이스 가드·캐시 워크스페이스 해석 sink. page·database·comment reducer 가 공유한다.
+// 워크스페이스 가드·캐시 워크스페이스 해석 sink. page·database reducer 가 공유한다.
 import { useWorkspaceStore } from "../../../store/workspaceStore";
 import { LC_SCHEDULER_WORKSPACE_ID } from "../../scheduler/scope";
 
 /**
  * 구독 레이스·백엔드 오류로 다른 워크스페이스 스냅샷이 내려올 때 로컬 캐시가 오염되지 않게 한다.
- * commentApply 등 분리된 reducer 도 공유한다.
+ * 분리된 reducer 도 공유한다.
  */
 export function shouldApplyRemoteSnapshot(remoteWorkspaceId: string | null | undefined): boolean {
   if (remoteWorkspaceId == null || remoteWorkspaceId === "") {

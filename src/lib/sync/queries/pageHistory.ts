@@ -1,6 +1,6 @@
 const PAGE_FIELDS = `
   id workspaceId createdByMemberId title icon coverImage parentId order databaseId
-  doc dbCells blockComments createdAt updatedAt deletedAt
+  doc dbCells createdAt updatedAt deletedAt
 `;
 
 // ⚠ 필드 추가 시 infra/lib/sync/schema.graphql 의 PageHistoryEntry 와 동시 수정 + CDK 선배포

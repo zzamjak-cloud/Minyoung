@@ -38,7 +38,6 @@ export const PAGE_HISTORY_FIELDS = [
   "databaseId",
   "doc",
   "dbCells",
-  "blockComments",
   "createdAt",
   "updatedAt",
 ] as const;
@@ -286,7 +285,7 @@ async function latestHistoryEntry(args: {
 /**
  * 세션 머지 버전 기록(페이지).
  * - 일반 편집(page.update)은 의미 변화(diffMeaningfulPageUnits)가 없으면 기록하지 않는다
- *   (빈 블럭 생성/삭제, 블럭 밀림(order), blockComments 읽음 시각 등은 버전 사유가 아님).
+ *   (빈 블럭 생성/삭제, 블럭 밀림(order) 등은 버전 사유가 아님).
  * - 직전 엔트리가 열린 세션(idle 15분·최대 60분 내)이면 새 엔트리 대신 그 엔트리를 갱신한다.
  *   동시 머지 race 는 LWW 로 수용한다(본문은 CRDT/서버 권위로 수렴, 손실은 귀속 메타뿐).
  * - patch 는 직전 엔트리 post-state(snapshot) 기준 누적 합성 — 레거시 patch 체인 워커와 호환.

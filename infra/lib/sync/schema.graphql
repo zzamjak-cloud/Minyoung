@@ -128,8 +128,6 @@ type Page @aws_cognito_user_pools @aws_iam {
   fullPageDatabaseId: ID
   doc: AWSJSON!
   dbCells: AWSJSON
-  """블록 댓글 스레드·읽음 상태 JSON(`{ messages, threadVisitedAt }`)."""
-  blockComments: AWSJSON
   """마지막으로 편집한 멤버 id. upsertPage 가 caller 로 권위적 스탬프(없으면 createdByMemberId 폴백)."""
   lastEditedByMemberId: ID
   """마지막 편집자 표시 이름(스탬프 시점 스냅샷)."""
@@ -177,22 +175,6 @@ type Database {
   updatedAt: AWSDateTime!
   deletedAt: AWSDateTime
 }
-
-type Comment {
-  id: ID!
-  workspaceId: ID!
-  pageId: ID!
-  blockId: String!
-  authorMemberId: ID!
-  bodyText: String!
-  mentionMemberIds: AWSJSON!
-  parentId: ID
-  createdAt: AWSDateTime!
-  updatedAt: AWSDateTime!
-  deletedAt: AWSDateTime
-}
-
-type CommentConnection { items: [Comment!]! nextToken: String }
 
 type Notification {
   notificationId: ID!
@@ -390,7 +372,6 @@ input PageInput {
   fullPageDatabaseId: ID
   doc: AWSJSON!
   dbCells: AWSJSON
-  blockComments: AWSJSON
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime!
 }
@@ -408,24 +389,6 @@ input DatabaseInput {
   rowPageOrder: [ID!]
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime!
-}
-
-input CommentInput {
-  id: ID!
-  workspaceId: ID!
-  pageId: ID!
-  blockId: String!
-  authorMemberId: ID!
-  bodyText: String!
-  mentionMemberIds: AWSJSON!
-  parentId: ID
-  createdAt: AWSDateTime!
-  updatedAt: AWSDateTime!
-  """
-  가져오기(노션 등)에서 원본 작성자를 보존하려는 경우 지정. 유효한(존재하는·removed 아님) 구성원일 때만
-  작성자로 사용하고, 그 외에는 스푸핑 방지로 호출자를 강제한다. 일반 댓글 작성 시에는 전송하지 않는다.
-  """
-  importedAuthorMemberId: ID
 }
 
 input ImageUploadInput {
@@ -532,7 +495,7 @@ type Query {
   getFlowchart(id: ID!, workspaceId: ID!): Flowchart
   listFlowcharts(workspaceId: ID!, updatedAfter: AWSDateTime, limit: Int, nextToken: String): FlowchartConnection!
   listFlowchartHistory(flowchartId: ID!, workspaceId: ID!, limit: Int): [FlowchartHistoryEntry!]!
-  """사이드바/탭 기준선용 페이지 메타. doc/dbCells/blockComments 는 내려받지 않는다."""
+  """사이드바/탭 기준선용 페이지 메타. doc/dbCells 는 내려받지 않는다."""
   listPageMetas(workspaceId: ID!, updatedAfter: AWSDateTime, limit: Int, nextToken: String): PageMetaConnection!
   listPages(workspaceId: ID!, updatedAfter: AWSDateTime, limit: Int, nextToken: String): PageConnection!
   """DB row 페이지를 화면 노출 단위로 가져온다. 대형 DB에서 워크스페이스 전체 fetch를 피하기 위한 cursor API."""
@@ -541,7 +504,6 @@ type Query {
   listDatabaseHistory(databaseId: ID!, workspaceId: ID!, limit: Int, nextToken: String): [DatabaseHistoryEntry!]!
   """DB 소속 모든 row 페이지의 변경 히스토리 — page-history GSI(byDatabaseAndCreatedAt) 단일 쿼리, 삭제된 행 포함, createdAt 최신순"""
   listDatabaseRowHistory(databaseId: ID!, workspaceId: ID!, limit: Int, nextToken: String): PageHistoryConnection!
-  listComments(workspaceId: ID!, updatedAfter: AWSDateTime, limit: Int, nextToken: String): CommentConnection!
   """삭제 후 보관 기간(30일) 내 페이지만, 삭제 시각 최신순(페이지당 최대 50개·nextToken 연속 조회)"""
   listTrashedPages(workspaceId: ID!, limit: Int, nextToken: String): PageConnection!
   """삭제 후 보관 기간(30일) 내 데이터베이스만, 삭제 시각 최신순"""
@@ -610,9 +572,6 @@ type Mutation {
   archiveWorkspace(workspaceId: ID!): Workspace!
   restoreWorkspace(workspaceId: ID!): Workspace!
 
-  upsertComment(input: CommentInput!): Comment!
-  softDeleteComment(id: ID!, workspaceId: ID!, updatedAt: AWSDateTime!): Comment!
-
   upsertPage(input: PageInput!): Page!
   publishPageChanged(input: PageInput!): Page! @aws_iam
   softDeletePage(id: ID!, workspaceId: ID!, updatedAt: AWSDateTime!): Page!
@@ -679,8 +638,6 @@ type Mutation {
 
 # ========== Subscription ==========
 type Subscription {
-  onCommentChanged(workspaceId: ID!): Comment
-    @aws_subscribe(mutations: ["upsertComment", "softDeleteComment"])
   onPageChanged(workspaceId: ID!): Page
     @aws_subscribe(mutations: ["upsertPage", "publishPageChanged", "softDeletePage", "restorePage"])
   onDatabaseChanged(workspaceId: ID!): Database

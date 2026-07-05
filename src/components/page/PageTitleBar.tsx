@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MessageSquarePlus, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import { IconPicker } from "../common/IconPicker";
 import { useSettingsStore } from "../../store/settingsStore";
 import { PageTitleColorToolbar } from "./PageTitleColorToolbar";
@@ -20,8 +20,6 @@ interface PageTitleBarProps {
   titleColor?: string | null;
   onIconUploadMessage?: (msg: string) => void;
   defaultIcon?: React.ReactNode;
-  /** 제공 시 즐겨찾기 아이콘 왼쪽에 "댓글 추가" 버튼을 표시한다. */
-  onAddComment?: () => void;
 }
 
 export function PageTitleBar({
@@ -40,7 +38,6 @@ export function PageTitleBar({
   titleColor,
   onIconUploadMessage,
   defaultIcon,
-  onAddComment,
 }: PageTitleBarProps) {
   const [titleToolbarOpen, setTitleToolbarOpen] = useState(false);
   const internalTitleRef = React.useRef<HTMLInputElement | null>(null);
@@ -104,17 +101,6 @@ export function PageTitleBar({
           onClose={() => setTitleToolbarOpen(false)}
         />
       ) : null}
-      {onAddComment && (
-        <button
-          type="button"
-          onClick={onAddComment}
-          className="shrink-0 rounded-md p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-          aria-label="댓글 추가"
-          title="댓글 추가"
-        >
-          <MessageSquarePlus size={22} strokeWidth={1.75} />
-        </button>
-      )}
       <button
         type="button"
         onClick={() => toggleFavoritePage(pageId)}

@@ -199,7 +199,7 @@ export function useBoxSelectMarquee({
     /** BlockHandles(댓글 배지·그립 등)는 PM view.dom 밖이라 isInsideAnyBlock 이 false — 크롬 루트로 제외 */
     const INTERACTIVE_SELECTOR =
       "input, textarea, select, button, a[href], label, [contenteditable], " +
-      "[data-qn-block-grip], [data-qn-editor-chrome], [data-qn-page-comment], .tippy-box, [role='menu'], [role='listbox'], [role='dialog']";
+      "[data-qn-block-grip], [data-qn-editor-chrome], .tippy-box, [role='menu'], [role='listbox'], [role='dialog']";
 
     const onMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return;

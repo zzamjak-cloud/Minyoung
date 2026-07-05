@@ -19,7 +19,6 @@ export type PageSnapshot = Pick<
   | "order"
   | "databaseId"
   | "dbCells"
-  | "blockComments"
 >;
 
 export type DatabaseSnapshot = DatabaseBundle;

@@ -77,21 +77,12 @@ import { ScrollToTopButton } from "../common/ScrollToTopButton";
 import {
   registerEditorNavigation,
   unregisterEditorNavigation,
-  scrollToBlockId,
   scrollToSearchHit,
 } from "../../lib/editor/editorNavigationBridge";
 import {
   peekPendingNavigation,
   consumePendingNavigation,
 } from "../../lib/editor/pendingNavigation";
-import { useUiStore } from "../../store/uiStore";
-import { useMemberStore } from "../../store/memberStore";
-import { useBlockCommentStore } from "../../store/blockCommentStore";
-import {
-  dispatchDecoRefresh,
-} from "../../lib/tiptapExtensions/blockCommentDecorations";
-import { registerEditorForPage } from "../../lib/editor/editorByPageRegistry";
-import { PageCommentBar, PAGE_COMMENT_SENTINEL } from "../comments/PageCommentBar";
 import { MentionSearchModal } from "./MentionSearchModal";
 import type { EditorView as PmEditorView } from "@tiptap/pm/view";
 import {
@@ -162,18 +153,6 @@ function EditorInner({
 }: EditorProps = {}) {
   const activeId = usePageStore((s) => s.activePageId);
   const effectivePageId = pageId ?? activeId;
-  // 블록 댓글이 하나라도 존재하면 사이드바 공간을 예약해 본문을 좌측으로 밀어냄.
-  // 페이지 레벨 댓글(PAGE_COMMENT_SENTINEL)은 PageCommentBar 가 인라인 처리 → 우측 거터 불필요.
-  // 단, 피크 모드에서는 사이드바 공간을 만들지 않고 컴팩트 배지만 표시 → hasPageComments 무시.
-  const hasPageComments = useBlockCommentStore((s) =>
-    effectivePageId
-      ? s.messages.some(
-          (m) =>
-            m.pageId === effectivePageId &&
-            m.blockId !== PAGE_COMMENT_SENTINEL,
-        )
-      : false,
-  );
   const page = usePageStore((s) =>
     effectivePageId ? s.pages[effectivePageId] : undefined,
   );
@@ -196,7 +175,6 @@ function EditorInner({
     ? (pageFullWidthById[effectivePageId] ?? globalFullWidth)
     : globalFullWidth;
   const isMobile = useIsMobile();
-  const myMemberId = useMemberStore((s) => s.me?.memberId);
 
   const pageDoc = page?.doc;
   const currentPageId = page?.id ?? null;
@@ -216,8 +194,6 @@ function EditorInner({
   const dbTitleBaselineRef = useRef("");
   const debounceRef = useRef<number | null>(null);
   const [titleDraft, setTitleDraft] = useState("");
-  // 제목 표시줄 "댓글 추가" 버튼 → PageCommentBar 입력창 열기 신호
-  const [addCommentSignal, setAddCommentSignal] = useState(0);
   const titleDraftRef = useRef("");
   const setTitleDraftValue = useCallback((next: string) => {
     titleDraftRef.current = next;
@@ -367,7 +343,6 @@ function EditorInner({
     lowlightApi,
     isFullPageDatabase,
     effectivePageId,
-    myMemberId,
   });
 
   const editorProps = useEditorProps({
@@ -441,12 +416,6 @@ function EditorInner({
     setPageContext(editor, effectivePageId ?? null);
   }, [editor, effectivePageId]);
 
-  // 댓글 스레드 패널은 App 에서 단일 마운트 — layout 단계에서 등록해 같은 커밋의 패널 effect 보다 먼저 둔다
-  useLayoutEffect(() => {
-    if (!editor || editor.isDestroyed || !effectivePageId) return;
-    return registerEditorForPage(effectivePageId, editor);
-  }, [editor, effectivePageId]);
-
   const applyPasteUrlChoice = useCallback(
     (mode: LinkBlockMode) => {
       if (!editor || !pasteUrlChoice) return;
@@ -457,57 +426,11 @@ function EditorInner({
     [editor, pasteUrlChoice],
   );
 
-  const commentThread = useUiStore((s) => s.commentThread);
-
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
     registerEditorNavigation(editor);
     return () => unregisterEditorNavigation(editor);
   }, [editor]);
-
-  useEffect(() => {
-    if (!editor || editor.isDestroyed || !commentThread) return;
-    if (commentThread.pageId !== effectivePageId) return;
-    if (commentThread.skipScroll) return;
-    const t = window.setTimeout(() => {
-      scrollToBlockId(commentThread.blockId);
-    }, 60);
-    return () => window.clearTimeout(t);
-  }, [commentThread, editor, effectivePageId]);
-
-
-  /** 이 페이지 댓글·방문 기록·멤버와 관련된 스토어 변경만 decoration 갱신(prev 인자 미지원·persist 경로 대비) */
-  useLayoutEffect(() => {
-    if (!editor || editor.isDestroyed) return;
-    const pid = effectivePageId;
-    const buildSig = (): string => {
-      if (!pid) return "";
-      const s = useBlockCommentStore.getState();
-      const mid = useMemberStore.getState().me?.memberId ?? "";
-      const msgs = s.messages.filter((m) => m.pageId === pid);
-      const visit = s.threadVisitedAt;
-      const vk = Object.keys(visit)
-        .filter((k) => k.startsWith(`${pid}:`))
-        .sort()
-        .map((k) => `${k}:${visit[k]}`)
-        .join("|");
-      return `${mid}|${msgs.map((m) => `${m.id}:${m.createdAt}:${m.bodyText.length}`).join(",")}|${vk}`;
-    };
-    let last = buildSig();
-    dispatchDecoRefresh(editor);
-    const tick = () => {
-      const next = buildSig();
-      if (next === last) return;
-      last = next;
-      dispatchDecoRefresh(editor);
-    };
-    const unsub1 = useBlockCommentStore.subscribe(tick);
-    const unsub2 = useMemberStore.subscribe(tick);
-    return () => {
-      unsub1();
-      unsub2();
-    };
-  }, [editor, effectivePageId]);
 
   /** 스토어 본문이 에디터에 반영되기 전 자동저장으로 빈 doc 이 덮어쓰이지 않도록 함 */
   const storeDocHydratedRef = useRef(false);
@@ -1126,7 +1049,7 @@ function EditorInner({
         </div>
       ) : null}
       <div
-        className={`relative mx-auto w-full ${getEditorColumnClass({ fullWidth, hasPageComments, peek, isMobile })}`}
+        className={`relative mx-auto w-full ${getEditorColumnClass({ fullWidth, isMobile })}`}
         data-qn-editor-column
       >
         {!bodyOnly && (
@@ -1189,19 +1112,11 @@ function EditorInner({
                 titleColor={page.titleColor ?? null}
                 onTitleColorChange={(color) => setTitleColor(effectivePageId, color)}
                 onIconUploadMessage={(msg) => setSimpleAlert(msg)}
-                onAddComment={() => setAddCommentSignal((n) => n + 1)}
                 defaultIcon={
                   isFullPageDatabase
                     ? <Database size={56} className="text-zinc-400" />
                     : <FileText size={56} className="text-zinc-400" />
                 }
-              />
-            </div>
-            {/* 페이지 레벨 댓글 — 제목 바로 아래 */}
-            <div className="md:px-12">
-              <PageCommentBar
-                pageId={effectivePageId ?? pageId ?? ""}
-                openComposerSignal={addCommentSignal}
               />
             </div>
           </>
@@ -1233,15 +1148,13 @@ function EditorInner({
           )}
           {!isFullPageDatabase && editorViewReady && <TableBlockControls editor={editor} />}
         </div>
-        {/* BlockHandles 는 외곽 wrapper 의 padding 영역(pr-[256px] 등 사이드바 예약)에서도
-            카드를 렌더할 수 있어야 하므로 inner relative 컨테이너 밖, 외곽 wrapper 의 직접 자식으로 둠.
+        {/* BlockHandles 는 외곽 wrapper 의 직접 자식으로 둠.
             pageId 를 명시 전달해 피크 뷰처럼 activePageId 와 다른 페이지를 편집 중일 때도
-            올바른 페이지의 댓글로 필터링됨. */}
+            올바른 페이지로 동작하도록 함. */}
         {!isFullPageDatabase && editorViewReady && (
           <BlockHandles
             editor={editor}
             pageId={effectivePageId ?? null}
-            compactComments={peek || isMobile}
             boxSelectedStarts={boxSelectedStarts}
             onClearBoxSelection={clearBoxSelection}
           />
@@ -1260,7 +1173,7 @@ function EditorInner({
       {!bodyOnly && !peek && (
         <ScrollToTopButton scrollRef={editorScrollHostRef} position="fixed" />
       )}
-      {editorViewReady && <MemoBubbleToolbar editor={editor} pageId={effectivePageId} />}
+      {editorViewReady && <MemoBubbleToolbar editor={editor} />}
       {editorViewReady && <MemoImageResizeOverlay editor={editor} />}
       <ImageUpload
         open={imageOpen}

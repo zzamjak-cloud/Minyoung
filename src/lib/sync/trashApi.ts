@@ -31,7 +31,7 @@ export type TrashedDatabaseBatch = {
 
 /**
  * 휴지통 한 페이지(기본 50건). nextToken 으로 연속 조회.
- * 리스트 표시에 필요한 최소 필드(id/title/icon/deletedAt)만 받음 — doc/blockComments
+ * 리스트 표시에 필요한 최소 필드(id/title/icon/deletedAt)만 받음 — doc
  * 같은 큰 페이로드 제외로 응답이 수십 배 빠르다. 복원 시 RESTORE_PAGE 가 전체 필드 반환.
  */
 export async function fetchTrashedPagesBatch(

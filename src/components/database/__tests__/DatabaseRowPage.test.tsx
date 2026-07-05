@@ -23,9 +23,6 @@ vi.mock("../../page/DbPropertySection", () => ({
   DbPropertySection: () => <div data-testid="db-property-section" />,
 }));
 
-vi.mock("../../comments/PageCommentBar", () => ({
-  PageCommentBar: () => <div data-testid="page-comment-bar" />,
-}));
 
 const rowPage: Page = {
   id: "row-1",

@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { CellValue } from "../../../types/database";
-import { filterWorkspaceMembersForMention } from "../../../lib/comments/filterMembersForMention";
+import { filterWorkspaceMembersForMention } from "../../../lib/mentions/filterMembersForMention";
 import { normalizePersonValue, personChipColor } from "./utils";
 import { useMemberStore } from "../../../store/memberStore";
 import { AnchoredPanelBase } from "../../../lib/ui-primitives";

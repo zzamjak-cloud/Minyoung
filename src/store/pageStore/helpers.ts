@@ -198,9 +198,6 @@ export function toPageSnapshot(page: Page): PageSnapshot {
     order: page.order,
     databaseId: page.databaseId,
     dbCells: page.dbCells ? structuredClone(page.dbCells) : undefined,
-    blockComments: page.blockComments
-      ? structuredClone(page.blockComments)
-      : undefined,
   };
 }
 

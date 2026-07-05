@@ -31,7 +31,6 @@ import { SimpleAlertDialog } from "../ui/SimpleAlertDialog";
 import { PAGE_TITLE_DUPLICATE_MESSAGE, preparePageTitleInput } from "../../store/pageStore/helpers";
 import { PageHistoryPreviewDialog } from "../history/PageHistoryPreviewDialog";
 import { PageMoveDialog } from "../layout/PageMoveDialog";
-import { PageCommentBar } from "../comments/PageCommentBar";
 import { isLCSchedulerDatabaseId, isProtectedDatabaseId } from "../../lib/scheduler/database";
 import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
 import { useWorkspaceStore } from "../../store/workspaceStore";
@@ -191,7 +190,6 @@ export function DatabaseRowPeek() {
   const [titleDuplicateAlert, setTitleDuplicateAlert] = useState(false);
   const [width, setWidth] = useState<number>(() => loadPeekWidth());
   const [menuOpen, setMenuOpen] = useState(false);
-  const [addCommentSignal, setAddCommentSignal] = useState(0);
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [copyToWorkspaceOpen, setCopyToWorkspaceOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
@@ -675,8 +673,6 @@ export function DatabaseRowPeek() {
           <div
             className={`relative mx-auto w-full ${getEditorColumnClass({
               fullWidth: peekFullWidth,
-              hasPageComments: false,
-              peek: true,
               isMobile,
             })}`}
             data-qn-peek-page-header-column
@@ -704,14 +700,12 @@ export function DatabaseRowPeek() {
                     if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                   }}
                   onIconChange={(icon) => setIcon(peekPageId, icon)}
-                  onAddComment={() => setAddCommentSignal((n) => n + 1)}
                   defaultIcon={<FileText size={56} className="text-zinc-400" />}
                 />
               </div>
               {isDbRow && databaseId && (
                 <DbPropertySection databaseId={databaseId} pageId={peekPageId} />
               )}
-              <PageCommentBar pageId={peekPageId} openComposerSignal={addCommentSignal} />
             </div>
           </div>
         </div>

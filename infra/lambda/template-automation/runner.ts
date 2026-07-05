@@ -55,7 +55,6 @@ mutation PublishPageChanged($input: PageInput!) {
     fullPageDatabaseId
     doc
     dbCells
-    blockComments
     createdAt
     updatedAt
     deletedAt
@@ -71,7 +70,6 @@ function readTablesFromEnv(): RunnerTables {
     WorkspaceAccess: requireEnv("WORKSPACE_ACCESS_TABLE_NAME"),
     Pages: requireEnv("PAGES_TABLE_NAME"),
     Databases: requireEnv("DATABASES_TABLE_NAME"),
-    Comments: process.env.COMMENTS_TABLE_NAME,
     Schedules: process.env.SCHEDULES_TABLE_NAME,
     DatabaseRowMembers: process.env.DATABASE_ROW_MEMBERS_TABLE_NAME,
     PageHistory: process.env.PAGE_HISTORY_TABLE_NAME,
@@ -99,7 +97,6 @@ export function toPublishPageChangedInput(page: Record<string, unknown>): Record
     fullPageDatabaseId: page.fullPageDatabaseId ?? null,
     doc: toAwsJsonInput(page.doc) ?? JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] }),
     dbCells: toAwsJsonInput(page.dbCells),
-    blockComments: toAwsJsonInput(page.blockComments),
     createdAt: page.createdAt,
     updatedAt: page.updatedAt,
   };

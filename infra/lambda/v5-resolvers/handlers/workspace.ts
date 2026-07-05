@@ -502,13 +502,6 @@ export async function deleteWorkspace(args: {
   // 각 테이블의 base 키로 삭제(GSI 는 base 키를 항상 포함).
   await deleteAllByWorkspaceGsi({
     doc: args.doc,
-    tableName: args.tables.Comments,
-    indexName: "byWorkspaceAndUpdatedAt",
-    workspaceId: args.workspaceId,
-    keyOf: (i) => ({ id: i.id }),
-  });
-  await deleteAllByWorkspaceGsi({
-    doc: args.doc,
     tableName: args.tables.CustomIcons,
     indexName: "byWorkspaceAndCreatedAt",
     workspaceId: args.workspaceId,

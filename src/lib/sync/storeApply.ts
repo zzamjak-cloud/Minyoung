@@ -51,7 +51,6 @@ export function reconcileLCSchedulerRemoteSnapshot(args: {
   return { prunedPageIds: [] };
 }
 
-// 원격 Comment LWW 적용 reducer 는 ./storeApply/commentApply 로 분리됨.
 
 /**
  * 페이지 좀비 정리(prune). 전체 페이지 목록(`remotePageIds`)이 권위 있을 때만 호출해야 한다.

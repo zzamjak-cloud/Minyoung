@@ -126,39 +126,6 @@ export async function permanentlyDeleteDatabase(args: {
       }
       pageStartKey = r.LastEvaluatedKey as Record<string, unknown> | undefined;
     } while (pageStartKey);
-
-    if (args.tables.Comments && rowPageIds.size > 0) {
-      let commentStartKey: Record<string, unknown> | undefined;
-      do {
-        const r = await args.doc.send(
-          new QueryCommand({
-            TableName: args.tables.Comments,
-            IndexName: "byWorkspaceAndUpdatedAt",
-            KeyConditionExpression: "workspaceId = :w",
-            ExpressionAttributeValues: { ":w": args.workspaceId },
-            ProjectionExpression: "id, pageId",
-            Limit: 100,
-            ExclusiveStartKey: commentStartKey,
-          }),
-        );
-        const comments = (r.Items ?? []) as Array<{ id?: unknown; pageId?: unknown }>;
-        await Promise.all(
-          comments
-            .filter((item) => typeof item.id === "string" && typeof item.pageId === "string" && rowPageIds.has(item.pageId))
-            .map(async (item) => {
-              await args.doc.send(
-                new DeleteCommand({
-                  TableName: args.tables.Comments!,
-                  Key: { id: item.id },
-                  ConditionExpression: "workspaceId = :w",
-                  ExpressionAttributeValues: { ":w": args.workspaceId },
-                }),
-              );
-            }),
-        );
-        commentStartKey = r.LastEvaluatedKey as Record<string, unknown> | undefined;
-      } while (commentStartKey);
-    }
   }
   if (args.tables.DatabaseHistory) {
     const history = (await listDatabaseHistoryAsc({
@@ -227,45 +194,6 @@ export async function permanentlyDeletePage(args: {
   } catch (err) {
     console.error("[permanentlyDeletePage] AssetUsage cascade 실패 (무시)", err);
   }
-
-  // 연관 코멘트 정리 — 페이지 ID 매칭 row 만 제거
-  if (args.tables.Comments) {
-    let commentStartKey: Record<string, unknown> | undefined;
-    do {
-      const r = await args.doc.send(
-        new QueryCommand({
-          TableName: args.tables.Comments,
-          IndexName: "byWorkspaceAndUpdatedAt",
-          KeyConditionExpression: "workspaceId = :w",
-          ExpressionAttributeValues: { ":w": args.workspaceId },
-          ProjectionExpression: "id, pageId",
-          Limit: 100,
-          ExclusiveStartKey: commentStartKey,
-        }),
-      );
-      const comments = (r.Items ?? []) as Array<{ id?: unknown; pageId?: unknown }>;
-      await Promise.all(
-        comments
-          .filter(
-            (item) =>
-              typeof item.id === "string" &&
-              typeof item.pageId === "string" &&
-              item.pageId === args.id,
-          )
-          .map(async (item) => {
-            await args.doc.send(
-              new DeleteCommand({
-                TableName: args.tables.Comments!,
-                Key: { id: item.id },
-                ConditionExpression: "workspaceId = :w",
-                ExpressionAttributeValues: { ":w": args.workspaceId },
-              }),
-            );
-          }),
-      );
-      commentStartKey = r.LastEvaluatedKey as Record<string, unknown> | undefined;
-    } while (commentStartKey);
-  }
   return true;
 }
 
@@ -327,39 +255,6 @@ export async function emptyTrash(args: {
     } catch (err) {
       console.error("[emptyTrash] AssetUsage cascade 실패 (무시)", { pageId, err });
     }
-  }
-
-  if (args.tables.Comments && deletedPageIds.size > 0) {
-    let commentStartKey: Record<string, unknown> | undefined;
-    do {
-      const r = await args.doc.send(
-        new QueryCommand({
-          TableName: args.tables.Comments,
-          IndexName: "byWorkspaceAndUpdatedAt",
-          KeyConditionExpression: "workspaceId = :w",
-          ExpressionAttributeValues: { ":w": args.workspaceId },
-          ProjectionExpression: "id, pageId",
-          Limit: 100,
-          ExclusiveStartKey: commentStartKey,
-        }),
-      );
-      const comments = (r.Items ?? []) as Array<{ id?: unknown; pageId?: unknown }>;
-      await Promise.all(
-        comments
-          .filter((item) => typeof item.id === "string" && typeof item.pageId === "string" && deletedPageIds.has(item.pageId))
-          .map(async (item) => {
-            await args.doc.send(
-              new DeleteCommand({
-                TableName: args.tables.Comments!,
-                Key: { id: item.id },
-                ConditionExpression: "workspaceId = :w",
-                ExpressionAttributeValues: { ":w": args.workspaceId },
-              }),
-            );
-          }),
-      );
-      commentStartKey = r.LastEvaluatedKey as Record<string, unknown> | undefined;
-    } while (commentStartKey);
   }
 
   return deletedPageIds.size;

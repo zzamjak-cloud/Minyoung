@@ -60,16 +60,6 @@ export function createDuplicateActions(
           dbCells: orig.dbCells
             ? structuredClone(orig.dbCells)
             : orig.dbCells,
-          blockComments: orig.blockComments
-            ? {
-                messages: orig.blockComments.messages.map((m) => ({
-                  ...m,
-                  id: newId(),
-                  pageId: newPageId,
-                })),
-                threadVisitedAt: { ...orig.blockComments.threadVisitedAt },
-              }
-            : undefined,
           title: isRoot ? `${orig.title} (Copy)` : orig.title,
           parentId: isRoot
             ? orig.parentId
@@ -155,7 +145,6 @@ export function createDuplicateActions(
           id: newPageId,
           doc: structuredClone(orig.doc),
           dbCells: orig.dbCells ? structuredClone(orig.dbCells) : orig.dbCells,
-          blockComments: undefined,
           title: titleByOrigId.get(origId) ?? orig.title,
           workspaceId: targetWorkspaceId || undefined,
           parentId: isRoot ? null : (cloneMap.get(orig.parentId ?? "") ?? null),

@@ -136,7 +136,7 @@ function promoteDeleteEntryToPermanentTombstone(entry: OutboxEntry): void {
   const id = payload?.id;
   const workspaceId = payload?.workspaceId ?? entry.workspaceId;
   if (!id || !workspaceId) return;
-  // comment 등 tombstone 가드 미지원 엔티티는 tombstoneEntity 가 null 이라 건너뛴다.
+  // tombstone 가드 미지원 엔티티는 tombstoneEntity 가 null 이라 건너뛴다.
   const tombstoneEntity = SYNC_OP_REGISTRY[entry.op].tombstoneEntity;
   if (tombstoneEntity) {
     markPermanentlyDeletedEntity(tombstoneEntity, id, workspaceId);

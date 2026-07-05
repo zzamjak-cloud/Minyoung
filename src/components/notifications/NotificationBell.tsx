@@ -34,19 +34,12 @@ function afterStableLayout(fn: () => void): void {
   });
 }
 
-function focusNotificationTarget(
-  blockId: string,
-  onFocused: (blockStart: number) => void,
-  attempt = 0,
-): void {
+function focusNotificationTarget(blockId: string, attempt = 0): void {
   const blockStart = findBlockPositionById(blockId);
-  if (blockStart !== null && scrollToBlockId(blockId)) {
-    onFocused(blockStart);
-    return;
-  }
+  if (blockStart !== null && scrollToBlockId(blockId)) return;
   if (attempt >= NAV_MAX_ATTEMPTS) return;
   window.setTimeout(
-    () => focusNotificationTarget(blockId, onFocused, attempt + 1),
+    () => focusNotificationTarget(blockId, attempt + 1),
     NAV_RETRY_MS,
   );
 }
@@ -68,7 +61,6 @@ export function NotificationBell() {
   const open = useUiStore((s) => s.notificationCenterOpen);
   const toggleNotificationCenter = useUiStore((s) => s.toggleNotificationCenter);
   const closeNotificationCenter = useUiStore((s) => s.closeNotificationCenter);
-  const openCommentThread = useUiStore((s) => s.openCommentThread);
   const showToast = useUiStore((s) => s.showToast);
 
   const bellRef = useRef<HTMLButtonElement | null>(null);
@@ -152,19 +144,6 @@ export function NotificationBell() {
     usePageStore.getState().pages[n.pageId]?.title ||
     "페이지";
 
-  const commentBadgeAnchorFor = (blockId: string) => {
-    const escaped =
-      typeof CSS !== "undefined" && CSS.escape
-        ? CSS.escape(blockId)
-        : blockId.replace(/["\\]/g, "\\$&");
-    const el = document.querySelector<HTMLElement>(
-      `[data-qn-comment-badge-block-id="${escaped}"]`,
-    );
-    if (!el) return undefined;
-    const r = el.getBoundingClientRect();
-    return { top: r.top, left: r.left, right: r.right, bottom: r.bottom };
-  };
-
   const onClearAll = (): void => {
     const ids = items.map((n) => n.id);
     clearAllForMember(memberId);
@@ -200,23 +179,10 @@ export function NotificationBell() {
 
       setCurrentTabPage(n.pageId);
       setActivePage(n.pageId);
-      // 페이지 레벨 댓글(sentinel) — 블록 스크롤 없이 페이지로만 이동
+      // 페이지 레벨 알림(sentinel) — 블록 스크롤 없이 페이지로만 이동
       if (n.blockId === "__page__") return;
       afterStableLayout(() => {
-        focusNotificationTarget(n.blockId, (blockStart) => {
-          afterStableLayout(() => {
-            focusNotificationTarget(n.blockId, (stableBlockStart) => {
-              if (n.source !== "page") {
-                openCommentThread({
-                  pageId: n.pageId,
-                  blockId: n.blockId,
-                  blockStart: stableBlockStart || blockStart,
-                  anchorViewport: commentBadgeAnchorFor(n.blockId),
-                });
-              }
-            });
-          });
-        });
+        focusNotificationTarget(n.blockId);
       });
     })();
   };

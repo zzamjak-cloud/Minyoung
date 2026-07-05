@@ -70,7 +70,6 @@ export class QuicknoteSyncStack extends cdk.Stack {
   public readonly databaseTable: ModelTable;
   public readonly flowchartTable: ModelTable;
   public readonly imageAssetTable: ModelTable;
-  public readonly commentTable: ModelTable;
   public readonly imagesBucket: s3.Bucket;
   public readonly api: appsync.GraphqlApi;
   public readonly membersTable: dynamodb.Table;
@@ -102,7 +101,6 @@ export class QuicknoteSyncStack extends cdk.Stack {
     });
     this.databaseTable = createSyncTable(this, "DatabaseTable", "Database", { envPrefix });
     this.flowchartTable = createSyncTable(this, "FlowchartTable", "Flowchart", { envPrefix });
-    this.commentTable = createSyncTable(this, "CommentTable", "Comment", { envPrefix });
     this.imageAssetTable = createSyncTable(this, "ImageAssetTable", "ImageAsset", {
       ttlAttribute: "expireAt", // pending 1일 자동 삭제용
       envPrefix,
@@ -197,21 +195,6 @@ export class QuicknoteSyncStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
-    this.commentTable.table.addGlobalSecondaryIndex({
-      indexName: "byWorkspaceAndUpdatedAt",
-      partitionKey: { name: "workspaceId", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "updatedAt", type: dynamodb.AttributeType.STRING },
-      projectionType: dynamodb.ProjectionType.ALL,
-    });
-
-    this.commentTable.table.addGlobalSecondaryIndex({
-      indexName: "byBlockId",
-      partitionKey: { name: "blockId", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "createdAt", type: dynamodb.AttributeType.STRING },
-      projectionType: dynamodb.ProjectionType.INCLUDE,
-      nonKeyAttributes: ["authorMemberId", "workspaceId"],
-    });
-
     // image-gc 가 status(READY/PENDING) 별로 Query 하도록 GSI 추가(#2).
     // 기존 image-gc 는 ImageAsset 전체를 FilterExpression 으로 풀스캔했다.
     // PK=status, SK=createdAt → 상태별 + 생성시각 cutoff 조회를 인덱스만으로 처리.
@@ -227,7 +210,6 @@ export class QuicknoteSyncStack extends cdk.Stack {
     new cdk.CfnOutput(this, "PageTableName", { value: this.pageTable.table.tableName });
     new cdk.CfnOutput(this, "DatabaseTableName", { value: this.databaseTable.table.tableName });
     new cdk.CfnOutput(this, "FlowchartTableName", { value: this.flowchartTable.table.tableName });
-    new cdk.CfnOutput(this, "CommentTableName", { value: this.commentTable.table.tableName });
     new cdk.CfnOutput(this, "ImageAssetTableName", {
       value: this.imageAssetTable.table.tableName,
     });
@@ -887,7 +869,6 @@ export function response(ctx) {
           WORKSPACE_ACCESS_TABLE_NAME: this.workspaceAccessTable.tableName,
           PAGES_TABLE_NAME: this.pageTable.table.tableName,
           DATABASES_TABLE_NAME: this.databaseTable.table.tableName,
-          COMMENTS_TABLE_NAME: this.commentTable.table.tableName,
           SCHEDULES_TABLE_NAME: schedulesTable.tableName,
           IMAGE_ASSETS_TABLE_NAME: this.imageAssetTable.table.tableName,
           ASSET_USAGE_TABLE_NAME: assetUsageTable.tableName,
@@ -914,7 +895,6 @@ export function response(ctx) {
     this.workspaceAccessTable.grantReadData(templateAutomationRunnerFn);
     this.pageTable.table.grantReadWriteData(templateAutomationRunnerFn);
     this.databaseTable.table.grantReadData(templateAutomationRunnerFn);
-    this.commentTable.table.grantReadWriteData(templateAutomationRunnerFn);
     schedulesTable.grantReadWriteData(templateAutomationRunnerFn);
     this.imageAssetTable.table.grantReadWriteData(templateAutomationRunnerFn);
     assetUsageTable.grantReadWriteData(templateAutomationRunnerFn);
@@ -953,7 +933,6 @@ export function response(ctx) {
         DATABASES_TABLE_NAME: this.databaseTable.table.tableName,
         FLOWCHARTS_TABLE_NAME: this.flowchartTable.table.tableName,
         FLOWCHART_HISTORY_TABLE_NAME: flowchartHistoryTable.tableName,
-        COMMENTS_TABLE_NAME: this.commentTable.table.tableName,
         NOTIFICATIONS_TABLE_NAME: notificationTable.tableName,
         ORGANIZATIONS_TABLE_NAME: this.organizationsTable.tableName,
         MEMBER_ORGANIZATIONS_TABLE_NAME: this.memberOrganizationsTable.tableName,
@@ -990,7 +969,6 @@ export function response(ctx) {
     this.databaseTable.table.grantReadWriteData(v5ResolversFn);
     this.flowchartTable.table.grantReadWriteData(v5ResolversFn);
     flowchartHistoryTable.grantReadWriteData(v5ResolversFn);
-    this.commentTable.table.grantReadWriteData(v5ResolversFn);
     notificationTable.grantReadWriteData(v5ResolversFn);
     this.organizationsTable.grantReadWriteData(v5ResolversFn);
     this.memberOrganizationsTable.grantReadWriteData(v5ResolversFn);
@@ -1172,18 +1150,6 @@ export function response(ctx) {
     });
     (softDeletePageResolver.node.defaultChild as appsync.CfnResolver).overrideLogicalId("SyncApiMutationsoftDeletePage005AAFF7");
 
-    v5Ds.createResolver("QuerylistComments", {
-      typeName: "Query",
-      fieldName: "listComments",
-    });
-    v5Ds.createResolver("MutationupsertComment", {
-      typeName: "Mutation",
-      fieldName: "upsertComment",
-    });
-    v5Ds.createResolver("MutationsoftDeleteComment", {
-      typeName: "Mutation",
-      fieldName: "softDeleteComment",
-    });
     v5Ds.createResolver("QuerylistMyNotifications", {
       typeName: "Query",
       fieldName: "listMyNotifications",
@@ -1196,11 +1162,6 @@ export function response(ctx) {
       typeName: "Mutation",
       fieldName: "deleteMyNotification",
     });
-    v5Ds.createResolver("SubscriptiononCommentChanged", {
-      typeName: "Subscription",
-      fieldName: "onCommentChanged",
-    });
-
     v5Ds.createResolver("MutationrestorePage", {
       typeName: "Mutation",
       fieldName: "restorePage",

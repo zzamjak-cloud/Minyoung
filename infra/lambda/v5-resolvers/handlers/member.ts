@@ -34,7 +34,6 @@ export type Tables = {
   Flowcharts?: string;
   /** 플로우차트 버전 히스토리 테이블 */
   FlowchartHistory?: string;
-  Comments?: string;
   Notifications?: string;
   /** 조직(실) 테이블 */
   Organizations?: string;

@@ -7,12 +7,10 @@ import {
   type GqlDatabase,
   type GqlProject,
 } from "./graphql/operations";
-import { ON_COMMENT_CHANGED, type GqlComment } from "./queries/comment";
 import { ON_WORKSPACE_CHANGED } from "./queries/workspace";
 import { ensureFreshTokensForAppSync } from "../auth/apiTokens";
 import { getSyncEngine } from "./runtime";
 import {
-  GqlCommentSchema,
   GqlDatabaseSchema,
   GqlPageMetaSchema,
   GqlProjectSchema,
@@ -27,7 +25,6 @@ import {
 export type SubscribeHandlers = {
   onPage: (item: GqlPageMeta) => void;
   onDatabase: (item: GqlDatabase) => void;
-  onComment: (item: GqlComment) => void;
   onProject?: (item: GqlProject) => void;
   /** 워크스페이스 접근권한 변경 신호(트리거). 제공 시에만 구독한다. */
   onWorkspace?: (workspaceId: string) => void;
@@ -91,7 +88,7 @@ export function startSubscriptions(
     }, delay);
   };
 
-  const logSubError = (channel: "page" | "database" | "comment" | "project" | "workspace", error: unknown) => {
+  const logSubError = (channel: "page" | "database" | "project" | "workspace", error: unknown) => {
     const msg = getErrorMessage(error);
     const key = `sub:${channel}`;
     const prev = lastErrorByChannel.get(key);
@@ -119,7 +116,7 @@ export function startSubscriptions(
     // 새 동기화 엔티티 구독 추가 시 이 배열에 한 항목만 더하면 된다.
     // enabled=false 인 채널은 건너뛴다(해당 핸들러 미제공 시).
     const channels: Array<{
-      key: "page" | "database" | "comment" | "project" | "workspace";
+      key: "page" | "database" | "project" | "workspace";
       query: string;
       enabled: boolean;
       onNext: (data: Record<string, unknown>) => void;
@@ -140,15 +137,6 @@ export function startSubscriptions(
         onNext: (data) => {
           const parsed = parseGqlOne(data.onDatabaseChanged, GqlDatabaseSchema, "onDatabaseChanged");
           if (parsed) handlers.onDatabase(parsed as unknown as GqlDatabase);
-        },
-      },
-      {
-        key: "comment",
-        query: ON_COMMENT_CHANGED,
-        enabled: true,
-        onNext: (data) => {
-          const parsed = parseGqlOne(data.onCommentChanged, GqlCommentSchema, "onCommentChanged");
-          if (parsed) handlers.onComment(parsed as unknown as GqlComment);
         },
       },
       {
@@ -173,7 +161,7 @@ export function startSubscriptions(
     ];
 
     // 한 채널의 구독 생성 실패가 나머지 채널 구독을 막지 않도록 격리한다.
-    // 과거에는 첫 채널(page) throw 시 return 으로 database/comment 까지
+    // 과거에는 첫 채널(page) throw 시 return 으로 database 까지
     // 미구독 상태가 되어 전체 재연결에만 의존했다. 이제 실패 채널만 건너뛰고
     // 성공 채널은 구독을 유지하며, 전체 재연결(scheduleRetry)로 실패분을 복구한다.
     let refreshedTokensThisPass = false;

@@ -36,16 +36,9 @@ import {
 } from "../../lib/notionImport/columnInference";
 import { parseNotionRowProperties } from "../../lib/notionImport/rowPropertyMeta";
 import type { NotionImportSource } from "../../lib/notionImport/importSource";
-import { useBlockCommentStore } from "../../store/blockCommentStore";
 import { useWorkspaceStore } from "../../store/workspaceStore";
 import { useMemberStore } from "../../store/memberStore";
 import { refreshWorkspaceMeta } from "../../lib/sync/workspaceMetaCache";
-import {
-  extractNotionInlineComments,
-  ensureCommentAnchorBlockIds,
-  resolveImportedCommentAuthorMemberId,
-  resolveNotionCommentBlockId,
-} from "../../lib/notionImport/commentImport";
 import {
   splitPersonTokens,
   resolveImportedPersonMemberId,
@@ -163,9 +156,7 @@ export function NotionCsvFolderSection({ compact = false, sharedSource = null }:
   const [status, setStatus] = useState<SectionStatus>({ kind: "idle" });
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   const isImporting = status.kind === "importing";
-  const addComment = useBlockCommentStore((s) => s.addMessage);
   const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
-  const me = useMemberStore((s) => s.me);
 
   const updateProgress = (update: Partial<ImportProgress>) => {
     setProgress((prev) => prev ? { ...prev, ...update } : null);
@@ -779,33 +770,7 @@ export function NotionCsvFolderSection({ compact = false, sharedSource = null }:
               return null;
             },
           });
-          const docWithAnchorIds = ensureCommentAnchorBlockIds(doc);
-          updateDoc(targetPageId, docWithAnchorIds);
-          notionImportDebug(`[IMPORT-DBG]   [4/5] extractNotionInlineComments${memMB()}`);
-          const comments = extractNotionInlineComments(parsedDoc ?? html);
-          comments.forEach((comment) => {
-            const mappedBlockId =
-              resolveNotionCommentBlockId(docWithAnchorIds as { content?: Array<unknown> }, comment.blockText)
-              ?? "__page__";
-            const authorMemberId = resolveImportedCommentAuthorMemberId(
-              comment.authorName,
-              useMemberStore.getState().members,
-              me?.memberId ?? "notion-import",
-            );
-            const authorPrefix = authorMemberId === (me?.memberId ?? "notion-import")
-              ? `${comment.authorName ? `${comment.authorName}: ` : ""}`
-              : "";
-            addComment({
-              workspaceId: currentWorkspaceId,
-              pageId: targetPageId,
-              blockId: mappedBlockId,
-              authorMemberId,
-              bodyText: `${authorPrefix}${comment.bodyText}`.trim(),
-              mentionMemberIds: [],
-              parentId: null,
-            });
-          });
-
+          updateDoc(targetPageId, doc);
           notionImportDebug(`[IMPORT-DBG]   [5/5] extractNotionPageIcon${memMB()}`);
           const iconInfo = extractNotionPageIcon(parsedDoc ?? html);
           if (iconInfo?.imagePath) {
@@ -1155,46 +1120,20 @@ export function NotionCsvFolderSection({ compact = false, sharedSource = null }:
                 return dbId;
               },
             });
-            const docWithAnchorIds = ensureCommentAnchorBlockIds(doc) as JSONContent;
+            const docWithContent = doc as JSONContent;
             // collection-content 감지/연결에 실패해 인라인 블록이 안 생긴 소속 DB 는 본문 끝에 inline 블록으로 보강.
             // → "DB·페이지는 생겼는데 인라인 블록이 누락" 케이스를 구조적 매핑으로 강제 연결한다.
             const unlinkedDbIds = wrapperDbIds.filter((id) => !usedDbIds.has(id));
             if (unlinkedDbIds.length > 0) {
-              const content = Array.isArray(docWithAnchorIds.content) ? docWithAnchorIds.content : [];
+              const content = Array.isArray(docWithContent.content) ? docWithContent.content : [];
               for (const id of unlinkedDbIds) {
                 content.push({ type: "databaseBlock", attrs: { databaseId: id, layout: "inline", view: "table" } });
                 usedDbIds.add(id);
               }
-              docWithAnchorIds.content = content;
+              docWithContent.content = content;
               notionImportDebug(`[CSV가져오기] 래퍼 "${titleFromImportedHtmlPath(wrapperPath)}" 미연결 DB ${unlinkedDbIds.length}개 본문 끝에 인라인 보강`);
             }
-            updateDoc(targetPageId, docWithAnchorIds);
-
-            const comments = extractNotionInlineComments(parsedDoc ?? html);
-            comments.forEach((comment) => {
-              const mappedBlockId =
-                resolveNotionCommentBlockId(docWithAnchorIds as { content?: Array<unknown> }, comment.blockText)
-                ?? "__page__";
-              const authorMemberId = resolveImportedCommentAuthorMemberId(
-                comment.authorName,
-                useMemberStore.getState().members,
-                me?.memberId ?? "notion-import",
-              );
-              const authorPrefix = authorMemberId === (me?.memberId ?? "notion-import")
-                ? `${comment.authorName ? `${comment.authorName}: ` : ""}`
-                : "";
-              addComment({
-                workspaceId: currentWorkspaceId,
-                pageId: targetPageId,
-                blockId: mappedBlockId,
-                authorMemberId,
-                // 서버 스푸핑 방지로 작성자가 호출자로 강제되므로 원본 작성자를 별도 전송(유효 구성원 시 보존)
-                importedAuthorMemberId: authorMemberId,
-                bodyText: `${authorPrefix}${comment.bodyText}`.trim(),
-                mentionMemberIds: [],
-                parentId: null,
-              });
-            });
+            updateDoc(targetPageId, docWithContent);
 
             const iconInfo = extractNotionPageIcon(parsedDoc ?? html);
             if (iconInfo?.imagePath) {

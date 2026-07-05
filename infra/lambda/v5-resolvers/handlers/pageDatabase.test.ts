@@ -72,7 +72,7 @@ describe("page/database handlers", () => {
 
   it("upsertPage: edit 권한이면 성공", async () => {
     const doc = mockDoc(
-      { Item: undefined }, // blockComments 보존용 Get — 기존 페이지 없음
+      { Item: undefined }, // 기존 페이지 보존용 Get — 기존 페이지 없음
       { Items: [] }, // memberTeams
       { Items: [{ subjectType: "member", subjectId: "m1", level: "edit" }] }, // workspaceAccess
       {}, // put
@@ -120,7 +120,7 @@ describe("page/database handlers", () => {
 
   it("upsertPage: order 가 null 이면 createdAt 기반 숫자 문자열로 보정한다(byDatabaseAndOrder GSI 보호)", async () => {
     const doc = mockDoc(
-      { Item: undefined }, // blockComments 보존용 Get
+      { Item: undefined }, // 기존 페이지 보존용 Get
       { Items: [] }, // memberTeams
       { Items: [{ subjectType: "member", subjectId: "m1", level: "edit" }] }, // workspaceAccess
       {}, // put
@@ -219,7 +219,7 @@ describe("page/database handlers", () => {
 
   it("upsertPage: databaseId 가 null 이면 속성을 제거해 저장한다(byDatabaseAndOrder GSI NULL 키 거부 방지)", async () => {
     const doc = mockDoc(
-      { Item: undefined }, // blockComments 보존용 Get
+      { Item: undefined }, // 기존 페이지 보존용 Get
       { Items: [] }, // memberTeams
       { Items: [{ subjectType: "member", subjectId: "m1", level: "edit" }] }, // workspaceAccess
       {}, // put
@@ -297,7 +297,7 @@ describe("page/database handlers", () => {
 
   it("upsertPage: 작업 DB row 의 scope 셀을 dbScope* 비정규화 키로 저장한다", async () => {
     const doc = mockDoc(
-      { Item: undefined }, // blockComments Get
+      { Item: undefined }, // 기존 페이지 Get
       { Items: [] }, // memberTeams
       { Items: [{ subjectType: "member", subjectId: "m1", level: "edit" }] }, // workspaceAccess
       {}, // put
@@ -446,72 +446,6 @@ describe("page/database handlers", () => {
     expect(indexQuery.ExpressionAttributeValues[":pk"]).toBe(
       "lc-scheduler-db:lc-scheduler-global#member-x",
     );
-  });
-
-  it("upsertPage: blockComments 가 객체여도 문자열로 정규화되어 성공(AppSync AWSJSON 파싱 경로)", async () => {
-    const doc = mockDoc(
-      { Item: undefined },
-      { Items: [] },
-      { Items: [{ subjectType: "member", subjectId: "m1", level: "edit" }] },
-      {}, // put
-    );
-    const input: Record<string, unknown> = {
-      id: "p1",
-      workspaceId: "ws-1",
-      updatedAt: "now",
-      createdAt: "now",
-      title: "T",
-      doc: "{}",
-      order: "a",
-      createdByMemberId: "m1",
-      blockComments: { messages: [], threadVisitedAt: {} },
-    };
-    const result = await upsertPage({ doc, tables, caller, input });
-    expect(result.id).toBe("p1");
-    expect(typeof result.blockComments).toBe("string");
-    expect(JSON.parse(result.blockComments as string)).toEqual({ messages: [], threadVisitedAt: {} });
-  });
-
-  it("upsertPage: blockComments 키가 없으면 Dynamo 기존 값을 이어 붙인다", async () => {
-    const existingBc = JSON.stringify({
-      messages: [
-        {
-          id: "c1",
-          pageId: "p1",
-          blockId: "b1",
-          authorMemberId: "m2",
-          bodyText: "유지",
-          mentionMemberIds: [],
-          parentId: null,
-          createdAt: 1,
-        },
-      ],
-      threadVisitedAt: {},
-    });
-    const doc = mockDoc(
-      { Item: { id: "p1", blockComments: existingBc } },
-      { Items: [] },
-      { Items: [{ subjectType: "member", subjectId: "m1", level: "edit" }] },
-      {},
-    );
-    const result = await upsertPage({
-      doc,
-      tables,
-      caller,
-      input: {
-        id: "p1",
-        workspaceId: "ws-1",
-        updatedAt: "now",
-        createdAt: "now",
-        title: "T",
-        doc: "{}",
-        order: "a",
-        createdByMemberId: "m1",
-      },
-    });
-    expect(typeof result.blockComments).toBe("string");
-    expect(JSON.parse(result.blockComments as string).messages).toHaveLength(1);
-    expect(JSON.parse(result.blockComments as string).messages[0].bodyText).toBe("유지");
   });
 
   it("upsertPage: 본문 로드 전 placeholder doc 이 기존 본문을 덮어쓰지 않는다", async () => {
@@ -829,7 +763,7 @@ describe("page/database handlers", () => {
 
   it("upsertPage: coverImage 가 너무 크면 거부", async () => {
     const doc = mockDoc(
-      { Item: undefined }, // blockComments 키 없을 때 선행 Get
+      { Item: undefined }, // 기존 페이지 선행 Get
       { Items: [] },
       { Items: [{ subjectType: "member", subjectId: "m1", level: "edit" }] },
     );

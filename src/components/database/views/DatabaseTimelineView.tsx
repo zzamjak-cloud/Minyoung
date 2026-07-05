@@ -75,9 +75,9 @@ type Props = {
   visibleRowLimit?: number;
 };
 
-const LS_ZOOM_KEY = "quicknote.timeline.zoom";
-const LS_GRANULARITY_KEY = "quicknote.timeline.granularity";
-const LS_MONTH_KEY = "quicknote.timeline.month";
+const LS_ZOOM_KEY = "minyoung.timeline.zoom";
+const LS_GRANULARITY_KEY = "minyoung.timeline.granularity";
+const LS_MONTH_KEY = "minyoung.timeline.month";
 
 let lastTimelineScrollerClientWidth = 0;
 

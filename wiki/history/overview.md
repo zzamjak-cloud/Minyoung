@@ -65,7 +65,7 @@ upsert 마다 1버전이 아니라 **편집 세션 1건 = 버전 1건**(`page.se
 `createHistoryPatchEngine<TEntry, TSnapshot>(options)`(`historyPatchEngine.ts:167`) 가 patch/anchor→스냅샷 재구성 + localStorage 캐시(`readCacheMap`/`writeCacheMap`)를 제공한다.
 
 - **페이지**: `pageHistoryPatch.ts:5` 가 `cacheKey` 만 주입해 인스턴스화. `buildPageHistorySnapshotMap`/`getPreviousPageHistorySnapshot` 은 이제 엔진 위임 래퍼.
-- **DB**: `databaseHistoryPatch.ts:17` 가 `cacheKey: "quicknote.databaseHistoryPreview.v1"` 로 동일 인스턴스화.
+- **DB**: `databaseHistoryPatch.ts:17` 가 `cacheKey: "minyoung.databaseHistoryPreview.v1"` 로 동일 인스턴스화.
 - 이전엔 두 파일이 각자 patch 합성·캐시 로직을 들고 있었다(각각 ~180줄). 이제 엔진 1개.
 
 > **batched-cache 최적화 공유**: 성능 절(#1)의 "빌드당 read 1회 / write 1회" 캐시 최적화는 원래 페이지에만 있었는데, 엔진 통합으로 **DB patch 엔진도 같은 최적화를 자동으로 받는다.** 캐시 thrashing 회귀는 이제 엔진 한 곳에서만 관리한다.
@@ -84,11 +84,11 @@ Notion 식 수동 **"현재 버전 저장"** 체크포인트는 **구현됨**(20
 - **기록**: `upsertPage`/`upsertDatabase` 시 서버가 세션 머지 기록(위 절). 신규 엔트리는 전체 `snapshot` 보유.
   - 페이지 삭제(`softDeletePage`)도 `page.delete` 히스토리를 남긴다(아래 주의 참고).
 - **저장 테이블** (`infra/lib/sync-stack.ts`)
-  - `quicknote-page-history`: PK `pageId`, SK `historyId`
+  - `minyoung-page-history`: PK `pageId`, SK `historyId`
     - GSI `byWorkspaceAndCreatedAt`
     - GSI `byDatabaseAndCreatedAt` (PK `databaseId`) — **DB 소속 row 페이지 변경을 단일 쿼리로 모으기 위함**. `databaseId` 보유 항목(=row 페이지)만 색인.
-  - `quicknote-database-history`: PK `databaseId`, SK `historyId` (+ `byWorkspaceAndCreatedAt`, `byOwnerAndCreatedAt`)
-  - 삭제된 DB(휴지통): `quicknote-database` 테이블 GSI `byWorkspaceAndDeletedAt`
+  - `minyoung-database-history`: PK `databaseId`, SK `historyId` (+ `byWorkspaceAndCreatedAt`, `byOwnerAndCreatedAt`)
+  - 삭제된 DB(휴지통): `minyoung-database` 테이블 GSI `byWorkspaceAndDeletedAt`
 - **서버 kind**: `page.create/update/delete/session/checkpoint/restoreVersion`,
   `database.create/update/delete/session/checkpoint/restoreVersion`
   (`checkpoint` = 수동 "현재 버전 저장", `restoreVersion` = 복원 기록 — 아래 절들 참고)

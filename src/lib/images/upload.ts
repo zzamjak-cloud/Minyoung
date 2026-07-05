@@ -1,5 +1,5 @@
 // v4 이미지 업로드: PreSignedURL 발급 → S3 PUT → confirmImage.
-// 결과는 `quicknote-image://{imageId}` 가상 스킴 ref 로 반환되어 doc.attrs.src 에 저장된다.
+// 결과는 `minyoung-image://{imageId}` 가상 스킴 ref 로 반환되어 doc.attrs.src 에 저장된다.
 
 import { appsyncClient } from "../sync/graphql/client";
 import {

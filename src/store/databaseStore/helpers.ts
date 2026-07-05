@@ -327,7 +327,7 @@ export function makeReferenceCellValue(
   sourceTitle: string,
 ): Record<string, CellValue> {
   const out: Record<string, CellValue> = {};
-  const refValue = `quicknote://database/${sourceDbId}`;
+  const refValue = `minyoung://database/${sourceDbId}`;
   const urlCol = cols.find((c) => c.type === "url");
   const textCol = cols.find((c) => c.type === "text");
   const fallbackCol = cols.find((c) => c.type !== "title");

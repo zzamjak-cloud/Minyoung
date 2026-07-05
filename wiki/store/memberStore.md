@@ -1,7 +1,8 @@
 # memberStore
 
 ## 역할
-현재 워크스페이스의 멤버 목록과 로그인한 본인 정보, 멘션 후보 캐시를 관리하는 스토어.
+로그인한 본인 정보와 멘션 후보 캐시를 관리하는 스토어.
+2-5 이후 멤버 관리는 제거 대상이며, `members` 목록 메서드는 기존 멘션/표시 소비처 호환용으로만 유지한다.
 
 ## 위치
 `src/store/memberStore.ts`
@@ -11,13 +12,13 @@
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | `me` | `Member \| null` | 현재 로그인한 멤버 정보 |
-| `members` | `Member[]` | 워크스페이스 전체 멤버 목록 |
+| `members` | `Member[]` | 호환용 멤버 캐시. 일반 실행에서는 본인 1명 |
 | `cacheWorkspaceId` | `string \| null` | 캐시된 멤버들이 속한 워크스페이스 ID |
 | `lastFetchedAt` | `number \| null` | 마지막 페치 시각 (epoch ms) |
 | `mentionCandidates` | `MemberMini[]` | 멘션 검색 결과 후보 |
 | `mentionQuery` | `string` | 현재 멘션 검색 쿼리 |
 
-**`Member`** 필드: `memberId`, `email`, `name`, `workspaceRole: MemberRole`, `status: MemberStatus`
+**`Member`** 필드: `memberId`, `email`, `name`, `jobRole`, `personalWorkspaceId`, 선택적 표시 필드(`workspaceRole`, `status`, `jobTitle`, `department`, `team` 등)
 
 **`MemberRole`**: `"developer"` \| `"owner"` \| `"leader"` \| `"manager"` \| `"member"`
 
@@ -30,7 +31,7 @@
 | 액션명 | 파라미터 | 설명 |
 |--------|---------|------|
 | `setMe` | `member` | 본인 정보 설정 |
-| `setMembers` | `members, workspaceId?` | 전체 멤버 목록 교체 및 `lastFetchedAt` 갱신 |
+| `setMembers` | `members, workspaceId?` | 호환용 멤버 목록 교체 및 `lastFetchedAt` 갱신 |
 | `upsertMember` | `member` | 특정 멤버 추가 또는 갱신. `me`도 동기 갱신 |
 | `removeMemberFromCache` | `memberId` | 캐시에서 멤버 제거 (멘션 후보 포함) |
 | `setMentionCandidates` | `query, candidates` | 멘션 검색 결과 설정 |
@@ -39,7 +40,7 @@
 
 ## Persist
 
-- localStorage 키: `quicknote.members.cache.v1`
+- localStorage 키: `minyoung.members.cache.v1`
 - storage: `zustandStorage`
 - 저장 필드: `me`, `members`, `cacheWorkspaceId`, `lastFetchedAt`
 - `mentionCandidates`, `mentionQuery`는 저장하지 않음
@@ -48,14 +49,13 @@
 ## 의존 관계
 
 - `src/lib/storage/index.ts` — `zustandStorage`
-- `workspaceStore` — 워크스페이스 전환 시 `clear()` 후 재페치 필요
+- `workspaceStore` — 개인 워크스페이스 부트스트랩 시 `setMe()` 호출
 
 ## 사용처 (주요 컴포넌트)
 
-- `src/Bootstrap.tsx` — 로그인 후 멤버 목록 페치 및 `setMembers`, `setMe` 호출
+- `src/Bootstrap.tsx` — 로그인 후 본인 프로필 페치 및 `setMe` 호출
 - `src/lib/tiptapExtensions/mention/` — 멘션 후보 검색 및 표시
 - `src/store/pageStore/helpers.ts` — `getCurrentMemberId()`, `getCreatedByMemberId()` 에서 참조
-- `src/lib/sync/storeApply.ts` — 원격 멤버 변경 이벤트 적용
 
 ## CRITICAL 회귀 주의 — 멘션/검색은 캐시 전용
 

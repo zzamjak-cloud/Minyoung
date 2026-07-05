@@ -8,7 +8,7 @@ import {
   pruneLocalDeleteGuardsOnStartup,
 } from "../../lib/sync/localDeleteGuards";
 
-const GUARDS_KEY = "quicknote.sync.localDeleteGuards.v1";
+const GUARDS_KEY = "minyoung.sync.localDeleteGuards.v1";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function setGuardsRaw(data: Record<string, unknown>): void {

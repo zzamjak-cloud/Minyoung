@@ -52,7 +52,7 @@ export const useDatabaseInlineUiPrefsStore = create<DatabaseInlineUiPrefsStore>(
       clear: () => set({ inlineControlsCollapsedByKey: {} }),
     }),
     {
-      name: "quicknote.database-inline-ui-prefs.v1",
+      name: "minyoung.database-inline-ui-prefs.v1",
       storage: createJSONStorage(() => zustandStorage),
     },
   ),

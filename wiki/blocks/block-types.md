@@ -15,7 +15,7 @@ TipTap 확장 기반 블록 타입 설명. 각 항목은 `src/lib/tiptapExtensio
 
 | 속성 | 기본값 | 설명 |
 |------|--------|------|
-| `src` | null | `quicknote-image://` 가상 스킴 또는 외부 URL. 브라우저 직접 로드 차단을 위해 `data-qn-src` 로 renderHTML |
+| `src` | null | `minyoung-image://` 가상 스킴 또는 외부 URL. 브라우저 직접 로드 차단을 위해 `data-qn-src` 로 renderHTML |
 | `alt` | null | 대체 텍스트 |
 | `width` | null | 픽셀 단위 정수 |
 | `height` | null | 픽셀 단위 정수 |
@@ -24,9 +24,9 @@ TipTap 확장 기반 블록 타입 설명. 각 항목은 `src/lib/tiptapExtensio
 | `caption` | null | 캡션 텍스트 |
 | `captionAlign` | null | 캡션 정렬 (`CaptionAlign`) |
 
-**렌더 방식**: `ReactNodeViewRenderer(ImageView)`. `useImageUrl` 훅으로 `quicknote-image://` 스킴을 presigned URL로 비동기 변환. wrapper 클래스 `qn-image-shell`.
+**렌더 방식**: `ReactNodeViewRenderer(ImageView)`. `useImageUrl` 훅으로 `minyoung-image://` 스킴을 presigned URL로 비동기 변환. wrapper 클래스 `qn-image-shell`.
 
-**주의**: `src`가 `quicknote-image://` 또는 `quicknote-file://`로 시작하면 renderHTML에서 `src=""`로 출력하고 `data-qn-src`에 원본을 보존한다.
+**주의**: `src`가 `minyoung-image://` 또는 `minyoung-file://`로 시작하면 renderHTML에서 `src=""`로 출력하고 `data-qn-src`에 원본을 보존한다.
 
 ---
 
@@ -41,7 +41,7 @@ TipTap 확장 기반 블록 타입 설명. 각 항목은 `src/lib/tiptapExtensio
 | 속성 | 설명 |
 |------|------|
 | `id` | 내부 고유 ID |
-| `src` | `quicknote-file://` 가상 스킴 또는 외부 URL |
+| `src` | `minyoung-file://` 가상 스킴 또는 외부 URL |
 | `name` | 파일명 |
 | `size` | 바이트 단위 크기 |
 | `mime` / `mimeType` / `contentType` | MIME 타입 (3가지 속성 중복 지원) |

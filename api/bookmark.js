@@ -208,7 +208,7 @@ async function safeFetch(initialUrl, signal) {
       redirect: "manual",
       headers: {
         "user-agent":
-          "Mozilla/5.0 (compatible; QuickNoteBookmarkBot/1.0; +https://quicknote.app)",
+          "Mozilla/5.0 (compatible; MinyoungBookmarkBot/1.0; +https://minyoung.vercel.app)",
         accept: "text/html,application/xhtml+xml",
       },
     });

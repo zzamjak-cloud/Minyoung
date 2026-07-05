@@ -27,7 +27,7 @@ export function LoginScreen() {
         </div>
         <div className="space-y-1">
           <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-            QuickNote 로그인
+            Minyoung 로그인
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             허용된 Google 계정으로 로그인하세요.

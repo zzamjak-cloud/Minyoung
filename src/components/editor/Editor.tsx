@@ -262,7 +262,7 @@ function EditorInner({
   const editorTailSpacerPxRef = useRef(editorTailSpacerPx);
 
   const clearColumnDropUi = useCallback(() => {
-    document.body.classList.remove("quicknote-column-drop");
+    document.body.classList.remove("minyoung-column-drop");
   }, []);
   const clearBlockDropIndicator = useCallback(() => {
     setBlockDropIndicator(null);
@@ -660,9 +660,9 @@ function EditorInner({
       if (!editor?.isFocused) return;
       setImageOpen(true);
     };
-    window.addEventListener("quicknote:open-image-upload", open);
+    window.addEventListener("minyoung:open-image-upload", open);
     return () =>
-      window.removeEventListener("quicknote:open-image-upload", open);
+      window.removeEventListener("minyoung:open-image-upload", open);
   }, [editor]);
 
   // 서버 이미지 검색 모달 트리거 (/이미지검색)
@@ -673,9 +673,9 @@ function EditorInner({
       if (!editor?.isFocused) return;
       setServerImageOpen(true);
     };
-    window.addEventListener("quicknote:open-server-image-picker", open);
+    window.addEventListener("minyoung:open-server-image-picker", open);
     return () =>
-      window.removeEventListener("quicknote:open-server-image-picker", open);
+      window.removeEventListener("minyoung:open-server-image-picker", open);
   }, [editor]);
 
   // 서버 동영상 검색 모달 트리거 (/동영상검색)
@@ -684,9 +684,9 @@ function EditorInner({
       if (!editor?.isFocused) return;
       setServerVideoOpen(true);
     };
-    window.addEventListener("quicknote:open-server-video-picker", open);
+    window.addEventListener("minyoung:open-server-video-picker", open);
     return () =>
-      window.removeEventListener("quicknote:open-server-video-picker", open);
+      window.removeEventListener("minyoung:open-server-video-picker", open);
   }, [editor]);
 
   // 이모지 피커 모달 트리거
@@ -760,8 +760,8 @@ function EditorInner({
       setEmojiAnchor(getEmojiAnchor(insertPos));
       setEmojiPickerOpen(true);
     };
-    window.addEventListener("quicknote:open-emoji-picker", open);
-    return () => window.removeEventListener("quicknote:open-emoji-picker", open);
+    window.addEventListener("minyoung:open-emoji-picker", open);
+    return () => window.removeEventListener("minyoung:open-emoji-picker", open);
   }, [editor, getEmojiAnchor]);
 
   useEffect(() => {
@@ -793,9 +793,9 @@ function EditorInner({
       });
       setEmojiPickerOpen(true);
     };
-    window.addEventListener("quicknote:open-callout-icon-picker", open);
+    window.addEventListener("minyoung:open-callout-icon-picker", open);
     return () =>
-      window.removeEventListener("quicknote:open-callout-icon-picker", open);
+      window.removeEventListener("minyoung:open-callout-icon-picker", open);
   }, [editor]);
 
   useEffect(() => {

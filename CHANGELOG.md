@@ -74,7 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- QuickNote Serena 프로젝트 설정과 repo-local memory를 초기화하고 `serena memories check` 검증 경로를 추가.
+- Minyoung Serena 프로젝트 설정과 repo-local memory를 초기화하고 `serena memories check` 검증 경로를 추가.
 
 ## [5.4.20] - 2026-05-30
 
@@ -129,7 +129,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **LC 스케줄러/설정 UX 정렬**: 연/월/주 탭, MM 대시보드 탭, 커스텀 드롭다운 선택 UI와 리스트 편집 팝업 레이아웃을 통일.
-- **조직/팀/프로젝트 관리 일원화**: LC 스케줄러 설정의 프로젝트 탭을 제거하고 QuickNote 설정 탭으로 이동해 관리 포인트를 단일화.
+- **조직/팀/프로젝트 관리 일원화**: LC 스케줄러 설정의 프로젝트 탭을 제거하고 Minyoung 설정 탭으로 이동해 관리 포인트를 단일화.
 - **리더/구성원 편집 개선**: 조직·팀·프로젝트 편집 팝업을 1컬럼 구조로 통일하고, 검색 제안/리더 지정/보관함 플로우와 표시 정보를 일관되게 보정.
 - **동기화/저장 안정성 보강**: 조직/팀 리더 저장, 보관함 이동, 스케줄러 필터/선택 동작과 관련된 저장 경로 및 캐시 처리 보완.
 
@@ -165,14 +165,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **LC 스케줄러 드래그 피드백**: 특이사항 카드 생성 마퀴 색상을 주황색으로 보정하고, 연차/일정과 구분되도록 정리.
 - **LC 스케줄러 선택 드롭다운**: 조직/팀 동명이인 숨김 규칙에서 선택 상태와 표시값이 어긋나던 문제를 보정.
-- **LC 스케줄러 삭제 UX**: 시스템 confirm 대신 QuickNote 내부 중앙 확인 팝업으로 통일.
+- **LC 스케줄러 삭제 UX**: 시스템 confirm 대신 Minyoung 내부 중앙 확인 팝업으로 통일.
 - **항목 페이지 기본 속성**: 새 카드 기본 활성화에서 `프로젝트` 속성을 제외하고 기존 기본 프리셋에도 동기화 반영.
 
 ## [5.4.11] - 2026-05-15
 
 ### Fixed
 
-- **TopBar 경로**: Lucide 페이지 아이콘이 `quicknote-lucide:…` 문자열로 보이던 문제를 `PageIconDisplay`로 수정.
+- **TopBar 경로**: Lucide 페이지 아이콘이 `minyoung-lucide:…` 문자열로 보이던 문제를 `PageIconDisplay`로 수정.
 - **DB 항목 페이지**: 속성 패널·헤더 영역 최대 너비를 본문 에디터 컬럼(`max-w-[968px]` / `max-w-[1256px]` 등)과 동일하게 맞춤.
 - **DB 항목 페이지**: 제목 옆 `IconPicker`에 아이콘 미설정 시 `FileText` 기본 아이콘이 보이도록 복구.
 - **DB 항목 페이지**: 우측 댓글 거터 예약 여부를 에디터와 동일하게(페이지 인라인 댓글 제외) 계산.
@@ -204,7 +204,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **블록 댓글 동기화 보조**: `mergePageBlockComments`, 원격 스냅샷 델타 기반 인앱 알림(`notifyRemoteBlockCommentDelta`), 레거시 `quicknote.blockComments.v1` → 페이지 마이그레이션, 단위 테스트.
+- **블록 댓글 동기화 보조**: `mergePageBlockComments`, 원격 스냅샷 델타 기반 인앱 알림(`notifyRemoteBlockCommentDelta`), 레거시 `minyoung.blockComments.v1` → 페이지 마이그레이션, 단위 테스트.
 
 ### Changed
 
@@ -256,7 +256,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **슬래시 메뉴 UX**: 3열 레이아웃을 단일 컬럼으로 복원하고, 카테고리 제목 대신 구분선만 표시.
 - **외부 URL 붙여넣기 팝업**: 커서 위치 기준으로 표시하고, 뷰포트 밖으로 잘리지 않도록 자동 보정.
 - **동영상 임베드 여백**: YouTube·동영상 파일 블럭의 상하 여백을 줄여 문서 흐름을 더 촘촘하게 조정.
-- **내부 QuickNote 링크**: 페이지/블럭/탭 이동 링크를 웹 URL 형태로 복사·해석하고, 붙여넣기 시 이동 버튼으로 삽입.
+- **내부 Minyoung 링크**: 페이지/블럭/탭 이동 링크를 웹 URL 형태로 복사·해석하고, 붙여넣기 시 이동 버튼으로 삽입.
 
 ### Fixed
 
@@ -269,7 +269,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **페이지 커버 S3 동기화**: `Page`/`PageInput`에 `coverImage` 필드(AppSync·Lambda). 로컬에 `quicknote-image://` ref 저장, 본문 이미지와 동일 PreSigned 업로드 파이프라인.
+- **페이지 커버 S3 동기화**: `Page`/`PageInput`에 `coverImage` 필드(AppSync·Lambda). 로컬에 `minyoung-image://` ref 저장, 본문 이미지와 동일 PreSigned 업로드 파이프라인.
 - **커버 전용 압축·크롭**: 배너 가로세로비(4:1) 중앙 크롭, 최대 가로 1280px WebP로 용량 절감. GIF는 원본 유지.
 - **AppSync 토큰 갱신**(`apiTokens`): ID 토큰 만료 임박 시 `signinSilent`로 갱신 후 쿼리·구독에 주입(웹/로컬 장시간 세션 동기화 안정화).
 
@@ -439,7 +439,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **새 페이지 새로고침 시 일시/영구 사라짐**: `legacyCleanup.purgeLegacyLocalStorage()` 가 부팅마다 `quicknote.pages.v1` 을 삭제했는데, v5 부터 동일 키를 `pageStore` persist 키로 재사용하면서 충돌. 페이지를 만들고 새로고침하면 persist 가 비워진 채 rehydrate 되어 페이지가 즉시 사라져 보였음. legacy 리스트에서 `quicknote.pages.v1` 제거.
+- **새 페이지 새로고침 시 일시/영구 사라짐**: `legacyCleanup.purgeLegacyLocalStorage()` 가 부팅마다 `minyoung.pages.v1` 을 삭제했는데, v5 부터 동일 키를 `pageStore` persist 키로 재사용하면서 충돌. 페이지를 만들고 새로고침하면 persist 가 비워진 채 rehydrate 되어 페이지가 즉시 사라져 보였음. legacy 리스트에서 `minyoung.pages.v1` 제거.
 - **페이지·DB mutation 이 DynamoDB 에 도달하지 않던 동기화 단절**: `Page`/`Database` 타입엔 `createdByMemberId: ID!` 가 정의되어 있지만 `PageInput`/`DatabaseInput` 에는 누락되어 있어, 클라이언트가 보낸 mutation 을 AppSync 가 `Field 'createdByMemberId' is not defined for type 'PageInput'` 검증 오류로 거부하던 문제. 모든 페이지/DB 변경이 outbox 백오프 재시도 루프에 갇힌 채 zustand persist 에만 반영되어 클라이언트 간 동기화가 전혀 일어나지 않던 원인. `PageInput`/`DatabaseInput` 에 `createdByMemberId: ID` 추가(누락 시 Lambda 가 caller.memberId 로 폴백). CDK 재배포 필요.
 
 ## [5.0.2] - 2026-05-07
@@ -502,23 +502,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AWS AppSync 기반 단일 사용자 멀티 디바이스 동기화 (페이지/DB/연락처, LWW)
 - 오프라인 outbox 큐 (웹: IndexedDB / Tauri: SQLite) + 자동 재시도(지수 백오프, 최대 60초)
 - 실시간 구독 (`onPageChanged` / `onDatabaseChanged` / `onContactChanged`)
-- S3 PreSignedURL 기반 이미지 업로드 (≤ 20MB, image/png|jpeg|webp|gif). 에디터 doc 안에는 `quicknote-image://{id}` 가상 스킴으로 영구 ID 만 보유
+- S3 PreSignedURL 기반 이미지 업로드 (≤ 20MB, image/png|jpeg|webp|gif). 에디터 doc 안에는 `minyoung-image://{id}` 가상 스킴으로 영구 ID 만 보유
 - 야간 image-gc Lambda (30일 미참조 이미지 정리)
-- 새 CDK 스택 `QuicknoteSyncStack`: AppSync API + 4 DDB 테이블(Page/Database/Contact/ImageAsset) + S3 버킷 + Lambda 2종 + EventBridge cron
+- 새 CDK 스택 `MinyoungSyncStack`: AppSync API + 4 DDB 테이블(Page/Database/Contact/ImageAsset) + S3 버킷 + Lambda 2종 + EventBridge cron
 - 부팅 시 v1~v3 잔여 데이터 자동 폐기
 
 ### Changed
 
 - 동기화 대상 스토어(pages/databases/contacts)는 `localStorage`/SQLite 영속화 제거 (클라우드 SoT)
 - 페이지 doc 변경은 2초 디바운스 후 푸시, 메타·DB·연락처는 즉시
-- 에디터 이미지: IDB 영속화 → S3 업로드 + `quicknote-image://{id}` 가상 스킴 + React NodeView 비동기 src 변환
+- 에디터 이미지: IDB 영속화 → S3 업로드 + `minyoung-image://{id}` 가상 스킴 + React NodeView 비동기 src 변환
 - 이미지 노드 attr 단순화 — outline/shadow/crop 제거 (성능·복잡도 절감, crop 모달 폐기)
 
 ### Removed
 
 - `editorImageStorage.ts` (IDB 이미지 저장)
 - `ImageEditModal.tsx` (이미지 크롭 모달)
-- `quicknote.pages.v1` 등 v1~v3 localStorage 키 (부팅 시 자동 폐기)
+- `minyoung.pages.v1` 등 v1~v3 localStorage 키 (부팅 시 자동 폐기)
 
 ### Infra
 
@@ -566,7 +566,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 프론트엔드 `src/lib/auth/`: `oidc-client-ts` 기반 PKCE Authorization Code 흐름, `zustandStorage` 위 비동기 StateStore.
 - `useAuthStore` (`src/store/authStore.ts`): `loading / anonymous / authenticated` 상태 머신, refresh_token 기반 silent renew.
 - `<AuthGate>` 게이트, `LoginScreen`, `AuthCallback`, `UserMenu` 컴포넌트.
-- Tauri 데스크톱 OAuth: 시스템 기본 브라우저 + `quicknote://auth/callback` 딥링크. `tauri-plugin-deep-link`, `tauri-plugin-shell` 추가.
+- Tauri 데스크톱 OAuth: 시스템 기본 브라우저 + `minyoung://auth/callback` 딥링크. `tauri-plugin-deep-link`, `tauri-plugin-shell` 추가.
 - `.env.example` 와 `infra/README.md` 배포 가이드.
 
 ### Changed
@@ -608,7 +608,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Tauri 2 데스크톱 앱 이식 — macOS(.dmg) + Windows(.exe/.msi) 배포 빌드
-- SQLite 로컬 저장소 (`quicknote.db`) — `tauri-plugin-sql` 기반
+- SQLite 로컬 저장소 (`minyoung.db`) — `tauri-plugin-sql` 기반
 - `src/lib/storage/` 어댑터 레이어 — 웹(localStorage) / 데스크톱(SQLite) 자동 분기
 - 최초 실행 시 localStorage → SQLite 마이그레이션 UI
 - GitHub Actions CI — `v*` 태그 푸시 시 macOS(universal) + Windows 크로스 빌드 + GitHub Release 초안 생성

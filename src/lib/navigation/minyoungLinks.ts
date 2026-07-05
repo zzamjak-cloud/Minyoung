@@ -1,6 +1,6 @@
 import { useWorkspaceStore } from "../../store/workspaceStore";
 
-export type QuickNoteLinkTarget = {
+export type MinyoungLinkTarget = {
   pageId: string;
   /** 블록 노드 attrs.id — 페이지 편집(블록 추가/삭제)에도 안전한 기준. 우선 사용. */
   blockId?: string | null;
@@ -11,7 +11,7 @@ export type QuickNoteLinkTarget = {
   workspaceId?: string | null;
 };
 
-export function buildQuickNotePageUrl(target: QuickNoteLinkTarget): string {
+export function buildMinyoungPageUrl(target: MinyoungLinkTarget): string {
   const base =
     typeof window !== "undefined"
       ? `${window.location.origin}${window.location.pathname}`
@@ -35,11 +35,11 @@ export function buildQuickNotePageUrl(target: QuickNoteLinkTarget): string {
   return `${base}?${params.toString()}${hash}`;
 }
 
-export function parseQuickNoteLink(raw: string): QuickNoteLinkTarget | null {
+export function parseMinyoungLink(raw: string): MinyoungLinkTarget | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
 
-  if (trimmed.startsWith("quicknote://page/")) {
+  if (trimmed.startsWith("minyoung://page/")) {
     try {
       const url = new URL(trimmed);
       const pageId = url.pathname.replace(/^\/+/, "");
@@ -77,9 +77,9 @@ export function parseQuickNoteLink(raw: string): QuickNoteLinkTarget | null {
   }
 }
 
-export function quickNoteLinkLabel(
+export function minyoungLinkLabel(
   pageTitle: string | null | undefined,
-  target: Pick<QuickNoteLinkTarget, "blockId" | "block" | "tab">,
+  target: Pick<MinyoungLinkTarget, "blockId" | "block" | "tab">,
 ): string {
   const title = pageTitle?.trim() || "페이지";
   if (target.blockId || target.block != null) return `${title} / 블럭 이동`;

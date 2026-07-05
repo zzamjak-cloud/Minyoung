@@ -43,7 +43,7 @@
 - `src/lib/tiptapExtensions/dateInline.ts` `formatDateLabel` — 에디터 인라인 날짜 노드
 
 ## 옵션 아이콘 (select/multiSelect/status)
-- `SelectOption.icon?`(`types/database.ts`)는 **페이지 아이콘과 동일 인코딩**(이모지 | `quicknote-lucide:NAME:HEX` | 이미지 URL). 옵션은 칩 단위라 3종 모두 지원.
+- `SelectOption.icon?`(`types/database.ts`)는 **페이지 아이콘과 동일 인코딩**(이모지 | `minyoung-lucide:NAME:HEX` | 이미지 URL). 옵션은 칩 단위라 3종 모두 지원.
 - 편집: `ColumnOptionsEditor` 의 색상 스와치 옆 `<IconPicker size="sm">`(전체 피커 재사용). 저장은 옵션 객체에 `icon` 머지(없으면 `undefined`).
 - 표시: `OptionChip` 이 `icon` 있으면 라벨 앞에 `<PageIconDisplay size="sm">` 렌더. 외부 소스 옵션(linkedScope/sourceFromDb)은 icon 미보유 — 정상.
 

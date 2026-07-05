@@ -1,5 +1,5 @@
 export const EDITOR_LAZY_INACTIVE_TAB_PANELS_FLAG =
-  "quicknote.editor.lazyInactiveTabPanels";
+  "minyoung.editor.lazyInactiveTabPanels";
 
 export function isEditorLazyInactiveTabPanelsEnabled(): boolean {
   if (typeof localStorage === "undefined") return false;

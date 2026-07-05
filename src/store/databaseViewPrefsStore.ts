@@ -87,7 +87,7 @@ export const useDatabaseViewPrefsStore = create<DatabaseViewPrefsStore>()(
       },
     }),
     {
-      name: "quicknote.databaseViewPrefs.v1",
+      name: "minyoung.databaseViewPrefs.v1",
       storage: createJSONStorage(() => zustandStorage),
       version: DATABASE_VIEW_PREFS_STORE_VERSION,
       migrate: (persisted) => {

@@ -26,8 +26,8 @@ import { badRequest, notFound, unauthorized } from "./_auth";
 const s3 = new S3Client({});
 
 // 자산 ref 스킴 ↔ assetId 변환.
-const IMAGE_SCHEME = "quicknote-image://";
-const FILE_SCHEME = "quicknote-file://";
+const IMAGE_SCHEME = "minyoung-image://";
+const FILE_SCHEME = "minyoung-file://";
 
 export type AssetRef = { assetId: string; blockId?: string; blockType?: string };
 
@@ -95,7 +95,7 @@ export function extractAssetRefs(docJson: unknown): AssetRef[] {
 
 /**
  * 페이지 dbCells (Record<columnId, CellValue>) 의 모든 자산 참조를 수집.
- * FileCellItem 형태 ({fileId, src: "quicknote-(image|file)://...", name, mime, size}) 의 src 를 본다.
+ * FileCellItem 형태 ({fileId, src: "minyoung-(image|file)://...", name, mime, size}) 의 src 를 본다.
  * dbCells 는 page.doc 트리에 포함되지 않으므로 extractAssetRefs 로는 탐지되지 않는다.
  * blockId 는 `db:{columnId}:{fileId}` 형태로 인덱싱해 동일 행 내 셀별 ref 가 중복 dedupe 되지 않도록 한다.
  */
@@ -597,7 +597,7 @@ async function deleteAllUsagesForAsset(
 /**
  * 페이지 doc 내부의 자산 ref 를 oldAssetId → newAssetId 로 교체.
  * AssetUsage 의 byPage GSI 로 영향받는 페이지를 찾아, 페이지 doc 의 JSON 문자열에서
- * `quicknote-image://{old}`, `quicknote-file://{old}` 를 일괄 치환 후 저장.
+ * `minyoung-image://{old}`, `minyoung-file://{old}` 를 일괄 치환 후 저장.
  * 변경된 페이지의 AssetUsage 도 재구성.
  */
 export async function replaceAssetRef(args: {
@@ -877,7 +877,7 @@ function customIconSk(iconId: string): string {
 /**
  * 워크스페이스 커스텀 아이콘 라이브러리에 등록된 자산 ref 를 AssetUsage 에 기록.
  * createCustomIcon 직후 호출.
- * src 가 quicknote-image:// / quicknote-file:// 가 아니면 skip.
+ * src 가 minyoung-image:// / minyoung-file:// 가 아니면 skip.
  * 소유자 검증(ImageAssets.ownerId === caller cognitoSub) 후에만 기록한다.
  */
 export async function syncCustomIconAssetUsage(args: {

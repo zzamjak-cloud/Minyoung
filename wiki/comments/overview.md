@@ -32,7 +32,7 @@
 
 ## 새로고침 시 댓글 소실 회귀 (CRITICAL)
 
-증상: 작성·서버 저장까지 된 댓글이 새로고침(콜드로드) 후 사이드바/스레드에서 모두 사라짐. 서버 `quicknote-comment` 에는 그대로 남아 있음.
+증상: 작성·서버 저장까지 된 댓글이 새로고침(콜드로드) 후 사이드바/스레드에서 모두 사라짐. 서버 `minyoung-comment` 에는 그대로 남아 있음.
 
 원인 체인:
 1. `blockCommentStore` 는 `messages` 를 persist 하지 않는다(`partialize` 가 `threadVisitedAt` 만 유지). → 콜드로드마다 댓글 store 가 빈 상태로 시작, 전적으로 서버 재페치에 의존.

@@ -144,7 +144,7 @@ export function useEditorExtensions({
             },
           }),
       CodeBlockCopy,
-      // 대용량 data: URL 을 문서 JSON 에 넣지 않음 — 이미지는 v4 S3 ref(quicknote-image://) 사용.
+      // 대용량 data: URL 을 문서 JSON 에 넣지 않음 — 이미지는 v4 S3 ref(minyoung-image://) 사용.
       ImageBlock.configure({ allowBase64: false }),
       // 동영상·PDF·zip 등 모든 파일은 fileBlock 으로 통합. mimeType 에 따라 NodeView 가 분기.
       FileBlock,

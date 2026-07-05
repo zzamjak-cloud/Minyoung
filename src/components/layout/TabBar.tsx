@@ -19,7 +19,7 @@ import { useSettingsStore } from "../../store/settingsStore";
 import { useUiStore } from "../../store/uiStore";
 import { PageIconDisplay } from "../common/PageIconDisplay";
 import { POINTER_PRESS_FEEDBACK_CLASS } from "../common/interactionClasses";
-import { buildQuickNotePageUrl } from "../../lib/navigation/quicknoteLinks";
+import { buildMinyoungPageUrl } from "../../lib/navigation/minyoungLinks";
 
 const TAB_CONTEXT_MENU_WIDTH = 224;
 const TAB_CONTEXT_MENU_HEIGHT = 224;
@@ -98,7 +98,7 @@ export function TabBar() {
       setTabMenu(null);
       return;
     }
-    void writeText(buildQuickNotePageUrl({ pageId: tab.pageId }))
+    void writeText(buildMinyoungPageUrl({ pageId: tab.pageId }))
       .then(() => showToast("페이지 링크 복사 완료!", { kind: "success" }))
       .catch(() => showToast("페이지 링크 복사에 실패했습니다.", { kind: "error" }));
     setTabMenu(null);

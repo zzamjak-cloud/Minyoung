@@ -7,7 +7,7 @@ class OutboxDb extends Dexie {
   deadLetters!: Table<OutboxEntry & { deadLetterReason: string; deadLetterAt: number }, string>;
 
   constructor() {
-    super("quicknote-outbox");
+    super("minyoung-outbox");
     this.version(1).stores({
       entries: "id, enqueuedAt, dedupeKey",
     });

@@ -25,12 +25,12 @@ AWS 콘솔 → AppSync → Logging → 최근 요청 에러
 
 **Step 3: localStorage 확인**
 ```js
-JSON.parse(localStorage.getItem('quicknote.pages.v1') ?? '{}')
+JSON.parse(localStorage.getItem('minyoung.pages.v1') ?? '{}')
 ```
 
 **Step 4: localStorage 초기화 (최후 수단)**
 ```js
-["quicknote.pages.v1","quicknote.databases.v1","quicknote.settings.v1"]
+["minyoung.pages.v1","minyoung.databases.v1","minyoung.settings.v1"]
   .forEach(k => localStorage.removeItem(k));
 location.reload();
 ```

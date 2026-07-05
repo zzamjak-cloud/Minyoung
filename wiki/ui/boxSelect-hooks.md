@@ -66,5 +66,5 @@ useBoxSelectCommittedOverlay ← scroll/resize 시 오버레이 위치 재계산
 
 ## 주의사항
 - 오버레이 div는 에디터 외부(body 레벨)가 아닌 에디터 내부 특정 컨테이너에 부착 — z-index 관리 주의
-- `quicknote-block-dragging` body 클래스가 있는 동안(그립 드래그 중)은 `clearSelectionAfterDocChange` 억제
+- `minyoung-block-dragging` body 클래스가 있는 동안(그립 드래그 중)은 `clearSelectionAfterDocChange` 억제
 - 블록 삭제·복제는 PM transaction을 직접 사용 — Zustand 스토어 직접 조작 금지

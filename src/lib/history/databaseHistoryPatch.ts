@@ -20,7 +20,7 @@ const databaseHistoryPatchEngine = createHistoryPatchEngine<
   GqlDatabaseHistoryEntry,
   DatabaseHistorySnapshot
 >({
-  cacheKey: "quicknote.databaseHistoryPreview.v1",
+  cacheKey: "minyoung.databaseHistoryPreview.v1",
 });
 
 export function buildDatabaseHistorySnapshotMap(

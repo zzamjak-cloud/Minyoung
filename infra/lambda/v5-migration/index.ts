@@ -19,7 +19,7 @@ const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
 function migratedEmail(ownerId: string): string {
   const safe = ownerId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 24) || "owner";
-  return `${safe.toLowerCase()}@migrated.quicknote.local`;
+  return `${safe.toLowerCase()}@migrated.minyoung.local`;
 }
 
 async function getOrCreateMember(ownerId: string): Promise<MemberRow> {

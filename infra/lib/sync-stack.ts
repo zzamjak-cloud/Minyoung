@@ -43,7 +43,7 @@ function pageTableGsiStageAtLeast(
 }
 
 export interface SyncStackProps extends cdk.StackProps {
-  /** 리소스 이름 접두사. dev 환경은 "dev-", live 환경은 "" */
+  /** 리소스 이름 접두사. dev 환경은 "dev-minyoung-", live 환경은 "minyoung-" */
   envPrefix: string;
   // CognitoStack 의 출력값을 cross-stack reference 로 받는다.
   userPoolId: string;
@@ -54,13 +54,13 @@ export interface SyncStackProps extends cdk.StackProps {
   memberTeamsTableName?: string;
   workspacesTableName?: string;
   workspaceAccessTableName?: string;
-  /** 조직(실) 테이블 이름 (기본값: quicknote-organizations) */
+  /** 조직(실) 테이블 이름 */
   organizationsTableName?: string;
-  /** 멤버-조직 관계 테이블 이름 (기본값: quicknote-member-organizations) */
+  /** 멤버-조직 관계 테이블 이름 */
   memberOrganizationsTableName?: string;
 }
 
-export class QuicknoteSyncStack extends cdk.Stack {
+export class MinyoungSyncStack extends cdk.Stack {
   public readonly pageTable: ModelTable;
   public readonly databaseTable: ModelTable;
   public readonly flowchartTable: ModelTable;
@@ -183,7 +183,7 @@ export class QuicknoteSyncStack extends cdk.Stack {
     });
 
     const notificationTable = new dynamodb.Table(this, "NotificationTable", {
-      tableName: `${envPrefix}quicknote-notification`,
+      tableName: `${envPrefix}notification`,
       partitionKey: { name: "recipientMemberId", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "notificationId", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -196,7 +196,7 @@ export class QuicknoteSyncStack extends cdk.Stack {
 
     // v5 신규 테이블 5종 — workspace 기반 멀티 유저 협업 인프라
     const membersTable = new dynamodb.Table(this, "MembersTable", {
-      tableName: props.membersTableName ?? `${envPrefix}quicknote-members`,
+      tableName: props.membersTableName ?? `${envPrefix}members`,
       partitionKey: { name: "memberId", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
@@ -215,7 +215,7 @@ export class QuicknoteSyncStack extends cdk.Stack {
     });
 
     const teamsTable = new dynamodb.Table(this, "TeamsTable", {
-      tableName: props.teamsTableName ?? `${envPrefix}quicknote-teams`,
+      tableName: props.teamsTableName ?? `${envPrefix}teams`,
       partitionKey: { name: "teamId", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
@@ -232,7 +232,7 @@ export class QuicknoteSyncStack extends cdk.Stack {
     });
 
     const memberTeamsTable = new dynamodb.Table(this, "MemberTeamsTable", {
-      tableName: props.memberTeamsTableName ?? `${envPrefix}quicknote-member-teams`,
+      tableName: props.memberTeamsTableName ?? `${envPrefix}member-teams`,
       partitionKey: { name: "memberId", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "teamId", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -248,7 +248,7 @@ export class QuicknoteSyncStack extends cdk.Stack {
     });
 
     const workspacesTable = new dynamodb.Table(this, "WorkspacesTable", {
-      tableName: props.workspacesTableName ?? `${envPrefix}quicknote-workspaces`,
+      tableName: props.workspacesTableName ?? `${envPrefix}workspaces`,
       partitionKey: { name: "workspaceId", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
@@ -263,7 +263,7 @@ export class QuicknoteSyncStack extends cdk.Stack {
     });
 
     const workspaceAccessTable = new dynamodb.Table(this, "WorkspaceAccessTable", {
-      tableName: props.workspaceAccessTableName ?? `${envPrefix}quicknote-workspace-access`,
+      tableName: props.workspaceAccessTableName ?? `${envPrefix}workspace-access`,
       partitionKey: { name: "workspaceId", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "subjectKey", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -280,7 +280,7 @@ export class QuicknoteSyncStack extends cdk.Stack {
 
     // 조직(실) 테이블
     const organizationsTable = new dynamodb.Table(this, "OrganizationsTable", {
-      tableName: props.organizationsTableName ?? `${envPrefix}quicknote-organizations`,
+      tableName: props.organizationsTableName ?? `${envPrefix}organizations`,
       partitionKey: { name: "organizationId", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
@@ -297,7 +297,7 @@ export class QuicknoteSyncStack extends cdk.Stack {
 
     // 멤버-조직 관계 테이블 (memberId PK, organizationId SK, byOrganization GSI)
     const memberOrganizationsTable = new dynamodb.Table(this, "MemberOrganizationsTable", {
-      tableName: props.memberOrganizationsTableName ?? `${envPrefix}quicknote-member-organizations`,
+      tableName: props.memberOrganizationsTableName ?? `${envPrefix}member-organizations`,
       partitionKey: { name: "memberId", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "organizationId", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -315,7 +315,7 @@ export class QuicknoteSyncStack extends cdk.Stack {
     // 워크스페이스 공유 커스텀 아이콘 프리셋. 모든 멤버가 같은 아이콘 목록을 볼 수 있도록 동기화.
     // PK = id (UUID), GSI byWorkspace = (workspaceId, createdAt) — 최신순 정렬.
     const customIconsTable = new dynamodb.Table(this, "CustomIconsTable", {
-      tableName: `${envPrefix}quicknote-custom-icons`,
+      tableName: `${envPrefix}custom-icons`,
       partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
@@ -336,7 +336,7 @@ export class QuicknoteSyncStack extends cdk.Stack {
     // GSI byOwner: ownerId → 사용자의 모든 사용 매핑. listMyAssets 에서 자산별 usageCount 집계용.
     // GSI byPage: pageId → 페이지 전체 자산. 페이지 삭제/재기록 시 cascade.
     const assetUsageTable = new dynamodb.Table(this, "AssetUsageTable", {
-      tableName: `${envPrefix}quicknote-asset-usage`,
+      tableName: `${envPrefix}asset-usage`,
       partitionKey: { name: "assetId", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -357,7 +357,7 @@ export class QuicknoteSyncStack extends cdk.Stack {
     new cdk.CfnOutput(this, "AssetUsageTableName", { value: assetUsageTable.tableName });
 
     const pageHistoryTable = new dynamodb.Table(this, "PageHistoryTable", {
-      tableName: `${envPrefix}quicknote-page-history`,
+      tableName: `${envPrefix}page-history`,
       partitionKey: { name: "pageId", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "historyId", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -383,7 +383,7 @@ export class QuicknoteSyncStack extends cdk.Stack {
     new cdk.CfnOutput(this, "PageHistoryTableName", { value: pageHistoryTable.tableName });
 
     const databaseHistoryTable = new dynamodb.Table(this, "DatabaseHistoryTable", {
-      tableName: `${envPrefix}quicknote-database-history`,
+      tableName: `${envPrefix}database-history`,
       partitionKey: { name: "databaseId", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "historyId", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -408,7 +408,7 @@ export class QuicknoteSyncStack extends cdk.Stack {
 
     // 플로우차트 버전 히스토리(append-only 스냅샷) — PK=flowchartId, SK=historyId(시간순).
     const flowchartHistoryTable = new dynamodb.Table(this, "FlowchartHistoryTable", {
-      tableName: `${envPrefix}quicknote-flowchart-history`,
+      tableName: `${envPrefix}flowchart-history`,
       partitionKey: { name: "flowchartId", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "historyId", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -447,13 +447,10 @@ export class QuicknoteSyncStack extends cdk.Stack {
           allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET, s3.HttpMethods.HEAD],
           // PreSignedURL 이 1차 통제지만, "*" 면 탈취된 presigned PUT 을 임의 악성 사이트가
           // 브라우저에서 cross-origin 으로 완료시킬 수 있어 출처를 화이트리스트로 제한한다.
-          // 웹(Vercel 운영/모든 프리뷰)·로컬 dev·데스크톱(Tauri webview) 출처만 허용.
+          // 웹(Vercel 운영/모든 프리뷰)·로컬 dev 출처만 허용.
           allowedOrigins: [
             "https://*.vercel.app",
             "http://localhost:5173",
-            "tauri://localhost",
-            "http://tauri.localhost",
-            "https://tauri.localhost",
           ],
           allowedHeaders: ["*"],
           maxAge: 3000,
@@ -490,7 +487,7 @@ export class QuicknoteSyncStack extends cdk.Stack {
 
     // AppSync GraphQL API. Cognito User Pool 을 primary authorizer 로 사용한다.
     const api = new appsync.GraphqlApi(this, "SyncApi", {
-      name: `${envPrefix}quicknote-sync`,
+      name: `${envPrefix}sync`,
       definition: appsync.Definition.fromFile(
         path.join(__dirname, "sync", "schema.graphql"),
       ),
@@ -642,7 +639,7 @@ export function response(ctx) {
     // GC 실패·서킷브레이커 발동을 놓치지 않도록 에러 알람.
     // (gc 는 비정상 상황에서 console.error 후 정상 종료하므로 Errors 지표 + 로그 필터 둘 다 건다.)
     new cloudwatch.Alarm(this, "ImageGcErrorsAlarm", {
-      alarmName: `${envPrefix}quicknote-image-gc-errors`,
+      alarmName: `${envPrefix}image-gc-errors`,
       metric: gcFn.metricErrors({ period: cdk.Duration.days(1), statistic: "Sum" }),
       threshold: 1,
       evaluationPeriods: 1,
@@ -650,13 +647,13 @@ export function response(ctx) {
     });
     const gcAbortMetric = new logs.MetricFilter(this, "ImageGcAbortMetricFilter", {
       logGroup: gcFn.logGroup,
-      metricNamespace: "Quicknote/ImageGc",
+      metricNamespace: "Minyoung/ImageGc",
       metricName: `${envPrefix}gc-abort`,
       filterPattern: logs.FilterPattern.anyTerm("gc aborted", "delete aborted"),
       metricValue: "1",
     });
     new cloudwatch.Alarm(this, "ImageGcAbortAlarm", {
-      alarmName: `${envPrefix}quicknote-image-gc-abort`,
+      alarmName: `${envPrefix}image-gc-abort`,
       metric: gcAbortMetric.metric({ period: cdk.Duration.days(1), statistic: "Sum" }),
       threshold: 1,
       evaluationPeriods: 1,
@@ -750,58 +747,18 @@ export function response(ctx) {
     // AppSync Lambda DataSource
     const v5Ds = api.addLambdaDataSource("V5ResolversDs", v5ResolversFn);
 
-    // 본 task 범위: me, createMember, listMembers, getMember 만 wiring.
-    // 후속 task 들이 같은 Ds 에 mutation/query 추가.
+    // 개인용 앱에서는 본인 프로필과 페이지/DB 동기화 resolver 만 wiring한다.
     v5Ds.createResolver("MeQuery", {
       typeName: "Query", fieldName: "me",
-    });
-    v5Ds.createResolver("CreateMemberMutation", {
-      typeName: "Mutation", fieldName: "createMember",
-    });
-    v5Ds.createResolver("ListMembersQuery", {
-      typeName: "Query", fieldName: "listMembers",
-    });
-    v5Ds.createResolver("GetMemberQuery", {
-      typeName: "Query", fieldName: "getMember",
     });
     v5Ds.createResolver("UpdateMemberMutation", { typeName: "Mutation", fieldName: "updateMember" });
     v5Ds.createResolver("UpdateMyClientPrefsMutation", {
       typeName: "Mutation",
       fieldName: "updateMyClientPrefs",
     });
-    v5Ds.createResolver("PromoteToManagerMutation", { typeName: "Mutation", fieldName: "promoteToManager" });
-    v5Ds.createResolver("DemoteToMemberMutation", { typeName: "Mutation", fieldName: "demoteToMember" });
-    v5Ds.createResolver("SetMemberRoleMutation", { typeName: "Mutation", fieldName: "setMemberRole" });
-    v5Ds.createResolver("TransferOwnershipMutation", { typeName: "Mutation", fieldName: "transferOwnership" });
-    v5Ds.createResolver("RemoveMemberMutation", { typeName: "Mutation", fieldName: "removeMember" });
-    v5Ds.createResolver("RestoreMemberMutation", { typeName: "Mutation", fieldName: "restoreMember" });
-    v5Ds.createResolver("AssignMemberToTeamMutation", { typeName: "Mutation", fieldName: "assignMemberToTeam" });
-    v5Ds.createResolver("UnassignMemberFromTeamMutation", { typeName: "Mutation", fieldName: "unassignMemberFromTeam" });
-    v5Ds.createResolver("ListTeamsQuery", { typeName: "Query", fieldName: "listTeams" });
-    v5Ds.createResolver("GetTeamQuery", { typeName: "Query", fieldName: "getTeam" });
-    v5Ds.createResolver("CreateTeamMutation", { typeName: "Mutation", fieldName: "createTeam" });
-    v5Ds.createResolver("UpdateTeamMutation", { typeName: "Mutation", fieldName: "updateTeam" });
-    v5Ds.createResolver("DeleteTeamMutation", { typeName: "Mutation", fieldName: "deleteTeam" });
-    v5Ds.createResolver("ArchiveTeamMutation", { typeName: "Mutation", fieldName: "archiveTeam" });
-    v5Ds.createResolver("RestoreTeamMutation", { typeName: "Mutation", fieldName: "restoreTeam" });
-    // 조직(실) resolver wiring
-    v5Ds.createResolver("ListOrganizationsQuery", { typeName: "Query", fieldName: "listOrganizations" });
-    v5Ds.createResolver("CreateOrganizationMutation", { typeName: "Mutation", fieldName: "createOrganization" });
-    v5Ds.createResolver("UpdateOrganizationMutation", { typeName: "Mutation", fieldName: "updateOrganization" });
-    v5Ds.createResolver("DeleteOrganizationMutation", { typeName: "Mutation", fieldName: "deleteOrganization" });
-    v5Ds.createResolver("AssignMemberToOrganizationMutation", { typeName: "Mutation", fieldName: "assignMemberToOrganization" });
-    v5Ds.createResolver("UnassignMemberFromOrganizationMutation", { typeName: "Mutation", fieldName: "unassignMemberFromOrganization" });
-    v5Ds.createResolver("ArchiveOrganizationMutation", { typeName: "Mutation", fieldName: "archiveOrganization" });
-    v5Ds.createResolver("RestoreOrganizationMutation", { typeName: "Mutation", fieldName: "restoreOrganization" });
-    v5Ds.createResolver("CreateWorkspaceMutation", { typeName: "Mutation", fieldName: "createWorkspace" });
     v5Ds.createResolver("UpdateWorkspaceMutation", { typeName: "Mutation", fieldName: "updateWorkspace" });
-    v5Ds.createResolver("SetWorkspaceAccessMutation", { typeName: "Mutation", fieldName: "setWorkspaceAccess" });
-    v5Ds.createResolver("DeleteWorkspaceMutation", { typeName: "Mutation", fieldName: "deleteWorkspace" });
-    v5Ds.createResolver("ArchiveWorkspaceMutation", { typeName: "Mutation", fieldName: "archiveWorkspace" });
-    v5Ds.createResolver("RestoreWorkspaceMutation", { typeName: "Mutation", fieldName: "restoreWorkspace" });
     v5Ds.createResolver("ListMyWorkspacesQuery", { typeName: "Query", fieldName: "listMyWorkspaces" });
     v5Ds.createResolver("GetWorkspaceQuery", { typeName: "Query", fieldName: "getWorkspace" });
-    v5Ds.createResolver("SearchMembersForMentionQuery", { typeName: "Query", fieldName: "searchMembersForMention" });
     // 기존 배포의 Logical ID를 강제로 유지해 Resolver 교체 시 AlreadyExists를 피한다.
     const listPagesResolver = v5Ds.createResolver("QuerylistPages", {
       typeName: "Query",
@@ -998,15 +955,11 @@ export function response(ctx) {
     });
     (onDatabaseChangedResolver.node.defaultChild as appsync.CfnResolver).overrideLogicalId("SyncApiSubscriptiononDatabaseChangedE8BD5823");
 
-    v5Ds.createResolver("QuerygetWorkspaceMeta", { typeName: "Query", fieldName: "getWorkspaceMeta" });
-
     // 워크스페이스 공유 커스텀 아이콘.
     v5Ds.createResolver("QuerylistCustomIcons", { typeName: "Query", fieldName: "listCustomIcons" });
     v5Ds.createResolver("MutationcreateCustomIcon", { typeName: "Mutation", fieldName: "createCustomIcon" });
     v5Ds.createResolver("MutationdeleteCustomIcon", { typeName: "Mutation", fieldName: "deleteCustomIcon" });
     v5Ds.createResolver("SubscriptiononCustomIconChanged", { typeName: "Subscription", fieldName: "onCustomIconChanged" });
-    // 워크스페이스 접근권한 변경 실시간 구독.
-    v5Ds.createResolver("SubscriptiononWorkspaceChanged", { typeName: "Subscription", fieldName: "onWorkspaceChanged" });
 
     // 자산 관리 — 사용자 단위 자산 목록·사용 위치·삭제·교체.
     v5Ds.createResolver("QuerylistMyAssets", { typeName: "Query", fieldName: "listMyAssets" });

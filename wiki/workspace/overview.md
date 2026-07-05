@@ -4,23 +4,28 @@
 
 | 파일 | 역할 |
 |------|------|
-| `src/store/workspaceStore.ts` | 워크스페이스 선택·설정 |
-| `src/store/workspaceAccessCacheStore.ts` | 접근 권한 캐시 |
-| `src/store/organizationStore.ts` | 조직 정보 |
-| `src/components/workspace/` | 권한 관리 UI |
-| `src/components/sidebar/` | 워크스페이스 전환 사이드바 |
-| `infra/lambda/v5-resolvers/handlers/workspace.ts` | 워크스페이스 생성·수정 resolver |
+| `src/store/workspaceStore.ts` | 개인 워크스페이스 1개와 현재 ID 보관 |
+| `src/store/memberStore.ts` | 본인 프로필과 멘션 호환 캐시 |
+| `src/store/organizationStore.ts` / `src/store/teamStore.ts` | DB 옵션 호환용 빈 로컬 스토어 |
+| `src/lib/sync/workspaceApi.ts` | 내 개인 워크스페이스 조회·이름 변경 |
 
 ## 워크스페이스 구조
 ```
-Organization
-└── Workspace (1개 이상)
-    └── Pages, Databases
+Personal Workspace (사용자당 1개)
+└── Pages, Databases
 ```
 
 ## 멤버 역할
-`memberStore` 에서 멤버 목록 및 역할(Owner/Member/Guest) 관리.
-워크스페이스별 접근 권한은 `workspaceAccessCacheStore` 에 캐시.
+Minyoung 2-5 이후 멤버/팀/조직/권한 UI는 제거 대상이다.
+`memberStore` 는 본인 1명을 권위 데이터로 보고, 기존 멘션·표시 소비처 호환을 위해 `members` 캐시만 유지한다.
+`workspaceAccessCacheStore` 와 워크스페이스 권한 변경 subscription 은 사용하지 않는다.
+
+## 개인 워크스페이스 축소 계약
+
+- `workspaceStore.workspaces` 는 호환용 배열이며 항상 개인 워크스페이스 1개 또는 빈 배열이다.
+- `setWorkspaces` 는 서버 응답이 여러 개여도 현재 ID와 일치하는 항목 또는 첫 항목 1개만 보관한다.
+- 워크스페이스 생성/삭제/권한 변경 UI는 제거한다. 남은 API export 는 기존 import 안정성을 위한 방어용 no-op/throw 경로다.
+- AppSync subscription 은 page/database 채널만 유지한다.
 
 ## 생성 저장 실패처럼 보이는 경우
 
@@ -42,7 +47,8 @@ Organization
 - `src/components/settings/__tests__/AdminWorkspacesTab.test.tsx`
 
 ## 전환
-사이드바에서 워크스페이스 선택 → `workspaceStore.activeWorkspaceId` 업데이트 → 해당 워크스페이스 페이지 로드
+사용자 조작으로 워크스페이스를 전환하지 않는다. 로그인 부트스트랩에서 개인 워크스페이스 ID를 확정하고,
+이후 기존 `workspaceId` 파티션 키·페이지/DB 캐시 키는 그대로 사용한다.
 
 ## 진입 랜딩 (보던 페이지 복원 + 유령 위험 탭만 무력화)
 

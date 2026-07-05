@@ -115,7 +115,7 @@
 
 ### 상수
 
-`QUICKNOTE_BLOCK_DRAG_MIME = "application/x-quicknote-block-starts"` — 드래그 데이터 MIME 타입. drop 핸들러에서 이 값으로 QuickNote 블록 드래그인지 판별.
+`MINYOUNG_BLOCK_DRAG_MIME = "application/x-minyoung-block-starts"` — 드래그 데이터 MIME 타입. drop 핸들러에서 이 값으로 Minyoung 블록 드래그인지 판별.
 
 ### 주요 함수
 
@@ -126,7 +126,7 @@
 2. `Slice`로 드래그 데이터 준비.
 3. `cloneElement`로 드래그 프리뷰 이미지 생성 (CSS 인라인 복사).
 4. `event.dataTransfer.setDragImage`로 프리뷰 설정.
-5. `QUICKNOTE_BLOCK_DRAG_MIME`에 `[blockStart]` JSON 저장.
+5. `MINYOUNG_BLOCK_DRAG_MIME`에 `[blockStart]` JSON 저장.
 6. `view.dragging` 설정.
 7. `drop`/`dragend` 이벤트에서 프리뷰 DOM 정리.
 
@@ -147,7 +147,7 @@
 ### 의존관계
 
 - `@tiptap/extension-node-range` (`NodeRangeSelection`)
-- `QUICKNOTE_BLOCK_DRAG_MIME` 상수는 drop 핸들러에서도 참조됨
+- `MINYOUNG_BLOCK_DRAG_MIME` 상수는 drop 핸들러에서도 참조됨
 
 ---
 

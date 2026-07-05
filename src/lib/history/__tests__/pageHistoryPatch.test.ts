@@ -74,7 +74,7 @@ describe("pageHistoryPatch", () => {
   it("두 번째 빌드는 localStorage 캐시를 재사용해도 동일한 결과를 낸다", () => {
     // 첫 빌드 → 캐시 기록
     buildPageHistorySnapshotMap(ENTRIES, "page-1", "workspace-1");
-    expect(localStorage.getItem("quicknote.pageHistoryPreview.v1")).not.toBeNull();
+    expect(localStorage.getItem("minyoung.pageHistoryPreview.v1")).not.toBeNull();
     // 두 번째 빌드 → 캐시 히트 경로
     const second = buildPageHistorySnapshotMap(ENTRIES, "page-1", "workspace-1");
     expect(second.get("2026-06-01T00:00:00.000Z#1")?.title).toBe("초기 제목");

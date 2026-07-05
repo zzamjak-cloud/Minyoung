@@ -158,7 +158,7 @@ function supersededUpsertDedupeKeysForDeleteBatch(batch: OutboxEntry[]): Set<str
 
 function isWorkspaceMismatchDebugEnabled(): boolean {
   try {
-    return globalThis.localStorage?.getItem("quicknote.debug.syncWorkspaceMismatch") === "1";
+    return globalThis.localStorage?.getItem("minyoung.debug.syncWorkspaceMismatch") === "1";
   } catch {
     return false;
   }

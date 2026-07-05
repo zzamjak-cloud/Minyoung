@@ -1,12 +1,7 @@
 import { gqlOptional } from "./graphqlRequest";
 import {
-  ARCHIVE_WORKSPACE,
-  CREATE_WORKSPACE,
-  DELETE_WORKSPACE,
   GET_WORKSPACE,
   LIST_MY_WORKSPACES,
-  RESTORE_WORKSPACE,
-  SET_WORKSPACE_ACCESS,
   UPDATE_WORKSPACE,
 } from "./queries/workspace";
 import type { WorkspaceAccessSummary, WorkspaceSummary } from "../../store/workspaceStore";
@@ -20,11 +15,13 @@ export type WorkspaceAccessInput = {
 export type WorkspaceOptions = {
   jobFunctions: string[];
   jobTitles: string[];
+  jobCategories?: string[];
+  jobDetails?: string[];
 };
 
 type WorkspaceResponse = Omit<WorkspaceSummary, "type" | "myEffectiveLevel"> & {
-  type: "PERSONAL" | "SHARED" | "personal" | "shared";
-  myEffectiveLevel: "EDIT" | "VIEW" | "edit" | "view";
+  type?: "PERSONAL" | "SHARED" | "personal" | "shared";
+  myEffectiveLevel?: "EDIT" | "VIEW" | "edit" | "view";
   access?: WorkspaceAccessInput[];
   options?: WorkspaceOptions;
 };
@@ -48,15 +45,17 @@ function normalizeAccessEntry(entry: WorkspaceAccessInput): WorkspaceAccessSumma
 }
 
 function normalizeWorkspace(ws: WorkspaceResponse): WorkspaceSummary & { options?: WorkspaceOptions } {
+  const type = ws.type ?? "PERSONAL";
+  const level = ws.myEffectiveLevel ?? "EDIT";
   return {
     ...ws,
-    type: ws.type === "PERSONAL" ? "personal" : ws.type === "SHARED" ? "shared" : ws.type,
+    type: type === "PERSONAL" ? "personal" : type === "SHARED" ? "shared" : type,
     myEffectiveLevel:
-      ws.myEffectiveLevel === "EDIT"
+      level === "EDIT"
         ? "edit"
-        : ws.myEffectiveLevel === "VIEW"
+        : level === "VIEW"
           ? "view"
-          : ws.myEffectiveLevel,
+          : level,
     access: (ws.access ?? []).map(normalizeAccessEntry),
   };
 }
@@ -87,13 +86,8 @@ export async function createWorkspaceApi(input: {
   name: string;
   access: WorkspaceAccessInput[];
 }): Promise<WorkspaceSummary> {
-  const ws = await gqlOptional<WorkspaceResponse>(
-    CREATE_WORKSPACE,
-    { input },
-    "createWorkspace",
-  );
-  if (!ws) throw new Error("createWorkspace 응답이 비어 있습니다.");
-  return normalizeWorkspace(ws);
+  void input;
+  throw new Error("개인용 앱에서는 워크스페이스를 추가로 생성하지 않습니다.");
 }
 
 export async function updateWorkspaceApi(input: {
@@ -121,34 +115,21 @@ export async function setWorkspaceAccessApi(input: {
   workspaceId: string;
   entries: WorkspaceAccessInput[];
 }): Promise<WorkspaceSummary> {
-  const ws = await gqlOptional<WorkspaceResponse>(
-    SET_WORKSPACE_ACCESS,
-    { workspaceId: input.workspaceId, entries: input.entries },
-    "setWorkspaceAccess",
-  );
-  if (!ws) throw new Error("setWorkspaceAccess 응답이 비어 있습니다.");
-  return normalizeWorkspace(ws);
+  void input;
+  throw new Error("개인용 앱에서는 워크스페이스 권한을 변경하지 않습니다.");
 }
 
 export async function deleteWorkspaceApi(workspaceId: string): Promise<boolean> {
-  const ok = await gqlOptional<boolean>(DELETE_WORKSPACE, { workspaceId }, "deleteWorkspace");
-  return Boolean(ok);
+  void workspaceId;
+  return false;
 }
 
 export async function archiveWorkspaceApi(workspaceId: string): Promise<WorkspaceSummary | null> {
-  const ws = await gqlOptional<WorkspaceResponse>(
-    ARCHIVE_WORKSPACE,
-    { workspaceId },
-    "archiveWorkspace",
-  );
-  return ws ? normalizeWorkspace(ws) : null;
+  void workspaceId;
+  return null;
 }
 
 export async function restoreWorkspaceApi(workspaceId: string): Promise<WorkspaceSummary | null> {
-  const ws = await gqlOptional<WorkspaceResponse>(
-    RESTORE_WORKSPACE,
-    { workspaceId },
-    "restoreWorkspace",
-  );
-  return ws ? normalizeWorkspace(ws) : null;
+  void workspaceId;
+  return null;
 }

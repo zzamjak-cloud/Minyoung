@@ -69,7 +69,7 @@
 
 ### 새 CDK 스택
 
-`infra/lib/sync-stack.ts` (`QuicknoteSyncStack`) 추가:
+`infra/lib/sync-stack.ts` (`MinyoungSyncStack`) 추가:
 
 - AppSync GraphQL API (Cognito User Pool primary authorizer; v3 스택 import)
 - DynamoDB 4 테이블 (Page, Database, Contact, ImageAsset) + 각 GSI
@@ -77,7 +77,7 @@
 - Lambda 2개: `image-presign` (PUT/GET URL 발급), `image-gc` (야간 GC)
 - EventBridge 스케줄러 (이미지 GC 1일 1회)
 
-`CognitoStack`은 그대로 두고 `QuicknoteSyncStack`이 cross-stack reference로 user pool ARN을 받아 authorizer로 사용.
+`CognitoStack`은 그대로 두고 `MinyoungSyncStack`이 cross-stack reference로 user pool ARN을 받아 authorizer로 사용.
 
 ---
 
@@ -200,7 +200,7 @@ src/lib/sync/
   fractionalOrder.ts   # 순수 함수: between(a, b) midstring
   imageUrls.ts         # PreSigned URL 캐시 (TTL 50분)
 src/lib/storage/
-  imageScheme.ts        # quicknote-image://{id} 변환 유틸
+  imageScheme.ts        # minyoung-image://{id} 변환 유틸
 ```
 
 ### 4.2 outbox 큐 스키마
@@ -247,7 +247,7 @@ function isRemoteWinner<T extends { updatedAt: string }>(local: T, remote: T): b
 
 ### 5.1 키 구조 / 권한
 
-- 버킷: `quicknote-images-{account}-{region}`.
+- 버킷: `minyoung-images-{account}-{region}`.
 - 키: `users/{ownerId}/images/{imageId}.{ext}`.
 - IAM: 버킷 정책으로 **public access 차단**, 모든 접근은 PreSignedURL.
 - CORS: `PUT` from `*` (S3 직접 PUT용), `GET`은 PreSignedURL이라 CORS 불필요.
@@ -264,7 +264,7 @@ function isRemoteWinner<T extends { updatedAt: string }>(local: T, remote: T): b
 5. 클라가 PUT URL로 binary 업로드
 6. mutation confirmImage(imageId)
    → Lambda가 S3 HEAD 호출로 객체 존재·크기·mime 검증, ImageAsset.status = READY
-7. 에디터 doc 안 image 노드 src = "quicknote-image://{imageId}" 로 저장
+7. 에디터 doc 안 image 노드 src = "minyoung-image://{imageId}" 로 저장
 8. doc 동기화는 정상 outbox 흐름을 따름
 ```
 
@@ -284,7 +284,7 @@ PreSigned GET URL TTL = 1시간. 캐시는 50분으로 보수적.
 
 EventBridge cron (UTC 18:00 = KST 03:00) → Lambda `image-gc`:
 
-1. 모든 사용자별로 doc·dbCells 안의 `quicknote-image://{id}` 추출 (도달 가능 set).
+1. 모든 사용자별로 doc·dbCells 안의 `minyoung-image://{id}` 추출 (도달 가능 set).
 2. `ImageAsset.byOwner` GSI 스캔하여 `status=READY` 항목 중 도달 불가능한 id 추출.
 3. 30일 이상 미참조면 S3 객체 삭제 + DDB 항목 삭제.
 
@@ -309,7 +309,7 @@ EventBridge cron (UTC 18:00 = KST 03:00) → Lambda `image-gc`:
 ### 7.1 기존 데이터
 
 - 현재 `localStorage`/SQLite 데이터는 **폐기** (사용자 합의).
-- v4 첫 빌드 부팅 시: 기존 키(`quicknote.pages.v1`, `quicknote.databases`, ...) 발견하면 콘솔 경고 + 삭제 후 빈 상태로 시작. 삭제 동의 다이얼로그 없음 (개발 단계).
+- v4 첫 빌드 부팅 시: 기존 키(`minyoung.pages.v1`, `minyoung.databases`, ...) 발견하면 콘솔 경고 + 삭제 후 빈 상태로 시작. 삭제 동의 다이얼로그 없음 (개발 단계).
 - 데스크톱 SQLite 파일 삭제 절차는 첫 부트 시 자동.
 
 ### 7.2 환경 변수 추가
@@ -318,7 +318,7 @@ EventBridge cron (UTC 18:00 = KST 03:00) → Lambda `image-gc`:
 VITE_APPSYNC_ENDPOINT=https://xxxxxx.appsync-api.ap-northeast-2.amazonaws.com/graphql
 VITE_APPSYNC_REALTIME_ENDPOINT=wss://xxxxxx.appsync-realtime-api.ap-northeast-2.amazonaws.com/graphql
 VITE_S3_REGION=ap-northeast-2
-VITE_S3_BUCKET_NAME=quicknote-images-{account}-{region}
+VITE_S3_BUCKET_NAME=minyoung-images-{account}-{region}
 ```
 
 ### 7.3 README 로드맵 갱신
@@ -354,7 +354,7 @@ Cognito MAU 는 50k 이하 무료(v3 그대로). 100명 → 1000명까지 선형
 
 - `lww.ts`: `isRemoteWinner` 동치 케이스, deletedAt 우선 케이스
 - `fractionalOrder.ts`: 두 키 사이 midstring 생성, 동시 삽입 시 충돌 없음 검증
-- `imageScheme.ts`: `quicknote-image://...` ↔ imageId 변환
+- `imageScheme.ts`: `minyoung-image://...` ↔ imageId 변환
 - `outbox.ts`: enqueue → flush → 실패 백오프 → 재시도 성공 시나리오 (어댑터 모킹)
 
 ### 9.2 통합
@@ -391,11 +391,11 @@ Cognito MAU 는 50k 이하 무료(v3 그대로). 100명 → 1000명까지 선형
 
 다음 단계(`writing-plans`)에서 다음 트랙으로 나눠 상세 단계화:
 
-- **T1. 인프라**: `QuicknoteSyncStack` CDK 작성, AppSync 스키마·리졸버, DDB·S3·Lambda 정의, 배포 파이프라인.
+- **T1. 인프라**: `MinyoungSyncStack` CDK 작성, AppSync 스키마·리졸버, DDB·S3·Lambda 정의, 배포 파이프라인.
 - **T2. 클라 SDK 통합**: `@aws-amplify/api-graphql` 의존성 추가, `src/lib/sync/graphql.ts` 작성, idToken 전달.
 - **T3. 동기화 엔진**: outbox·lww·subscribers·fractionalOrder 구현 + Vitest.
 - **T4. 스토어 연동**: pageStore·databaseStore·contactsStore 의 변경 훅이 `SyncEngine.enqueue` 호출하도록 개조. `zustandStorage` 비동기화 대상만 유지.
-- **T5. 이미지 흐름**: TipTap image 노드 `src` 처리 변경, `useImageUrl` 훅, 업로드 핸들러, `quicknote-image://` 스킴 유틸.
+- **T5. 이미지 흐름**: TipTap image 노드 `src` 처리 변경, `useImageUrl` 훅, 업로드 핸들러, `minyoung-image://` 스킴 유틸.
 - **T6. 마이그레이션 정리**: 부트 시 기존 키 폐기 로직.
 - **T7. 환경·문서**: `.env.example`, README 로드맵, `infra/README.md` 갱신, CHANGELOG.
 
@@ -412,6 +412,6 @@ Cognito MAU 는 50k 이하 무료(v3 그대로). 100명 → 1000명까지 선형
 | Q3 | 단일화 — 기존 로컬 저장소 폐기 (마이그레이션 없음) |
 | Q4 | 페이지 = 1 레코드, doc 통째 저장, 디바운스 2초 |
 | Q5 | pages·databases·contacts만 동기화, history·settings·auth는 로컬 |
-| Q6 | S3 PreSigned PUT/GET, `quicknote-image://` 스킴, 야간 GC, 20MB 한도 |
+| Q6 | S3 PreSigned PUT/GET, `minyoung-image://` 스킴, 야간 GC, 20MB 한도 |
 | Q7 | AppSync GraphQL + 자체 outbox 큐 (DataStore 비채택) |
 | Q8 | 모델별 4 테이블 / soft delete / fractional order / Cognito JWT / 디바운스 / 새 CDK 스택 |

@@ -38,12 +38,12 @@ type TableSpec = {
 const TABLES: TableSpec[] = [
   {
     label: "teams",
-    tableName: process.env.TEAMS_TABLE_NAME ?? "quicknote-teams",
+    tableName: process.env.TEAMS_TABLE_NAME ?? "minyoung-teams",
     pkName: "teamId",
   },
   {
     label: "organizations",
-    tableName: process.env.ORGANIZATIONS_TABLE_NAME ?? "quicknote-organizations",
+    tableName: process.env.ORGANIZATIONS_TABLE_NAME ?? "minyoung-organizations",
     pkName: "organizationId",
   },
 ];

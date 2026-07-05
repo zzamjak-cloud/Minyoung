@@ -12,10 +12,10 @@ import {
   type ColumnDropState,
 } from "../../lib/editor/editorHandleDrop";
 import {
-  parseQuickNoteLink,
-  quickNoteLinkLabel,
-  type QuickNoteLinkTarget,
-} from "../../lib/navigation/quicknoteLinks";
+  parseMinyoungLink,
+  minyoungLinkLabel,
+  type MinyoungLinkTarget,
+} from "../../lib/navigation/minyoungLinks";
 import { fetchPageById } from "../../lib/sync/bootstrap";
 import { usePageStore } from "../../store/pageStore";
 import { sanitizeWebLinkHref } from "../../lib/safeUrl";
@@ -54,10 +54,10 @@ type UseEditorPropsParams = {
 async function applyCrossWorkspaceButtonLabel(
   view: PmEditorView,
   href: string,
-  target: QuickNoteLinkTarget,
+  target: MinyoungLinkTarget,
 ): Promise<void> {
   if (!target.workspaceId) return;
-  const placeholderLabel = quickNoteLinkLabel(undefined, target);
+  const placeholderLabel = minyoungLinkLabel(undefined, target);
   let title: string | undefined;
   try {
     const page = await fetchPageById(target.workspaceId, target.pageId);
@@ -66,7 +66,7 @@ async function applyCrossWorkspaceButtonLabel(
     return;
   }
   if (!title) return;
-  const nextLabel = quickNoteLinkLabel(title, target);
+  const nextLabel = minyoungLinkLabel(title, target);
   if (nextLabel === placeholderLabel) return;
   // 붙여넣은 버튼 노드를 href + 플레이스홀더 라벨로 찾아 라벨만 갱신(사용자가 이미 수정한 버튼은 건드리지 않음).
   const positions: number[] = [];
@@ -310,7 +310,7 @@ export function useEditorProps({
         const text = event.clipboardData?.getData("text/plain")?.trim() ?? "";
         if (!text || /\s/.test(text)) return false;
 
-        const internalTarget = parseQuickNoteLink(text);
+        const internalTarget = parseMinyoungLink(text);
         if (internalTarget) {
           event.preventDefault();
           const localTitle = usePageStore.getState().pages[internalTarget.pageId]?.title;
@@ -319,7 +319,7 @@ export function useEditorProps({
           view.dispatch(
             view.state.tr.replaceSelectionWith(
               buttonType.create({
-                label: quickNoteLinkLabel(localTitle, internalTarget),
+                label: minyoungLinkLabel(localTitle, internalTarget),
                 href: text,
               }),
             ),

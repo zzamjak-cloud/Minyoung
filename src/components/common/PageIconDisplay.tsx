@@ -1,4 +1,4 @@
-// 페이지 icon: 이모지 또는 이미지(quicknote-image:// 등) 표시
+// 페이지 icon: 이모지 또는 이미지(minyoung-image:// 등) 표시
 
 import * as LucideIcons from "lucide-react";
 import type { LucideIcon } from "lucide-react";

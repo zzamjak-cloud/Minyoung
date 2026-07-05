@@ -20,7 +20,7 @@ connect.ts  : Cognito 토큰 검증 + parseRoom(room.ts, epoch 솔트 제거) + 
 sync.ts     : hello→diff 응답, update 영속·fan-out. db: 룸은 빈 상태일 때 서버 권위 dbSeed
               ping→즉시 pong(상태 로드 없음) — keepalive 전용(2026-07-03 비용 절감)
 disconnect.ts
-테이블: {env}quicknote-rt-connections(TTL) / rt-ydoc(스냅샷) / rt-ydoc-updates(로그, 50건 초과 압축)
+테이블: {env}minyoung-rt-connections(TTL) / rt-ydoc(스냅샷) / rt-ydoc-updates(로그, 50건 초과 압축)
 ⚠ rt-ydoc/-updates 는 TTL 없음 — 룸 상태는 영구 보존된다(epoch 격리의 이유)
 ```
 
@@ -132,7 +132,7 @@ stale SW = stale epoch — 배포 정합은 [collab-live-deploy-checklist §1.8]
 | 본문 빈 화면 | 서버 `page.doc` 먼저 확인(대부분 무손실) → 룸 Y 상태 디코딩(아래) → 시드/바인딩 게이트 의심 |
 | 룸 상태 디코딩 | rt-ydoc(state, b64) + rt-ydoc-updates(update 로그) 를 `Y.mergeUpdates` 후 `getXmlFragment("prosemirror")` — 빈 문단만 있으면 오염 룸 |
 | 클라 로그 | `[collab] placeholder Y 상태 materialize 차단` = 방어선 작동(데이터 보호됨) |
-| 람다 | `{Dev}QuicknoteRealtimeCollabStack-{Connect,Sync}Fn*` CloudWatch. 검증 단계 거절은 람다에 안 남음 |
+| 람다 | `{Dev}MinyoungRealtimeCollabStack-{Connect,Sync}Fn*` CloudWatch. 검증 단계 거절은 람다에 안 남음 |
 
 ## 파일 맵
 

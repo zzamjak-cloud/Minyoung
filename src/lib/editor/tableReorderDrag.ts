@@ -1,5 +1,5 @@
 /** TipTap 표 행·열 순서 드래그 — 블록 드롭 UI·dropcursor 와 구분 */
-export const QUICKNOTE_TABLE_REORDER_MIME = "application/x-quicknote-table-reorder";
+export const MINYOUNG_TABLE_REORDER_MIME = "application/x-minyoung-table-reorder";
 
 export type TableReorderDragPayload = {
   kind: "row" | "col";
@@ -9,14 +9,14 @@ export type TableReorderDragPayload = {
   from: number;
 };
 
-export const TABLE_REORDER_DRAG_BODY_CLASS = "quicknote-table-reorder-dragging";
+export const TABLE_REORDER_DRAG_BODY_CLASS = "minyoung-table-reorder-dragging";
 
 export function setTableReorderDragData(dt: DataTransfer, payload: TableReorderDragPayload): void {
-  dt.setData(QUICKNOTE_TABLE_REORDER_MIME, JSON.stringify(payload));
+  dt.setData(MINYOUNG_TABLE_REORDER_MIME, JSON.stringify(payload));
 }
 
 export function parseTableReorderDragData(dt: DataTransfer | null): TableReorderDragPayload | null {
-  const raw = dt?.getData(QUICKNOTE_TABLE_REORDER_MIME);
+  const raw = dt?.getData(MINYOUNG_TABLE_REORDER_MIME);
   if (!raw) return null;
   try {
     const p = JSON.parse(raw) as Partial<TableReorderDragPayload>;
@@ -32,7 +32,7 @@ export function parseTableReorderDragData(dt: DataTransfer | null): TableReorder
 /** dragover 단계에서 getData 가 비어 있을 수 있어 types 로 판별 */
 export function isTableReorderDragEvent(dt: DataTransfer | null): boolean {
   if (!dt?.types) return false;
-  const want = QUICKNOTE_TABLE_REORDER_MIME;
+  const want = MINYOUNG_TABLE_REORDER_MIME;
   for (let i = 0; i < dt.types.length; i += 1) {
     if (dt.types[i] === want) return true;
   }

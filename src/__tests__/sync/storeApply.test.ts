@@ -15,7 +15,7 @@ import { useHistoryStore } from "../../store/historyStore";
 import type { GqlDatabase, GqlPage, GqlPageMeta } from "../../lib/sync/graphql/operations";
 import { markLocallyDeletedEntity } from "../../lib/sync/localDeleteGuards";
 
-const GUARDS_KEY = "quicknote.sync.localDeleteGuards.v1";
+const GUARDS_KEY = "minyoung.sync.localDeleteGuards.v1";
 
 function spyLocalStorageGetItem(): {
   getItem: ReturnType<typeof vi.fn>;

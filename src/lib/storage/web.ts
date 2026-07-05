@@ -4,7 +4,7 @@ import {
   selectCacheKeysToPrune,
 } from "./cacheQuota";
 
-const DB_NAME = "quicknote-web-kv";
+const DB_NAME = "minyoung-web-kv";
 const DB_VERSION = 1;
 const STORE_NAME = "kv_store";
 
@@ -78,8 +78,8 @@ function byteLength(value: string): number {
  * IDB quota 초과 시 LRU 기반으로 삭제 가능한 캐시 키인지 판정.
  *
  * 키 네이밍 규약:
- * - "quicknote.{domain}.cache.{tag}.v{N}"  → prunable (서버에서 재페치 가능한 캐시)
- * - "quicknote.{domain}.v{N}"              → preserved (사용자 컨텐츠·설정 — 손실 금지)
+ * - "minyoung.{domain}.cache.{tag}.v{N}"  → prunable (서버에서 재페치 가능한 캐시)
+ * - "minyoung.{domain}.v{N}"              → preserved (사용자 컨텐츠·설정 — 손실 금지)
  *
  * 새 캐시 키를 만들 때 서버에서 재페치 가능하면 반드시 ".cache." segment 를 포함시켜
  * 자동 prune 대상에 들어가도록 한다.

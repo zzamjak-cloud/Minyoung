@@ -88,7 +88,7 @@ databaseStore(UI) ── dbBundleYjs ── Y.Doc(db) ── QnWsProvider(room "
 - connections·QnYDoc·QnYDocUpdates 의 키 속성(`pageId`)에 room 키 문자열(`db:<databaseId>`)을 그대로 저장 — **DynamoDB 스키마·GSI 변경 없음**. fan-out(byPageId GSI)·영속·압축·sync(hello/update/sv-reply)·awareness fan-out 로직 전부 그대로 동작.
 - 첫 진입 시 `QnYDoc` 미존재면 서버가 `DatabaseBundle`(현 DynamoDB Database 항목)에서 Y.Doc 1회 시드(`bundleToYDoc` 서버판) → 권위적 구조 시드(중복 컬럼 방지).
 
-### 6.3 CDK (`infra/lib/realtime-collab-stack.ts`·`bin/quicknote.ts`)
+### 6.3 CDK (`infra/lib/realtime-collab-stack.ts`·`bin/minyoung.ts`)
 - connectFn 에 `DATABASE_TABLE` env + Database 테이블 GetItem IAM 추가(syncStack.databaseTable 교차참조).
 - WS API·연결/YDoc 테이블·sync/disconnect 핸들러 무변경.
 
@@ -126,7 +126,7 @@ databaseStore(UI) ── dbBundleYjs ── Y.Doc(db) ── QnWsProvider(room "
 | 점진 롤아웃 혼재 | DB 단위 feature flag |
 
 ## 11. 배포 / 롤아웃
-- 인프라: connectFn env(DATABASE_TABLE)+IAM 추가 → `DevQuicknoteRealtimeCollabStack` 재배포(테이블·라우트 무변경). **develop 구현·dev 검증·명시 승인 후 배포**.
+- 인프라: connectFn env(DATABASE_TABLE)+IAM 추가 → `DevMinyoungRealtimeCollabStack` 재배포(테이블·라우트 무변경). **develop 구현·dev 검증·명시 승인 후 배포**.
 - 프론트: DB 단위 flag(`VITE_COLLAB_ENABLED_DB_IDS`)로 단계 검증.
 
 ## 12. 향후 단계

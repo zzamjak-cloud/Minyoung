@@ -1,4 +1,4 @@
-// quicknote 가 사용하는 localStorage 키를 한 곳에 정리한다.
+// minyoung 가 사용하는 localStorage 키를 한 곳에 정리한다.
 //
 // 범위:
 // 1) zustand persist 의 name: 옵션 → 각 store 파일에 그대로 둠 (그게 단일 출처).
@@ -14,8 +14,8 @@ export const DIRECT_KEYS = {} as const;
 
 /** 더 이상 사용하지 않는 과거 키. legacyCleanup 에서 일괄 제거 대상. */
 export const LEGACY_KEYS: ReadonlyArray<string> = [
-  "quicknote.activePageId.v1",
-  "quicknote.schemaVersion",
-  "quicknote.databases",
-  "quicknote.contacts",
+  "minyoung.activePageId.v1",
+  "minyoung.schemaVersion",
+  "minyoung.databases",
+  "minyoung.contacts",
 ] as const;

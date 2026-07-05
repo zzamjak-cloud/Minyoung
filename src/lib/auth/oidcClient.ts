@@ -11,8 +11,8 @@ let _userStore: AsyncStateStore | null = null;
 
 function ensureStores() {
   const scope = authStorageScopeSuffix();
-  const statePrefix = scope ? `quicknote.auth.state.${scope}` : "quicknote.auth.state";
-  const userPrefix = scope ? `quicknote.auth.user.${scope}` : "quicknote.auth.user";
+  const statePrefix = scope ? `minyoung.auth.state.${scope}` : "minyoung.auth.state";
+  const userPrefix = scope ? `minyoung.auth.user.${scope}` : "minyoung.auth.user";
   if (!_stateStore) {
     _stateStore = new AsyncStateStore(zustandStorage, statePrefix);
   }

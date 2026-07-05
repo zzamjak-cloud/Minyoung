@@ -1,7 +1,7 @@
 import type { Editor } from "@tiptap/react";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { isTrustedYoutubeInput, sanitizeWebLinkHref } from "../safeUrl";
-import { parseQuickNoteLink } from "../navigation/quicknoteLinks";
+import { parseMinyoungLink } from "../navigation/minyoungLinks";
 
 /**
  * 붙여넣기 링크 선택지 및 블록 변환에서 공통으로 쓰는 링크 표현 형식.
@@ -77,7 +77,7 @@ export function applyLinkBlockChoice(
 function externalWebHref(href: string): string | null {
   const trimmed = href.trim();
   if (!trimmed) return null;
-  if (parseQuickNoteLink(trimmed)) return null;
+  if (parseMinyoungLink(trimmed)) return null;
   return sanitizeWebLinkHref(trimmed) ? trimmed : null;
 }
 

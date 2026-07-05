@@ -3,7 +3,7 @@
 export type AuthConfig = {
   region: string;
   userPoolId: string;
-  hostedUiDomain: string; // ex) quicknote-auth.auth.ap-northeast-2.amazoncognito.com
+  hostedUiDomain: string; // ex) minyoung-auth.auth.ap-northeast-2.amazoncognito.com
   clientId: string;
   redirectUri: string;
   postLogoutRedirectUri: string;

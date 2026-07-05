@@ -239,7 +239,7 @@ export const useUiStore = create<UiStoreState & UiStoreActions>()(
 
 }),
     {
-      name: "quicknote.ui.v1",
+      name: "minyoung.ui.v1",
       storage: createJSONStorage(() => zustandStorage),
       partialize: (state) => ({
         rightPanelOpen: state.rightPanelOpen,

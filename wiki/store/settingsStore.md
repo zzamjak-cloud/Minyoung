@@ -54,7 +54,7 @@ UI 전역 설정(다크모드, 사이드바, 탭, 즐겨찾기, 전체너비 등
 
 ## Persist
 
-- localStorage 키: `quicknote.settings.v1`
+- localStorage 키: `minyoung.settings.v1`
 - storage: `zustandStorage`
 - version: `SETTINGS_STORE_VERSION = 12`
 - 마이그레이션 이력 (v2→12): `sidebarCollapsed`, `favoritePageIds`, `pageFullWidthById`, `dbPropertyPanelOpen`, `entityIcons`, `entityDescriptions`, `fullWidthUpdatedAt`, `lastVisitedPageIdByWorkspaceId` 등 필드 추가. v12에서 `schedulerMemberOrder` 필드 제거.

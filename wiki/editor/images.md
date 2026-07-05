@@ -13,7 +13,7 @@
 | `upload.ts` | presigned URL 발급 → S3 PUT → confirmImage 3단계 업로드 |
 | `compressImage.ts` | Canvas API로 래스터 이미지를 WebP Blob으로 압축·리사이즈 |
 | `registry.ts` | imageId → PreSignedURL 인메모리+localStorage TTL 캐시 (앱 전역 싱글턴) |
-| `hooks.ts` | `useImageUrl` — `quicknote-image://` 가상 스킴을 표시 가능한 URL로 해석하는 React 훅 |
+| `hooks.ts` | `useImageUrl` — `minyoung-image://` 가상 스킴을 표시 가능한 URL로 해석하는 React 훅 |
 | `resizeAvatar.ts` | 아바타 전용 리사이즈 유틸 |
 | `__tests__/` | 단위 테스트 |
 
@@ -24,7 +24,7 @@
 ### 주요 exports
 | 이름 | 설명 |
 |------|------|
-| `uploadImage(file, opts?)` | 이미지 파일을 업로드하고 `quicknote-image://{imageId}` ref 반환 |
+| `uploadImage(file, opts?)` | 이미지 파일을 업로드하고 `minyoung-image://{imageId}` ref 반환 |
 
 ### 동작 흐름
 1. MIME 타입 검증 (`image/png`, `image/jpeg`, `image/webp` 허용), 20MB 상한 검사
@@ -32,7 +32,7 @@
 3. `GET_IMAGE_UPLOAD_URL` GraphQL mutation → `{ imageId, uploadUrl, alreadyUploaded }` 획득
 4. `alreadyUploaded === false` 이면 S3 presigned URL로 `fetch PUT`
 5. `CONFIRM_IMAGE` GraphQL mutation 호출
-6. `encodeImageRef(imageId)` → `quicknote-image://{imageId}` 반환
+6. `encodeImageRef(imageId)` → `minyoung-image://{imageId}` 반환
 
 ### 주의사항
 - 동일 파일은 SHA-256 해시로 서버에서 중복 감지 (`alreadyUploaded: true`) → S3 PUT 생략
@@ -99,7 +99,7 @@
 ### 주요 exports
 | 이름 | 설명 |
 |------|------|
-| `useImageUrl(srcOrRef)` | `quicknote-image://` ref 또는 일반 URL → 표시 가능한 URL 반환 |
+| `useImageUrl(srcOrRef)` | `minyoung-image://` ref 또는 일반 URL → 표시 가능한 URL 반환 |
 | `UseImageUrlResult` | `{ url: string \| null; error: string \| null }` |
 
 ### 동작 흐름 (useImageUrl)

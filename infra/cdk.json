@@ -1,5 +1,5 @@
 {
-  "app": "npx ts-node --prefer-ts-exts bin/quicknote.ts",
+  "app": "npx ts-node --prefer-ts-exts bin/minyoung.ts",
   "watch": {
     "include": [
       "**"
@@ -18,25 +18,15 @@
     ]
   },
   "context": {
-    "cognitoDomainPrefix": "quicknote-auth",
+    "cognitoDomainPrefix": "minyoung-auth",
     "webCallbackUrls": [
-      "https://quick-note-khaki.vercel.app/auth/callback"
+      "http://localhost:5173/auth/callback",
+      "https://minyoung.vercel.app/auth/callback"
     ],
     "webLogoutUrls": [
-      "https://quick-note-khaki.vercel.app/auth/signout"
+      "http://localhost:5173/auth/signout",
+      "https://minyoung.vercel.app/auth/signout"
     ],
-    "desktopCallbackUrls": [
-      "http://127.0.0.1:14735/auth/callback"
-    ],
-    "desktopLogoutUrls": [
-      "http://127.0.0.1:14735/auth/signout"
-    ],
-    "googleSecretName": "quicknote/google-oauth"
-    ,
-    "membersTableName": "quicknote-members-v6",
-    "teamsTableName": "quicknote-teams-v6",
-    "memberTeamsTableName": "quicknote-member-teams-v6",
-    "workspacesTableName": "quicknote-workspaces-v6",
-    "workspaceAccessTableName": "quicknote-workspace-access-v6"
+    "googleSecretName": "minyoung/google-oauth"
   }
 }

@@ -85,7 +85,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
       },
     }),
     {
-      name: "quicknote.flowcharts.v1",
+      name: "minyoung.flowcharts.v1",
       storage: createJSONStorage(() => zustandStorage),
     },
   ),

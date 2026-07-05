@@ -37,6 +37,6 @@
 | `src/store/databaseGroupCollapseStore.ts` | DB 그룹화 접힘 상태(로컬 전용) → [database/grouping.md](../database/grouping.md) |
 
 ## persist 적용 스토어
-`pageStore`, `databaseStore` — localStorage 키: `quicknote.pages.v1`, `quicknote.databases.v1`
+`pageStore`, `databaseStore` — localStorage 키: `minyoung.pages.v1`, `minyoung.databases.v1`
 
 버전 관리: [schema-versioning.md](schema-versioning.md)

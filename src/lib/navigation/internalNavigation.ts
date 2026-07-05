@@ -4,7 +4,7 @@ import { useUiStore } from "../../store/uiStore";
 import { useWorkspaceStore } from "../../store/workspaceStore";
 import { ensurePageContentLoaded } from "../sync/pageContentLoad";
 import { requestCrossWorkspaceLanding } from "../sync/workspaceLanding";
-import { buildQuickNotePageUrl } from "./quicknoteLinks";
+import { buildMinyoungPageUrl } from "./minyoungLinks";
 import type { Page } from "../../types/page";
 
 export type InternalNavigationClick = {
@@ -97,7 +97,7 @@ function pushPageBrowserHistory(pageId: string): void {
     window.history.pushState(
       { qnPage: pageId },
       "",
-      buildQuickNotePageUrl({ pageId }),
+      buildMinyoungPageUrl({ pageId }),
     );
   } catch {
     /* noop */

@@ -49,7 +49,7 @@ export const usePageContentLoadStore = create<PageContentLoadStore>()(
       clear: () => set({ metaOnlyByPageId: {}, loadingByPageId: {} }),
     }),
     {
-      name: "quicknote.page-content-load.v1",
+      name: "minyoung.page-content-load.v1",
       storage: createJSONStorage(() => zustandStorage),
       partialize: (state) => ({ metaOnlyByPageId: state.metaOnlyByPageId }),
     },

@@ -5,7 +5,6 @@ import {
   type GqlPageMeta,
   type GqlDatabase,
 } from "./graphql/operations";
-import { ON_WORKSPACE_CHANGED } from "./queries/workspace";
 import { ensureFreshTokensForAppSync } from "../auth/apiTokens";
 import { getSyncEngine } from "./runtime";
 import {
@@ -22,8 +21,6 @@ import {
 export type SubscribeHandlers = {
   onPage: (item: GqlPageMeta) => void;
   onDatabase: (item: GqlDatabase) => void;
-  /** 워크스페이스 접근권한 변경 신호(트리거). 제공 시에만 구독한다. */
-  onWorkspace?: (workspaceId: string) => void;
 };
 
 type Subscribable = {
@@ -84,7 +81,7 @@ export function startSubscriptions(
     }, delay);
   };
 
-  const logSubError = (channel: "page" | "database" | "workspace", error: unknown) => {
+  const logSubError = (channel: "page" | "database", error: unknown) => {
     const msg = getErrorMessage(error);
     const key = `sub:${channel}`;
     const prev = lastErrorByChannel.get(key);
@@ -112,7 +109,7 @@ export function startSubscriptions(
     // 새 동기화 엔티티 구독 추가 시 이 배열에 한 항목만 더하면 된다.
     // enabled=false 인 채널은 건너뛴다(해당 핸들러 미제공 시).
     const channels: Array<{
-      key: "page" | "database" | "workspace";
+      key: "page" | "database";
       query: string;
       enabled: boolean;
       onNext: (data: Record<string, unknown>) => void;
@@ -133,15 +130,6 @@ export function startSubscriptions(
         onNext: (data) => {
           const parsed = parseGqlOne(data.onDatabaseChanged, GqlDatabaseSchema, "onDatabaseChanged");
           if (parsed) handlers.onDatabase(parsed as unknown as GqlDatabase);
-        },
-      },
-      {
-        key: "workspace",
-        query: ON_WORKSPACE_CHANGED,
-        enabled: !!handlers.onWorkspace,
-        onNext: (data) => {
-          const changed = (data.onWorkspaceChanged as { workspaceId?: string } | null)?.workspaceId;
-          if (changed) handlers.onWorkspace?.(changed);
         },
       },
     ];

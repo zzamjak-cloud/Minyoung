@@ -13,7 +13,7 @@ export type CacheQuotaEntry = {
  * 사용자 원본 데이터와 outbox는 이 조건에 들어오면 안 된다.
  */
 export function isPrunableCacheKey(key: string): boolean {
-  return key.startsWith("quicknote.") && key.includes(".cache.");
+  return key.startsWith("minyoung.") && key.includes(".cache.");
 }
 
 export function selectCacheKeysToPrune(

@@ -175,7 +175,7 @@ export const Callout = Node.create({
             event.stopPropagation();
             const rect = icon.getBoundingClientRect();
             window.dispatchEvent(
-              new CustomEvent("quicknote:open-callout-icon-picker", {
+              new CustomEvent("minyoung:open-callout-icon-picker", {
                 detail: {
                   pos: nodePos,
                   top: rect.top,

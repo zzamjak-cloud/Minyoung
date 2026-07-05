@@ -110,10 +110,10 @@ describe("DatabaseGalleryView cover", () => {
     });
   });
 
-  it("커버 선택기에서 quicknote 이미지 ref를 표시 URL로 풀어 썸네일을 렌더한다", () => {
+  it("커버 선택기에서 minyoung 이미지 ref를 표시 URL로 풀어 썸네일을 렌더한다", () => {
     seedGallery({
       page: rowPage({
-        doc: imageDoc("quicknote-image://img-1", "https://example.com/photo.png"),
+        doc: imageDoc("minyoung-image://img-1", "https://example.com/photo.png"),
         contentLoaded: true,
       }),
     });
@@ -121,7 +121,7 @@ describe("DatabaseGalleryView cover", () => {
     renderGallery();
     fireEvent.click(screen.getByTitle("커버 이미지 설정"));
 
-    expect(document.querySelector('img[src="resolved:quicknote-image://img-1"]')).not.toBeNull();
+    expect(document.querySelector('img[src="resolved:minyoung-image://img-1"]')).not.toBeNull();
     expect(document.querySelector('img[src="resolved:https://example.com/photo.png"]')).not.toBeNull();
   });
 
@@ -130,7 +130,7 @@ describe("DatabaseGalleryView cover", () => {
       columns: [titleColumn, urlColumn],
       page: rowPage({
         dbCells: { url: "https://example.com/not-image" },
-        doc: imageDoc("quicknote-image://body-cover"),
+        doc: imageDoc("minyoung-image://body-cover"),
         contentLoaded: true,
       }),
     });
@@ -142,7 +142,7 @@ describe("DatabaseGalleryView cover", () => {
     fireEvent.error(cover as HTMLImageElement);
 
     await waitFor(() => {
-      expect(container.querySelector('img[src="resolved:quicknote-image://body-cover"]')).not.toBeNull();
+      expect(container.querySelector('img[src="resolved:minyoung-image://body-cover"]')).not.toBeNull();
     });
   });
 });

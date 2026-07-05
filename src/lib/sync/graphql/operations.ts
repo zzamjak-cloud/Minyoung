@@ -18,9 +18,6 @@ export {
   type GqlCustomIcon,
 } from "../queries/customIcon";
 export {
-  GET_WORKSPACE_META,
-} from "../queries/workspaceMeta";
-export {
   GET_PAGE,
   GET_PAGE_BY_ID,
   LIST_DATABASE_ROW_INDEX,

@@ -320,15 +320,15 @@ export function useBoxSelectMarquee({
 
     const clearSelectionAfterDocChange = () => {
       if (activeRef.current) return;
-      if (document.body.classList.contains("quicknote-block-dragging")) return;
+      if (document.body.classList.contains("minyoung-block-dragging")) return;
       clearSelection();
     };
     editor.on("update", clearSelectionAfterDocChange);
 
-    // 그립 핸들러로 시작한 native drag 도 quicknote-block-dragging body 클래스를 걸어주므로
+    // 그립 핸들러로 시작한 native drag 도 minyoung-block-dragging body 클래스를 걸어주므로
     // 에디터 영역 dragover 를 명시적으로 수락(브라우저가 moved/drop을 거부 못하도록).
     const onWindowDragOver = (e: DragEvent) => {
-      if (!document.body.classList.contains("quicknote-block-dragging")) return;
+      if (!document.body.classList.contains("minyoung-block-dragging")) return;
       const hostRect = editorHost.getBoundingClientRect();
       const insideHost =
         e.clientX >= hostRect.left &&

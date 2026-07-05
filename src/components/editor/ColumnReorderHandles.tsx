@@ -60,7 +60,7 @@ function sameHandleState(
 
 const clearHandles = (prev: HandleState) => (prev === null ? prev : null);
 
-const DRAG_MIME = "application/x-quicknote-column-reorder";
+const DRAG_MIME = "application/x-minyoung-column-reorder";
 
 function parseDragData(dt: DataTransfer | null): { layoutStart: number; fromIndex: number } | null {
   const raw = dt?.getData(DRAG_MIME);
@@ -411,9 +411,9 @@ export function ColumnReorderHandles({ editor, boxSelectedStarts = [] }: Props) 
 
   useEffect(() => {
     if (!dragging) return;
-    document.body.classList.add("quicknote-column-reorder-dragging");
+    document.body.classList.add("minyoung-column-reorder-dragging");
     return () => {
-      document.body.classList.remove("quicknote-column-reorder-dragging");
+      document.body.classList.remove("minyoung-column-reorder-dragging");
     };
   }, [dragging]);
 

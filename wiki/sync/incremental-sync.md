@@ -5,7 +5,7 @@
 ## 핵심 파일
 | 파일 | 역할 |
 |------|------|
-| `src/store/syncWatermarkStore.ts` | 워크스페이스별 마지막 적용 `updatedAt`(ISO) 워터마크. persist 키 `quicknote.sync.watermark.v1` |
+| `src/store/syncWatermarkStore.ts` | 워크스페이스별 마지막 적용 `updatedAt`(ISO) 워터마크. persist 키 `minyoung.sync.watermark.v1` |
 | `src/lib/sync/workspaceFetchMode.ts` | `resolveWorkspaceRemoteFetchMode()` — delta/full 결정 순수 함수 |
 | `src/lib/sync/workspaceSnapshotBootstrap.ts` | `fetchApplyWorkspaceRemoteSnapshot` / `fetchApplyWorkspaceRemoteMetaSnapshot` — 전체/메타/델타 모드 |
 | `src/lib/sync/bootstrap.ts`, `commentApi.ts` | `fetchPageMetasByWorkspace`/`fetchPagesByWorkspace`/`fetchDatabasesByWorkspace`/`fetchCommentsByWorkspace(workspaceId, updatedAfter?)` |

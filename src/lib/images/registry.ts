@@ -15,7 +15,7 @@ type PersistedImageUrl = {
   expiresAt: number;
 };
 
-const IMAGE_URL_CACHE_PREFIX = "quicknote.image.cache.url.";
+const IMAGE_URL_CACHE_PREFIX = "minyoung.image.cache.url.";
 const MEMORY_TTL_MS = 50 * 60 * 1000;
 const PERSIST_TTL_MS = 45 * 60 * 1000;
 const EXPIRE_SKEW_MS = 30 * 1000;

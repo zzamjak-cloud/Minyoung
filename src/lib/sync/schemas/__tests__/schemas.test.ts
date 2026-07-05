@@ -1,8 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   GqlMemberSchema,
-  GqlOrganizationSchema,
-  GqlTeamSchema,
   parseGqlList,
   parseGqlOne,
 } from "../index";
@@ -37,10 +35,10 @@ describe("GqlMemberSchema", () => {
     expect(GqlMemberSchema.safeParse(rest).success).toBe(false);
   });
 
-  it("status 가 비표준 값이면 실패", () => {
+  it("status 가 비표준 값이어도 파싱은 유지한다", () => {
     expect(
       GqlMemberSchema.safeParse({ ...validMember, status: "UNKNOWN" }).success,
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("passthrough — 알 수 없는 필드도 보존", () => {
@@ -49,28 +47,6 @@ describe("GqlMemberSchema", () => {
     if (r.success) {
       expect((r.data as Record<string, unknown>).futureField).toBe("v");
     }
-  });
-});
-
-describe("GqlTeamSchema", () => {
-  it("members 누락 시 빈 배열로 default", () => {
-    const r = GqlTeamSchema.safeParse({ teamId: "t1", name: "팀" });
-    expect(r.success).toBe(true);
-    if (r.success) expect(r.data.members).toEqual([]);
-  });
-  it("name 누락이면 실패", () => {
-    expect(GqlTeamSchema.safeParse({ teamId: "t1" }).success).toBe(false);
-  });
-});
-
-describe("GqlOrganizationSchema", () => {
-  it("최소 필드 통과", () => {
-    const r = GqlOrganizationSchema.safeParse({
-      organizationId: "o1",
-      name: "실",
-    });
-    expect(r.success).toBe(true);
-    if (r.success) expect(r.data.members).toEqual([]);
   });
 });
 

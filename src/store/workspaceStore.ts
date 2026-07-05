@@ -11,12 +11,14 @@ export type WorkspaceAccessSummary = {
   level: WorkspaceAccessLevel;
 };
 
+// 단일 사용자 전용 — 사용자당 워크스페이스는 1개(개인 워크스페이스)로 고정된다.
+// 기존 소비처 호환을 위해 workspaces 배열·전환 메서드는 남기되 0~1개만 저장한다.
 export type WorkspaceSummary = {
   workspaceId: string;
   name: string;
-  type: WorkspaceType;
-  ownerMemberId: string;
-  myEffectiveLevel: WorkspaceAccessLevel;
+  type?: WorkspaceType;
+  ownerMemberId?: string;
+  myEffectiveLevel?: WorkspaceAccessLevel;
   access?: WorkspaceAccessSummary[];
   createdAt?: string;
   removedAt?: string;
@@ -24,10 +26,15 @@ export type WorkspaceSummary = {
 
 type WorkspaceStoreState = {
   currentWorkspaceId: string | null;
+  /** 유일(개인) 워크스페이스 요약 — 이름 표시용 */
+  workspace: WorkspaceSummary | null;
+  /** 호환용 파생 목록 — 항상 workspace 1개 또는 빈 배열. */
   workspaces: WorkspaceSummary[];
 };
 
 type WorkspaceStoreActions = {
+  /** 부트스트랩에서 결정된 내 워크스페이스를 반영한다(currentWorkspaceId 동기 설정). */
+  setWorkspace: (workspace: WorkspaceSummary | null) => void;
   setCurrentWorkspaceId: (workspaceId: string | null) => void;
   setWorkspaces: (workspaces: WorkspaceSummary[]) => void;
   upsertWorkspace: (workspace: WorkspaceSummary) => void;
@@ -37,28 +44,25 @@ type WorkspaceStoreActions = {
 
 export type WorkspaceStore = WorkspaceStoreState & WorkspaceStoreActions;
 
-function defaultWorkspaceId(workspaces: WorkspaceSummary[]): string | null {
-  return workspaces[0]?.workspaceId ?? null;
+function normalizeWorkspace(workspace: WorkspaceSummary): WorkspaceSummary {
+  return {
+    type: "personal",
+    myEffectiveLevel: "edit",
+    access: [],
+    ...workspace,
+  };
 }
 
-const LAST_WORKSPACE_ID_KEY = "quicknote.workspace.lastVisited.v1";
-
-function readLastWorkspaceId(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(LAST_WORKSPACE_ID_KEY);
-}
-
-function writeLastWorkspaceId(workspaceId: string | null): void {
-  if (typeof window === "undefined" || !workspaceId) return;
-  window.localStorage.setItem(LAST_WORKSPACE_ID_KEY, workspaceId);
-}
-
-function fallbackWorkspaceId(workspaces: WorkspaceSummary[]): string | null {
-  const lastWorkspaceId = readLastWorkspaceId();
-  if (lastWorkspaceId && workspaces.some((workspace) => workspace.workspaceId === lastWorkspaceId)) {
-    return lastWorkspaceId;
-  }
-  return defaultWorkspaceId(workspaces);
+function selectSingleWorkspace(
+  workspaces: WorkspaceSummary[],
+  currentWorkspaceId: string | null,
+): WorkspaceSummary | null {
+  if (workspaces.length === 0) return null;
+  const current =
+    currentWorkspaceId
+      ? workspaces.find((workspace) => workspace.workspaceId === currentWorkspaceId)
+      : null;
+  return normalizeWorkspace(current ?? workspaces[0]!);
 }
 
 const tabWorkspaceStorage = {
@@ -80,64 +84,75 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
   persist(
     (set) => ({
       currentWorkspaceId: null,
+      workspace: null,
       workspaces: [],
 
-      setCurrentWorkspaceId: (workspaceId) => {
-        writeLastWorkspaceId(workspaceId);
-        set({ currentWorkspaceId: workspaceId });
-      },
+      setWorkspace: (workspace) =>
+        set(() => {
+          const normalized = workspace ? normalizeWorkspace(workspace) : null;
+          return {
+            workspace: normalized,
+            workspaces: normalized ? [normalized] : [],
+            currentWorkspaceId: normalized?.workspaceId ?? null,
+          };
+        }),
+
+      setCurrentWorkspaceId: (workspaceId) =>
+        set((state) => {
+          const workspace =
+            workspaceId && state.workspace?.workspaceId === workspaceId
+              ? state.workspace
+              : null;
+          return {
+            currentWorkspaceId: workspaceId,
+            workspace,
+            workspaces: workspace ? [workspace] : state.workspaces,
+          };
+        }),
 
       setWorkspaces: (workspaces) =>
         set((state) => {
-          const nextWorkspaces = workspaces;
-          // 빈 배열이면 기존 유지 — API 일시 실패·레이스로 선택 WS 가 첫 항목으로 덮이는 것 방지
-          if (workspaces.length === 0 && state.workspaces.length > 0) {
+          if (workspaces.length === 0 && state.workspace) {
             return state;
           }
-          const currentExists =
-            state.currentWorkspaceId !== null &&
-            nextWorkspaces.some((w) => w.workspaceId === state.currentWorkspaceId);
+          const workspace = selectSingleWorkspace(
+            workspaces,
+            state.currentWorkspaceId,
+          );
           return {
-            workspaces: nextWorkspaces,
-            currentWorkspaceId:
-              currentExists
-                ? state.currentWorkspaceId
-                : fallbackWorkspaceId(nextWorkspaces),
+            workspace,
+            workspaces: workspace ? [workspace] : [],
+            currentWorkspaceId: workspace?.workspaceId ?? null,
           };
         }),
 
       upsertWorkspace: (workspace) =>
-        set((state) => {
-          const nextWorkspace = workspace;
-          const exists = state.workspaces.some((w) => w.workspaceId === nextWorkspace.workspaceId);
-          const workspaces = exists
-            ? state.workspaces.map((w) =>
-                w.workspaceId === nextWorkspace.workspaceId ? nextWorkspace : w,
-              )
-            : [...state.workspaces, nextWorkspace];
+        set(() => {
+          const normalized = normalizeWorkspace(workspace);
           return {
-            workspaces,
-            currentWorkspaceId:
-              state.currentWorkspaceId ?? fallbackWorkspaceId(workspaces),
+            workspace: normalized,
+            workspaces: [normalized],
+            currentWorkspaceId: normalized.workspaceId,
           };
         }),
 
       removeWorkspace: (workspaceId) =>
         set((state) => {
-          const workspaces = state.workspaces.filter((w) => w.workspaceId !== workspaceId);
-          const currentWorkspaceId =
-            state.currentWorkspaceId === workspaceId
-              ? fallbackWorkspaceId(workspaces)
-              : state.currentWorkspaceId;
-          return { workspaces, currentWorkspaceId };
+          if (state.workspace?.workspaceId !== workspaceId) return state;
+          return { workspace: null, workspaces: [], currentWorkspaceId: null };
         }),
 
-      clear: () => set({ currentWorkspaceId: null, workspaces: [] }),
+      clear: () => set({ currentWorkspaceId: null, workspace: null, workspaces: [] }),
     }),
     {
-      name: "quicknote.workspace.session.v1",
+      name: "minyoung.workspace.session.v1",
       storage: createJSONStorage(() => tabWorkspaceStorage),
-      partialize: (state) => ({ currentWorkspaceId: state.currentWorkspaceId }),
+      // 새로고침 시 첫 페인트 캐시 복원에 currentWorkspaceId 가 필요하다.
+      partialize: (state) => ({
+        currentWorkspaceId: state.currentWorkspaceId,
+        workspace: state.workspace,
+        workspaces: state.workspaces,
+      }),
     },
   ),
 );

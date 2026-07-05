@@ -5,7 +5,7 @@ import type { MutableRefObject } from "react";
 import type { insertImageFromFile } from "./insertImageFromFile";
 import { insertFileFromFile } from "./insertFileFromFile";
 import {
-  QUICKNOTE_BLOCK_DRAG_MIME,
+  MINYOUNG_BLOCK_DRAG_MIME,
 } from "../startBlockNativeDrag";
 import {
   isTableReorderDragEvent,
@@ -18,7 +18,7 @@ import {
   topLevelInsertionPosFromDrop,
   type BlockDropIndicatorRect,
 } from "./blockDropTarget";
-import { parseQuickNoteLink } from "../navigation/quicknoteLinks";
+import { parseMinyoungLink } from "../navigation/minyoungLinks";
 import { MENTION_PAGE_PREFIX } from "../tiptapExtensions/mentionKind";
 import { usePageStore } from "../../store/pageStore";
 import { isGifFile } from "../files/videoCompress";
@@ -72,7 +72,7 @@ function tryInsertDroppedPageMention(view: EditorView, event: DragEvent): boolea
     dt.getData("text/plain") ||
     dt.getData("text/uri-list") ||
     "";
-  const internalTarget = parseQuickNoteLink(rawLink);
+  const internalTarget = parseMinyoungLink(rawLink);
   if (!internalTarget) return false;
   const mentionType = view.state.schema.nodes.mention;
   if (!mentionType) return false;
@@ -324,7 +324,7 @@ function moveSelectedBlockIntoColumn(
   return true;
 }
 
-function moveSingleQuickNoteBlockFromDrop(
+function moveSingleMinyoungBlockFromDrop(
   view: EditorView,
   event: DragEvent,
   start: number,
@@ -403,8 +403,8 @@ function findFileBlockPosByUploadId(
   return found;
 }
 
-function parseQuickNoteBlockDragStarts(dt: DataTransfer | null): number[] | null {
-  const raw = dt?.getData(QUICKNOTE_BLOCK_DRAG_MIME);
+function parseMinyoungBlockDragStarts(dt: DataTransfer | null): number[] | null {
+  const raw = dt?.getData(MINYOUNG_BLOCK_DRAG_MIME);
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
@@ -418,7 +418,7 @@ function parseQuickNoteBlockDragStarts(dt: DataTransfer | null): number[] | null
   }
 }
 
-function moveQuickNoteBlocksFromDrop(
+function moveMinyoungBlocksFromDrop(
   view: EditorView,
   event: DragEvent,
   starts: number[],
@@ -442,7 +442,7 @@ function moveQuickNoteBlocksFromDrop(
     }
   });
   if (!topLevelOnly && sorted.length === 1) {
-    return moveSingleQuickNoteBlockFromDrop(view, event, sorted[0]!);
+    return moveSingleMinyoungBlockFromDrop(view, event, sorted[0]!);
   }
   if (!topLevelOnly) return false;
   const blocks = sorted
@@ -513,7 +513,7 @@ export function createEditorHandleDrop(options: {
     _slice: unknown,
     moved: boolean,
   ): boolean {
-    const draggedStarts = parseQuickNoteBlockDragStarts(event.dataTransfer);
+    const draggedStarts = parseMinyoungBlockDragStarts(event.dataTransfer);
     if (columnDropRef.current) {
       columnDropRef.current = null;
       clearColumnDropUi();
@@ -526,9 +526,9 @@ export function createEditorHandleDrop(options: {
     }
 
     // 오버레이(div)에서 시작한 drag 는 브라우저에 따라 moved=false 로 들어올 수 있다.
-    // QUICKNOTE_BLOCK_DRAG_MIME 이 있으면 moved 값과 무관하게 블록 이동 경로로 처리.
+    // MINYOUNG_BLOCK_DRAG_MIME 이 있으면 moved 값과 무관하게 블록 이동 경로로 처리.
     if (draggedStarts) {
-      return moveQuickNoteBlocksFromDrop(view, event, draggedStarts);
+      return moveMinyoungBlocksFromDrop(view, event, draggedStarts);
     }
 
     if (moved && moveSelectedBlockIntoColumn(view, event)) {
@@ -663,7 +663,7 @@ export function createEditorHandleDragOver(options: {
       clearBlockDropIndicator();
       return false;
     }
-    const starts = parseQuickNoteBlockDragStarts(event.dataTransfer);
+    const starts = parseMinyoungBlockDragStarts(event.dataTransfer);
     if (!starts) return false;
     const nodes = starts
       .map((start) => view.state.doc.nodeAt(start))

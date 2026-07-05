@@ -3,4 +3,4 @@ export const MARQUEE_ACTIVATE_PX = 10;
 
 export const GROUP_OVERLAY_ID = "qn-block-group-overlay";
 
-export const CLEAR_BOX_SELECTION_EVENT = "quicknote:clear-box-selection";
+export const CLEAR_BOX_SELECTION_EVENT = "minyoung:clear-box-selection";

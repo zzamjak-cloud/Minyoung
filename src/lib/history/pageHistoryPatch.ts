@@ -3,7 +3,7 @@ import type { PageSnapshot } from "../../types/history";
 import { createHistoryPatchEngine } from "./historyPatchEngine";
 
 const pageHistoryPatchEngine = createHistoryPatchEngine<GqlPageHistoryEntry, PageSnapshot>({
-  cacheKey: "quicknote.pageHistoryPreview.v1",
+  cacheKey: "minyoung.pageHistoryPreview.v1",
 });
 
 export function buildPageHistorySnapshotMap(

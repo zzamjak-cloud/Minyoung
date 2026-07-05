@@ -1,5 +1,5 @@
 // v4 단순화: 이미지 노드는 src/alt/width/height 만 보유.
-// src 가 quicknote-image:// 스킴이면 React NodeView 가 PreSignedURL 로 비동기 해석.
+// src 가 minyoung-image:// 스킴이면 React NodeView 가 PreSignedURL 로 비동기 해석.
 
 import { memo, useState } from "react";
 import Image from "@tiptap/extension-image";
@@ -173,8 +173,8 @@ export const ImageBlock = Image.extend({
         parseHTML: (el) => el.getAttribute("src") || el.getAttribute("data-qn-src"),
         renderHTML: (attrs) => {
           const raw = typeof attrs.src === "string" ? attrs.src : "";
-          // 브라우저가 quicknote-* 스킴을 직접 로드하지 않도록 차단.
-          if (raw.startsWith("quicknote-image://") || raw.startsWith("quicknote-file://")) {
+          // 브라우저가 minyoung-* 스킴을 직접 로드하지 않도록 차단.
+          if (raw.startsWith("minyoung-image://") || raw.startsWith("minyoung-file://")) {
             return { src: "", "data-qn-src": raw };
           }
           return raw ? { src: raw } : {};

@@ -25,7 +25,7 @@ import { usePageMetaRemoteStore } from "./store/pageMetaRemoteStore";
 import { useUiStore } from "./store/uiStore";
 import { useWorkspaceStore } from "./store/workspaceStore";
 import { PwaUpdateBanner } from "./components/ui/PwaUpdateBanner";
-import { buildQuickNotePageUrl, parseQuickNoteLink, type QuickNoteLinkTarget } from "./lib/navigation/quicknoteLinks";
+import { buildMinyoungPageUrl, parseMinyoungLink, type MinyoungLinkTarget } from "./lib/navigation/minyoungLinks";
 import { ensurePageContentLoaded } from "./lib/sync/pageContentLoad";
 import { installPageMentionClickNavigation } from "./lib/navigation/pageMentionClick";
 import { navigateToBlockLink } from "./lib/editor/editorNavigationBridge";
@@ -101,7 +101,7 @@ function App() {
   const databaseRowScrollHostRef = useRef<HTMLDivElement | null>(null);
   /** effect B에서 탭을 active 기준으로 덮어쓸지: activePageId 가 실제로 바뀐 경우만 (탭 클릭 직후 이전 id 로 덮어쓰기 방지) */
   const prevActivePageIdRef = useRef<string | null | undefined>(undefined);
-  const pendingLocationTargetRef = useRef<QuickNoteLinkTarget | null>(null);
+  const pendingLocationTargetRef = useRef<MinyoungLinkTarget | null>(null);
 
   // 다크 모드 클래스 동기화
   useEffect(() => {
@@ -153,7 +153,7 @@ function App() {
       const href = anchor.getAttribute("href") ?? "";
       // 같은 페이지 안 블록 점프(노션 자기참조 블록 링크) — blockId(또는 레거시 block 위치)가 있으면
       // 멘션 대신 그 블록으로 이동한다. navigateToBlockLink 가 에디터 준비까지 재시도한다.
-      const t = parseQuickNoteLink(href);
+      const t = parseMinyoungLink(href);
       if (t && (t.blockId || t.block != null)) {
         e.preventDefault();
         e.stopPropagation();
@@ -169,7 +169,7 @@ function App() {
       // http(s) 외부 링크만 새 창으로. mailto:/tel: 을 window.open 으로 열면 webview 가
       // 스킴을 처리하지 못해 net::ERR_UNKNOWN_URL_SCHEME → 기본 동작(OS 핸들러)에 위임한다.
       const isWebUrl = /^https?:\/\//i.test(href);
-      if (isWebUrl && !parseQuickNoteLink(href)) {
+      if (isWebUrl && !parseMinyoungLink(href)) {
         e.preventDefault();
         e.stopPropagation();
         window.open(href, "_blank", "noopener,noreferrer");
@@ -181,7 +181,7 @@ function App() {
 
   useEffect(() => {
     // 딥링크 대상의 블록/탭으로 이동 — 대상 페이지 에디터가 준비될 때까지 재시도한다.
-    const scrollToLinkTarget = (target: QuickNoteLinkTarget) => {
+    const scrollToLinkTarget = (target: MinyoungLinkTarget) => {
       if (target.blockId != null || target.block != null) {
         navigateToBlockLink(target.pageId, {
           blockId: target.blockId,
@@ -202,7 +202,7 @@ function App() {
     let unsubscribePendingTarget: (() => void) | undefined;
     let pendingTargetTimeout: number | undefined;
 
-    const clearPendingLocationTarget = (target?: QuickNoteLinkTarget) => {
+    const clearPendingLocationTarget = (target?: MinyoungLinkTarget) => {
       if (!target || pendingLocationTargetRef.current?.pageId === target.pageId) {
         pendingLocationTargetRef.current = null;
       }
@@ -215,7 +215,7 @@ function App() {
     };
 
     // 페이지를 연다. 스토어에 아직 없으면 false(콜드 부트 비동기 하이드레이션/원격 페치 대기용).
-    const openLinkTarget = (target: QuickNoteLinkTarget): boolean => {
+    const openLinkTarget = (target: MinyoungLinkTarget): boolean => {
       const page = usePageStore.getState().pages[target.pageId];
       if (!page) return false;
       if (
@@ -232,7 +232,7 @@ function App() {
       return true;
     };
 
-    const openLocationTargetWhenReady = (target: QuickNoteLinkTarget) => {
+    const openLocationTargetWhenReady = (target: MinyoungLinkTarget) => {
       pendingLocationTargetRef.current = target;
       if (openLinkTarget(target)) return;
       // 대상이 store 에 없으면(DB 항목 등 지연 로드/콜드 진입) 콘텐츠 로드를 트리거한다.
@@ -252,7 +252,7 @@ function App() {
       }, 20_000);
     };
 
-    const initialTarget = parseQuickNoteLink(window.location.href);
+    const initialTarget = parseMinyoungLink(window.location.href);
     if (initialTarget) {
       openLocationTargetWhenReady(initialTarget);
     } else {
@@ -265,7 +265,7 @@ function App() {
           window.history.replaceState(
             { qnPage: activeId },
             "",
-            buildQuickNotePageUrl({ pageId: activeId }),
+            buildMinyoungPageUrl({ pageId: activeId }),
           );
         } catch {
           /* noop */
@@ -274,7 +274,7 @@ function App() {
     }
 
     const applyLocationLink = () => {
-      const target = parseQuickNoteLink(window.location.href);
+      const target = parseMinyoungLink(window.location.href);
       if (!target) return;
       openLocationTargetWhenReady(target);
     };
@@ -290,14 +290,14 @@ function App() {
 
   useEffect(() => {
     if (!activePageId) return;
-    const target = parseQuickNoteLink(window.location.href);
+    const target = parseMinyoungLink(window.location.href);
     if (!target || target.pageId === activePageId) return;
     if (pendingLocationTargetRef.current?.pageId === target.pageId) return;
     try {
       window.history.replaceState(
         { qnPage: activePageId },
         "",
-        buildQuickNotePageUrl({ pageId: activePageId }),
+        buildMinyoungPageUrl({ pageId: activePageId }),
       );
     } catch {
       /* noop */
@@ -379,7 +379,7 @@ function App() {
     if (tabDatabaseId) return;
     if (!firstSidebarPageId) return;
     didForceInitialSelectRef.current = true;
-    const linkTarget = parseQuickNoteLink(window.location.href);
+    const linkTarget = parseMinyoungLink(window.location.href);
     if (linkTarget) {
       // 딥링크 진입 — 대상이 아직 스토어에 없어도(콜드 부트 비동기 하이드레이션/원격 페치)
       // 첫 사이드바 페이지를 강제로 열지 않는다. applyLocationLink 의 구독이 대상이 들어오는
@@ -517,8 +517,8 @@ function App() {
   // 사이드바 검색 버튼 등에서 발행하는 검색 팔레트 열기 이벤트 수신
   useEffect(() => {
     const open = () => setSearchOpen(true);
-    window.addEventListener("quicknote:open-search", open);
-    return () => window.removeEventListener("quicknote:open-search", open);
+    window.addEventListener("minyoung:open-search", open);
+    return () => window.removeEventListener("minyoung:open-search", open);
   }, []);
 
   return (

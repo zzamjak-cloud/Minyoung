@@ -35,9 +35,9 @@ describe("buildPageHtmlZipBlob", () => {
     expect(htmlEntry).not.toBeNull();
     const html = await htmlEntry!.async("string");
 
-    // <img src> 가 zip 내 상대경로를 가리킨다(quicknote-image:// 스킴이 사라진다).
+    // <img src> 가 zip 내 상대경로를 가리킨다(minyoung-image:// 스킴이 사라진다).
     expect(html).toContain('src="assets/img-1.png"');
-    expect(html).not.toContain("quicknote-image://");
+    expect(html).not.toContain("minyoung-image://");
   });
 
   it("바이트를 얻지 못하면 원본 src 를 유지하고 자산을 추가하지 않는다", async () => {
@@ -50,6 +50,6 @@ describe("buildPageHtmlZipBlob", () => {
 
     expect(zip.file("assets/missing.png")).toBeNull();
     const html = await zip.file("p.html")!.async("string");
-    expect(html).toContain("quicknote-image://missing");
+    expect(html).toContain("minyoung-image://missing");
   });
 });

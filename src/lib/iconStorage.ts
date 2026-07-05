@@ -1,6 +1,6 @@
 // 커스텀 페이지 아이콘을 IndexedDB에 저장 (localStorage 대비 구조적 안정성)
 
-const DB_NAME = "quicknote-icon-cache";
+const DB_NAME = "minyoung-icon-cache";
 const DB_VERSION = 1;
 const STORE = "custom-icons";
 
@@ -85,7 +85,7 @@ export async function deleteCustomIcon(id: string): Promise<void> {
 }
 
 // localStorage → IndexedDB 마이그레이션 (최초 1회)
-const LS_KEY = "quicknote.customPageIcons.v1";
+const LS_KEY = "minyoung.customPageIcons.v1";
 
 async function migrateFromLocalStorage(): Promise<CustomIconPreset[]> {
   try {

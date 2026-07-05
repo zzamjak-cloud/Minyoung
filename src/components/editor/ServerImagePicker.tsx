@@ -1,6 +1,6 @@
 // 서버에 이미 업로드된 자산(이미지 / 동영상) 을 파일명으로 검색해 페이지에 삽입한다.
-// /이미지검색 → 이미지 모드 (quicknote-image:// → image 노드).
-// /동영상검색 → 동영상 모드 (quicknote-file://  → fileBlock 노드, mime=video/*).
+// /이미지검색 → 이미지 모드 (minyoung-image:// → image 노드).
+// /동영상검색 → 동영상 모드 (minyoung-file://  → fileBlock 노드, mime=video/*).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";

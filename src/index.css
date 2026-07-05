@@ -305,7 +305,7 @@ html.dark span.member-mention[data-id^="p:"] {
 }
 
 /* 블록 드래그(그립) 중 */
-body.quicknote-block-dragging .ProseMirror {
+body.minyoung-block-dragging .ProseMirror {
   cursor: grabbing;
 }
 
@@ -600,7 +600,7 @@ li.ProseMirror-selectednode::after {
   );
 }
 
-body.quicknote-column-reorder-dragging .qn-block-drop-indicator {
+body.minyoung-column-reorder-dragging .qn-block-drop-indicator {
   display: none !important;
 }
 
@@ -1031,23 +1031,23 @@ html.dark .qn-database-subtle-scrollbar:hover::-webkit-scrollbar-thumb {
 }
 
 /* 컬럼 핸들 드래그 중에는 블록 드래그 시각요소를 숨겨 혼선을 줄인다. */
-body.quicknote-column-reorder-dragging [data-qn-block-grip] {
+body.minyoung-column-reorder-dragging [data-qn-block-grip] {
   visibility: hidden;
 }
 
-body.quicknote-column-reorder-dragging .qn-column-drop-indicator,
-body.quicknote-column-reorder-dragging .qn-dropcursor {
+body.minyoung-column-reorder-dragging .qn-column-drop-indicator,
+body.minyoung-column-reorder-dragging .qn-dropcursor {
   display: none !important;
 }
 
 /* TipTap 표 행·열 순서 드래그 중: 블록 드롭·dropcursor·블록 그립 숨김 (열 레이아웃 재정렬과 동일 취지) */
-body.quicknote-table-reorder-dragging [data-qn-block-grip] {
+body.minyoung-table-reorder-dragging [data-qn-block-grip] {
   visibility: hidden;
 }
 
-body.quicknote-table-reorder-dragging .qn-block-drop-indicator,
-body.quicknote-table-reorder-dragging .qn-dropcursor,
-body.quicknote-table-reorder-dragging .qn-column-drop-indicator {
+body.minyoung-table-reorder-dragging .qn-block-drop-indicator,
+body.minyoung-table-reorder-dragging .qn-dropcursor,
+body.minyoung-table-reorder-dragging .qn-column-drop-indicator {
   display: none !important;
 }
 
@@ -1065,8 +1065,8 @@ body.quicknote-table-reorder-dragging .qn-column-drop-indicator {
 }
 
 /* DB 컬럼 reorder 드래그 중 — dropcursor·블록 드롭 인디케이터 숨김 */
-body.quicknote-db-col-dragging .qn-dropcursor,
-body.quicknote-db-col-dragging .qn-block-drop-indicator {
+body.minyoung-db-col-dragging .qn-dropcursor,
+body.minyoung-db-col-dragging .qn-block-drop-indicator {
   display: none !important;
 }
 
@@ -1382,7 +1382,7 @@ html.dark .ProseMirror details[data-text-color="red"] > .toggle-header { color: 
 /* 리스트 아이템 내부에서는 들여쓰기 CSS 적용 제외 */
 li [data-indent] { margin-left: 0; }
 
-/* ===== 이모지 피커 QuickNote 스타일 오버라이드 ===== */
+/* ===== 이모지 피커 Minyoung 스타일 오버라이드 ===== */
 
 /* 라이브러리 자체 border/shadow/radius 제거 */
 .EmojiPickerReact.epr-main {

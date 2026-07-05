@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { ImageBubbleToolbar } from "./ImageBubbleToolbar";
 import { sanitizeWebLinkHref } from "../../lib/safeUrl";
-import { parseQuickNoteLink } from "../../lib/navigation/quicknoteLinks";
+import { parseMinyoungLink } from "../../lib/navigation/minyoungLinks";
 import { useUiStore } from "../../store/uiStore";
 import {
   distributeSelectedColumnsEvenly,
@@ -414,7 +414,7 @@ export function BubbleToolbar({ editor }: Props) {
                   } else {
                     // 대상 블록의 "블럭 링크 복사"로 만든 내부 링크(?page=&blockId=)면
                     // 외부 URL 검증을 우회해 그대로 적용한다 → 클릭 시 같은 페이지 내 블록으로 이동.
-                    const intra = parseQuickNoteLink(url);
+                    const intra = parseMinyoungLink(url);
                     if (intra && (intra.blockId || intra.block != null)) {
                       restoredChain().setLink({ href: url.trim() }).run();
                     } else {

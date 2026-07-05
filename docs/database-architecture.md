@@ -1,6 +1,6 @@
 # Database Architecture
 
-이 문서는 QuickNote 데이터베이스 모델의 운영 기준을 정리한다. 구현 세부는 변경될 수 있지만, 아래 원칙은 schema 변경과 리팩토링 시 유지해야 한다.
+이 문서는 Minyoung 데이터베이스 모델의 운영 기준을 정리한다. 구현 세부는 변경될 수 있지만, 아래 원칙은 schema 변경과 리팩토링 시 유지해야 한다.
 
 ## Source Of Truth
 
@@ -16,7 +16,7 @@ AppSync가 원격 source of truth다. 로컬 Zustand persist와 IndexedDB/Tauri 
 
 ## Direct Page DB And Inline DB
 
-QuickNote에는 DB를 보여주는 방식이 두 가지다.
+Minyoung에는 DB를 보여주는 방식이 두 가지다.
 
 - Direct page DB: 페이지 자체가 하나의 DB 화면이다. `page.databaseId`가 연결되고, DB title/page title이 사용자에게 DB 문서처럼 보인다.
 - Inline DB: 일반 문서 안에 database block이 포함된다. block attrs가 특정 `databaseId`를 참조하고, 문서 흐름 안에서 DB view를 렌더링한다.

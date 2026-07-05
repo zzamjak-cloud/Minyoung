@@ -626,7 +626,7 @@ export const useDatabaseStore = create<DatabaseStore>()(
     resolveBundle: (databaseId) => get().getBundle(databaseId),
     }),
     {
-      name: "quicknote.databases.v1",
+      name: "minyoung.databases.v1",
       storage: deferredDatabaseStorage,
       version: DATABASE_STORE_PERSIST_VERSION,
       migrate: migrateDatabaseStore,

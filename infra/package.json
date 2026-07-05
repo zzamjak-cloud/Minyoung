@@ -1,10 +1,10 @@
 {
-  "name": "quicknote-infra",
+  "name": "minyoung-infra",
   "version": "3.0.0",
   "private": true,
-  "description": "QuickNote AWS 인프라 (Cognito + 화이트리스트 Lambda)",
+  "description": "Minyoung AWS 인프라 (Cognito + allowlist Lambda)",
   "bin": {
-    "quicknote-infra": "bin/quicknote.js"
+    "minyoung-infra": "bin/minyoung.js"
   },
   "scripts": {
     "build": "tsc -p .",
@@ -15,10 +15,10 @@
     "deploy": "cdk deploy --all --outputs-file cdk-outputs.json",
     "deploy:live": "cdk deploy --all --outputs-file cdk-outputs.json",
     "deploy:dev": "DEPLOY_ENV=dev cdk deploy --all --require-approval never --outputs-file cdk-outputs.dev.json",
-    "diff:gsi-meta": "cdk diff QuicknoteSyncStack -c pageTableGsiDeployStage=meta",
-    "deploy:gsi-meta": "cdk deploy QuicknoteSyncStack -c pageTableGsiDeployStage=meta --outputs-file cdk-outputs.json",
-    "diff:gsi-all": "cdk diff QuicknoteSyncStack -c pageTableGsiDeployStage=all",
-    "deploy:gsi-all": "cdk deploy QuicknoteSyncStack -c pageTableGsiDeployStage=all --outputs-file cdk-outputs.json",
+    "diff:gsi-meta": "cdk diff MinyoungSyncStack -c pageTableGsiDeployStage=meta",
+    "deploy:gsi-meta": "cdk deploy MinyoungSyncStack -c pageTableGsiDeployStage=meta --outputs-file cdk-outputs.json",
+    "diff:gsi-all": "cdk diff MinyoungSyncStack -c pageTableGsiDeployStage=all",
+    "deploy:gsi-all": "cdk deploy MinyoungSyncStack -c pageTableGsiDeployStage=all --outputs-file cdk-outputs.json",
     "destroy": "cdk destroy --all",
     "build:resolvers": "esbuild lib/sync/resolvers/upsert.ts lib/sync/resolvers/softDelete.ts lib/sync/resolvers/list.ts lib/sync/resolvers/subscribe.ts --bundle --platform=neutral --format=esm --target=esnext --external:@aws-appsync/utils --outdir=lib/sync/resolvers/dist"
   },

@@ -33,7 +33,7 @@ Page {
 3. 다른 클라이언트는 AppSync 구독으로 실시간 수신
 
 ## persist
-localStorage 키: `quicknote.pages.v1`
+localStorage 키: `minyoung.pages.v1`
 버전 관리: [store/schema-versioning.md](../store/schema-versioning.md)
 
 ## 중첩 페이지

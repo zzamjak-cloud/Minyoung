@@ -38,7 +38,7 @@ export const useSearchFilterPrefsStore = create<SearchFilterPrefsStore>()(
       clear: () => set({ presetsByKey: {} }),
     }),
     {
-      name: "quicknote.search-filter-prefs.v1",
+      name: "minyoung.search-filter-prefs.v1",
       storage: createJSONStorage(() => zustandStorage),
     },
   ),

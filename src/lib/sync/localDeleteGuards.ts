@@ -14,7 +14,7 @@ export type LocalDeleteGuardChecker = (
   remoteUpdatedAt: string,
 ) => boolean;
 
-const LOCAL_DELETE_GUARDS_KEY = "quicknote.sync.localDeleteGuards.v1";
+const LOCAL_DELETE_GUARDS_KEY = "minyoung.sync.localDeleteGuards.v1";
 const LOCAL_DELETE_GUARD_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 // permanent tombstone 도 무한 누적을 막기 위해 30일 후 자동 만료.
 const PERMANENT_TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000;

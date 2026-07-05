@@ -1,5 +1,4 @@
 import { PanelLeftClose, Plus, Search, Settings } from "lucide-react";
-import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { NotificationBell } from "../notifications/NotificationBell";
 
 type Props = {
@@ -36,7 +35,7 @@ export function SidebarHeader({
         {/* 검색 버튼 — 커맨드 팔레트 열기(Cmd/Ctrl+F 와 동일) */}
         <button
           type="button"
-          onClick={() => window.dispatchEvent(new Event("quicknote:open-search"))}
+          onClick={() => window.dispatchEvent(new Event("minyoung:open-search"))}
           className="rounded-md p-1 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
           aria-label="검색"
           title="검색 (Cmd/Ctrl+F)"
@@ -62,7 +61,6 @@ export function SidebarHeader({
           <Plus size={16} />
         </button>
       </div>
-      <WorkspaceSwitcher />
     </div>
     </>
   );

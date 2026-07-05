@@ -46,7 +46,7 @@ export const usePageMetaRemoteStore = create<PageMetaRemoteStore>()(
       clear: () => set({ nextTokenByWorkspaceId: {}, loadingByWorkspaceId: {} }),
     }),
     {
-      name: "quicknote.page-meta-remote.v1",
+      name: "minyoung.page-meta-remote.v1",
       storage: createJSONStorage(() => zustandStorage),
       partialize: (state) => ({ nextTokenByWorkspaceId: state.nextTokenByWorkspaceId }),
     },

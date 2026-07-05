@@ -1,6 +1,6 @@
 # Sync Architecture
 
-QuickNote sync는 로컬 우선 편집, outbox 전송, AppSync 원격 반영, LWW 충돌 해결로 구성된다.
+Minyoung sync는 로컬 우선 편집, outbox 전송, AppSync 원격 반영, LWW 충돌 해결로 구성된다.
 
 ## Flow
 

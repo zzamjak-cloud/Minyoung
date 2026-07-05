@@ -80,7 +80,7 @@ export function reportNonFatal(err: unknown, context: string): void {
   const e = err instanceof Error ? err : new Error(String(err));
 
   // 기존 개발 편의 출력 유지
-  console.warn(`[QuickNote] ${context}`, e);
+  console.warn(`[Minyoung] ${context}`, e);
 
   // 렌더 순수성과 무관한 일반 함수이므로 Date.now() 안전
   const entry: NonFatalEntry = {

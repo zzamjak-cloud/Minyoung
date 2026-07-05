@@ -4,7 +4,7 @@
 
 import { CACHE_HARD_LIMIT_BYTES, CACHE_PRUNE_TARGET_BYTES } from "../storage/cacheQuota";
 
-const DB_NAME = "quicknote-media-cache";
+const DB_NAME = "minyoung-media-cache";
 const DB_VERSION = 1;
 const STORE = "blobs";
 

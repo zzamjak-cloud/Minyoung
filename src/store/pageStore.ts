@@ -659,7 +659,7 @@ export const usePageStore = create<PageStore>()(
       ...createFullPageDbActions(set, get),
     }),
     {
-      name: "quicknote.pages.v1",
+      name: "minyoung.pages.v1",
       storage: deferredPageStorage,
       version: PAGE_STORE_PERSIST_VERSION,
       migrate: migratePageStore,

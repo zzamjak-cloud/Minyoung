@@ -34,7 +34,7 @@ import {
 import { PageIconDisplay } from "../../components/common/PageIconDisplay";
 import { useUiStore } from "../../store/uiStore";
 import { usePageStore } from "../../store/pageStore";
-import { buildQuickNotePageUrl } from "../navigation/quicknoteLinks";
+import { buildMinyoungPageUrl } from "../navigation/minyoungLinks";
 import { encodeLucidePageIcon } from "../pageIcon";
 import { isEditorLazyInactiveTabPanelsEnabled } from "./editorRenderingFeatureFlags";
 import { pickTabPanelShells } from "./tabPanelDom";
@@ -531,7 +531,7 @@ const TabBlockView = memo(function TabBlockView({
     if (!tab.id) updateTabAttrs(index, { id });
     const pageId = usePageStore.getState().activePageId;
     const href = pageId
-      ? buildQuickNotePageUrl({ pageId, tab: id })
+      ? buildMinyoungPageUrl({ pageId, tab: id })
       : `${window.location.origin}${window.location.pathname}${window.location.search}#tab-${encodeURIComponent(id)}`;
     void navigator.clipboard
       .writeText(href)

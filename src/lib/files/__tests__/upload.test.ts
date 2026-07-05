@@ -39,7 +39,7 @@ describe("uploadFile", () => {
       { alreadyPrepared: true },
     );
 
-    expect(uploaded.ref).toBe("quicknote-file://asset-existing");
+    expect(uploaded.ref).toBe("minyoung-file://asset-existing");
     expect(fetch).not.toHaveBeenCalled();
     expect(graphql).toHaveBeenCalledTimes(1);
   });

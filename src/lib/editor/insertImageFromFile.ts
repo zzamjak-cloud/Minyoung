@@ -24,7 +24,7 @@ export type InsertImageAttrs = {
   height?: number;
 };
 
-/** v4: 파일을 S3 에 업로드하고 quicknote-image:// ref 를 src 로 삽입한다. */
+/** v4: 파일을 S3 에 업로드하고 minyoung-image:// ref 를 src 로 삽입한다. */
 export async function insertImageFromFile(
   file: File,
   insert: (attrs: InsertImageAttrs) => void,

@@ -33,7 +33,7 @@ export type DatabaseRowIndexSnapshot = {
 type DatabaseRowIndexRemotePage = GqlPage | GqlDatabaseRowIndexPage;
 
 function cacheKey(indexKey: string): string {
-  return `quicknote.database-row-index.cache.${encodeURIComponent(indexKey)}.v${DATABASE_ROW_INDEX_CACHE_VERSION}`;
+  return `minyoung.database-row-index.cache.${encodeURIComponent(indexKey)}.v${DATABASE_ROW_INDEX_CACHE_VERSION}`;
 }
 
 export function normalizeDatabaseRowIndexRows(

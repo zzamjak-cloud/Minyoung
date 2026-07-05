@@ -9,7 +9,7 @@ LC 스케줄러 워크스페이스에 속한 보호 DB(작업·마일스톤·피
 | 파일 | 역할 |
 |------|------|
 | `src/lib/sync/externalProtectedDatabaseLoad.ts` | `ensureExternalProtectedDatabaseLoaded`, `loadMoreExternalProtectedDatabaseRows`, row index warm-up, scope 변환 유틸 |
-| `src/store/databaseRowRemoteStore.ts` | nextToken·로딩 상태. persist 키 `quicknote.database-row-remote.v1` |
+| `src/store/databaseRowRemoteStore.ts` | nextToken·로딩 상태. persist 키 `minyoung.database-row-remote.v1` |
 | `src/store/databaseRowIndexStore.ts` | DB별 row index snapshot + 로컬 캐시 |
 | `src/lib/database/databaseRowIndexCache.ts` | row index entry 정규화와 캐시 저장 |
 | `src/lib/sync/bootstrap.ts` | `fetchDatabaseRowsBatch(...)`, `fetchDatabaseRowIndexBatch(...)` |
@@ -43,7 +43,7 @@ export type DatabaseRowLoadContext = "scheduler" | "inline";
 | scope | 메커니즘 | 키 |
 |-------|---------|-----|
 | 조직/팀/프로젝트 (단일값) | Pages **sparse GSI** `byDbScopeOrg/Team/Project` | `dbScopeOrg/Team/Project = ${databaseId}#${scopeId}` |
-| 구성원 assignee (배열·다중) | 전용 테이블 `quicknote-database-row-members` | PK `${databaseId}#${assigneeId}`, SK `pageId` |
+| 구성원 assignee (배열·다중) | 전용 테이블 `minyoung-database-row-members` | PK `${databaseId}#${assigneeId}`, SK `pageId` |
 | 없음 | 기존 `byDatabaseAndOrder` | `databaseId` |
 
 - **org/팀/프로젝트**: 단일값이라 GSI 가능. `upsertPage`가 작업 DB(`lc-scheduler-db:`) row 저장 시 dbCells 의 scope 셀을 top-level `dbScope*` 키로 비정규화(값 없으면 미기록 → sparse). 세 보호 DB 모두 대상(`LC_PROTECTED_DB_SCOPE_COLUMN_IDS` 매핑).
@@ -78,7 +78,7 @@ loadingByDatabaseId:   Record<string, boolean>
 
 첫 화면에는 row 본문 100개만 적용하되, 필터·정렬·검색 후보군은 row index 전체를 기준으로 계산한다. row index는 `id/workspaceId/title/icon/order/databaseId/dbCells/updatedAt` 수준의 가벼운 데이터만 저장한다.
 
-- 캐시 키: `quicknote.database-row-index.cache.${encodeURIComponent(indexKey)}.v1`
+- 캐시 키: `minyoung.database-row-index.cache.${encodeURIComponent(indexKey)}.v1`
 - `indexKey`: `resolveDatabaseRowRemoteKey(databaseId, currentWorkspaceId)`
 - 소비 지점: `useProcessedRows()` + `databaseRowSources.ts`
 - 인라인 DB 가 `itemLimit=10`처럼 표시 개수만 충족해도 nextToken 이 남아 있으면 완료로 보지 않는다. 첫 인덱스 페이지 진입 시에도 연결된 원본 DB 의 남은 row index 를 백그라운드 warm-up 해야 날짜 정렬/필터/검색 후보군이 최신화된다.

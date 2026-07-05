@@ -346,7 +346,7 @@ export const useHistoryStore = create<HistoryStore>()(
       },
     }),
     {
-      name: "quicknote.historyStore.v1",
+      name: "minyoung.historyStore.v1",
       storage: deferredHistoryStorage,
       version: HISTORY_STORE_VERSION,
       migrate: (persisted) => ({

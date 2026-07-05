@@ -164,7 +164,7 @@
   - `getConvertibleLinkHref(node)` — 변환 가능한 노드면 href 반환, 아니면 null.
 - BlockHandles 에서 `linkBlockHref = getConvertibleLinkHref(hover.node)` 가 non-null 일 때만 행을 노출한다.
 
-> **CRITICAL — 노드 종류 차이**: `bookmarkBlock`·`youtube` 는 진짜 블록이라 `hover.node` 가 곧 그 블록이지만, **`buttonBlock`(멘션/버튼)은 `group:"inline" atom`** 이고 `URL` 모드는 인라인 link 마크 텍스트라, 둘 다 드래그핸들 hover 는 이를 감싼 **`paragraph`** 를 잡는다. 따라서 `getConvertibleLinkHref` 는 문단도 검사한다(`pureLinkParagraphHref`): ①인라인 `buttonBlock` 아톰 1개만 있는 문단 → 그 `attrs.href`, ②전체가 동일 link 마크 텍스트인 문단 → 그 href. 링크 외 콘텐츠가 섞이면 변환 대상 아님(문단 통째 교체 사고 방지). **`buttonBlock` 아톰은 `textContent` 에 기여하지 않으므로 `textContent` 빈값으로 조기 제외하면 안 된다.** 내부 페이지 링크(`quicknote://`)·DB 버튼은 `externalWebHref` 가 제외. 회귀 테스트: `src/lib/editor/__tests__/linkBlockConvert.test.ts`.
+> **CRITICAL — 노드 종류 차이**: `bookmarkBlock`·`youtube` 는 진짜 블록이라 `hover.node` 가 곧 그 블록이지만, **`buttonBlock`(멘션/버튼)은 `group:"inline" atom`** 이고 `URL` 모드는 인라인 link 마크 텍스트라, 둘 다 드래그핸들 hover 는 이를 감싼 **`paragraph`** 를 잡는다. 따라서 `getConvertibleLinkHref` 는 문단도 검사한다(`pureLinkParagraphHref`): ①인라인 `buttonBlock` 아톰 1개만 있는 문단 → 그 `attrs.href`, ②전체가 동일 link 마크 텍스트인 문단 → 그 href. 링크 외 콘텐츠가 섞이면 변환 대상 아님(문단 통째 교체 사고 방지). **`buttonBlock` 아톰은 `textContent` 에 기여하지 않으므로 `textContent` 빈값으로 조기 제외하면 안 된다.** 내부 페이지 링크(`minyoung://`)·DB 버튼은 `externalWebHref` 가 제외. 회귀 테스트: `src/lib/editor/__tests__/linkBlockConvert.test.ts`.
 
 ## 주의사항
 - **`pageId` prop 우선**: 피크 뷰처럼 `activePageId`와 다른 페이지를 편집할 때 `pageId` prop을 명시적으로 전달해야 올바른 페이지 ID를 사용한다.

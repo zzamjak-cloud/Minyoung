@@ -1,6 +1,6 @@
 # 설정 — 노션 가져오기 (Notion Import)
 
-Notion export(HTML/Markdown + CSV + 첨부 에셋)를 QuickNote 페이지·DB로 변환해 가져오는 기능. 설정 모달의 "가져오기" 탭에서 zip 또는 폴더를 선택해 실행한다.
+Notion export(HTML/Markdown + CSV + 첨부 에셋)를 Minyoung 페이지·DB로 변환해 가져오는 기능. 설정 모달의 "가져오기" 탭에서 zip 또는 폴더를 선택해 실행한다.
 
 > **이 기능은 계속 개선 대상이다.** Notion export 포맷은 비표준·비일관적(인코딩 횟수 불일치, 폴더명 변형, 빈 파일 혼입 등)이라 회귀가 잦다. 수정 시 아래 "함정"을 먼저 확인할 것.
 

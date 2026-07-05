@@ -16,7 +16,7 @@
  *   AWS_REGION=ap-northeast-2 npx ts-node scripts/backfill-purge-at.ts --apply  # 실제 기록
  *
  * 자격증명: 기본 AWS 자격증명 체인(env/SSO/프로파일)을 사용한다.
- * 테이블명: 기본 "quicknote-page", 필요 시 PAGES_TABLE_NAME 으로 오버라이드.
+ * 테이블명: 기본 "minyoung-page", 필요 시 PAGES_TABLE_NAME 으로 오버라이드.
  */
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
@@ -26,7 +26,7 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 
 const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 리졸버 TRASH_RETENTION_MS 와 동일해야 함
-const PAGES_TABLE = process.env.PAGES_TABLE_NAME ?? "quicknote-page";
+const PAGES_TABLE = process.env.PAGES_TABLE_NAME ?? "minyoung-page";
 const APPLY = process.argv.includes("--apply");
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));

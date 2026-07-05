@@ -405,7 +405,7 @@ export function DatabaseTableView({ databaseId, panelState, setPanelState, visib
     const cleanup = () => {
       setColDragFrom(null);
       setColDragOver(null);
-      document.body.classList.remove("quicknote-db-col-dragging");
+      document.body.classList.remove("minyoung-db-col-dragging");
     };
     window.addEventListener("dragend", cleanup);
     return () => window.removeEventListener("dragend", cleanup);
@@ -514,7 +514,7 @@ export function DatabaseTableView({ databaseId, panelState, setPanelState, visib
       }
     }
     // DB 컬럼 드래그 종료 — dropcursor/indicator 복구
-    document.body.classList.remove("quicknote-db-col-dragging");
+    document.body.classList.remove("minyoung-db-col-dragging");
     setColDragFrom(null);
     setColDragOver(null);
   };

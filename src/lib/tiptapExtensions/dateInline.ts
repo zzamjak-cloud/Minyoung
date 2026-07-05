@@ -70,7 +70,7 @@ export const DateInline = Node.create({
   addProseMirrorPlugins() {
     return [
       new Plugin({
-        key: new PluginKey("quicknote-date-inline-click"),
+        key: new PluginKey("minyoung-date-inline-click"),
         props: {
           handleClickOn: (view, pos, node) => {
             if (node.type.name !== this.name) return false;

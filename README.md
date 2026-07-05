@@ -1,6 +1,6 @@
-# QuickNote
+# Minyoung
 
-개인용 노션 스타일 메모 앱.
+개인용 노션 스타일 웹/PWA 메모 앱.
 **릴리스 버전 번호는 루트 `package.json`의 `version`과 동일하게 관리합니다.**
 세부 변경 이력은 `CHANGELOG.md`를 참고한다.
 
@@ -82,15 +82,6 @@ npm run test:run
 npm run build
 ```
 
-### 데스크톱 (v2.0.0+, Tauri)
-
-Rust stable 필요 (`rustup`으로 설치). 첫 실행 시 로컬 SQLite로 데이터를 마이그레이션한다.
-
-```bash
-npm run tauri:dev    # 개발용 데스크톱 창
-npm run tauri:build  # 배포용 .dmg / .exe 생성
-```
-
 ### 웹 (Vercel)
 
 프로덕션 웹은 Vercel에 연결된 프로젝트에 배포한다. Git 연동으로 `main` 푸시만으로 올리거나, CLI로 아래와 같이 배포할 수 있다.
@@ -99,65 +90,52 @@ npm run tauri:build  # 배포용 .dmg / .exe 생성
 npx vercel --prod --yes --archive=tgz
 ```
 
-- Tauri 리포지토리는 로컬에 `src-tauri/target`·`node_modules` 등 대용량 경로가 있어, 루트 `.vercelignore` 없이 CLI 배포하면 업로드 한도/용량 문제로 실패할 수 있다. 웹 빌드는 Vercel 측에서 `npm install`·`npm run build`로 수행된다.
-- 프로덕션 배포 완료 후 기본 별칭 예: `https://quick-note-khaki.vercel.app` (대시보드의 Production 도메인·별칭이 최종 기준)
+- 웹 빌드는 Vercel 측에서 `npm install`·`npm run build`로 수행된다.
+- 프로덕션 배포 완료 후 기본 별칭 예: `https://minyoung.vercel.app` (대시보드의 Production 도메인·별칭이 최종 기준)
 
-### 자동 업데이트 릴리스 규약 (Tag Push)
+### 웹 배포 환경변수
 
-- 자동 업데이트 배포는 `v*` 태그 푸시에서만 실행된다.
-- 버전은 반드시 세 곳이 일치해야 한다.
-  - `package.json`의 `version`
-  - `src-tauri/tauri.conf.json`의 `version`
-  - 푸시 태그 `vX.Y.Z`
-- 릴리스 순서
-  1. 버전 bump
-  2. `CHANGELOG.md` 갱신
-  3. `git tag vX.Y.Z && git push origin vX.Y.Z`
-- GitHub Secrets 필요
-  - `TAURI_SIGNING_PRIVATE_KEY`
-  - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
-- **데스크톱/GitHub Actions 릴리스**에서는 로컬 `.env`가 쓰이지 않는다. `npm run build`가 CI에서 실행될 때 `VITE_*`가 주입되어야 프로덕션 앱에서 Google 로그인이 동작한다. 아래 이름으로 Repository Secrets를 등록할 것 (`CONTRIBUTING.md` 참고).
+- **웹 배포/Vercel 빌드**에서는 로컬 `.env`가 쓰이지 않는다. `npm run build`가 CI에서 실행될 때 `VITE_*`가 주입되어야 프로덕션 앱에서 Google 로그인이 동작한다. 아래 이름으로 환경변수를 등록할 것.
   - `VITE_COGNITO_REGION`
   - `VITE_COGNITO_USER_POOL_ID`
   - `VITE_COGNITO_HOSTED_UI_DOMAIN`
-  - `VITE_COGNITO_DESKTOP_CLIENT_ID`
-  - `VITE_AUTH_REDIRECT_DESKTOP`
-  - (선택·웹과 동일 소스 빌드 시) `VITE_COGNITO_WEB_CLIENT_ID`, `VITE_AUTH_REDIRECT_WEB`
-- `src-tauri/tauri.conf.json`의 `plugins.updater.pubkey`에는 minisign 공개키를 넣어야 한다.
+  - `VITE_COGNITO_WEB_CLIENT_ID`
+  - `VITE_AUTH_REDIRECT_WEB`
+  - `VITE_APPSYNC_ENDPOINT`
+  - `VITE_S3_REGION`
+  - `VITE_S3_BUCKET_NAME`
 
 ## 데이터 저장
 
 | 환경 | 저장소 |
 |---|---|
-| 웹 | 브라우저 `localStorage` |
-| 데스크톱 (v2+) | 로컬 SQLite (`~/.local/share/quicknote/quicknote.db`) |
+| 웹/PWA | 브라우저 `localStorage` + IndexedDB |
 
 ## 인증 (v3.0.0+)
 
-웹/데스크톱 모두 **AWS Cognito User Pool + Google OAuth** 페더레이션으로 로그인한다. 화이트리스트에 등록된 이메일만 가입할 수 있다.
+웹은 **AWS Cognito User Pool + Google OAuth** 페더레이션으로 로그인한다. 고정 allowlist 이메일만 가입할 수 있다.
 
 - 웹: Hosted UI 로 리다이렉트 → Google → `/auth/callback`
-- 데스크톱(Tauri): 시스템 기본 브라우저로 Hosted UI 오픈 → `quicknote://auth/callback` 딥링크로 복귀
 - 토큰: PKCE Authorization Code 흐름. `oidc-client-ts` + `zustandStorage` 어댑터로 영속화
-- 화이트리스트: Cognito PreSignUp Lambda 가 `ALLOWED_EMAILS` 와 매칭되지 않는 가입을 거부
+- 화이트리스트: Cognito PreSignUp Lambda 가 `zzamjak@gmail.com`, `keanux@naver.com` 외 가입을 거부
 
 인프라(CDK) 배포·환경변수 설정 방법은 `infra/README.md` 와 `.env.example` 참고.
 
 ## 동기화 (v4.0.0+)
 
-웹/데스크톱 모두 **AWS AppSync (Cognito JWT 인증)** 로 페이지·DB·연락처를 자동 동기화한다.
+웹/PWA는 **AWS AppSync (Cognito JWT 인증)** 로 페이지·DB를 자동 동기화한다.
 
 - 페이지 단위 LWW (`updatedAt` 비교)
-- 오프라인 편집은 IndexedDB(웹) / SQLite(Tauri) outbox 큐에 누적, 온라인 복귀 시 자동 재시도(지수 백오프)
-- 페이지 doc 변경은 2초 디바운스, 메타·DB·연락처는 즉시 푸시
-- 이미지는 S3 PreSignedURL 로 업로드 (≤ 20MB, png/jpeg/webp/gif). 에디터 doc 안에는 `quicknote-image://{id}` 가상 스킴으로 영구 ID 만 보유
+- 오프라인 편집은 IndexedDB outbox 큐에 누적, 온라인 복귀 시 자동 재시도(지수 백오프)
+- 페이지 doc 변경은 2초 디바운스, 메타·DB는 즉시 푸시
+- 이미지는 S3 PreSignedURL 로 업로드 (≤ 20MB, png/jpeg/webp/gif). 에디터 doc 안에는 `minyoung-image://{id}` 가상 스킴으로 영구 ID 만 보유
 - 동기화 비대상: 페이지/DB 히스토리, 디바이스별 UI 설정(다크모드·사이드바 폭·탭), 인증 토큰
 
-배포·환경변수: `infra/README.md` 의 `QuicknoteSyncStack` 절 참고.
+배포·환경변수: `infra/README.md` 의 `MinyoungSyncStack` 절 참고.
 
 ## 데이터 안전성·마이그레이션 (v5.0.14+)
 
-QuickNote는 persisted cache를 직접 파괴하지 않고, 검증 가능한 migration 레이어를 통해 새 구조로 이동한다.
+Minyoung은 persisted cache를 직접 파괴하지 않고, 검증 가능한 migration 레이어를 통해 새 구조로 이동한다.
 
 - page/database 캐시는 `cacheWorkspaceId`로 워크스페이스 소속을 기록한다.
 - 첫 렌더 전에 현재 워크스페이스와 다른 캐시를 감지하면 stale 화면을 막고 refetch/reconcile을 우선한다.
@@ -176,11 +154,10 @@ npm run build
 
 ## 로드맵
 
-- **v1.0.0** — 웹 에디터 + 데이터베이스 MVP (`CHANGELOG.md` 참고)
-- **v2.0.0** — Tauri 데스크톱 이식, SQLite 로컬 저장, 태그 릴리스·자동 업데이트(minisign + GitHub Actions)
-- **v3.0.0** — AWS Cognito + Google OAuth + 화이트리스트 인증
-- **v4.0.0** — AWS AppSync 단일 사용자 멀티 디바이스 동기화 (LWW) + S3 이미지 업로드 ← 완료
-- **v5.0.0** — 워크스페이스 기반 다중 사용자 협업(구성원/팀/권한/멘션) ← 완료
+- **v1.0.0** — Minyoung 기반 웹 에디터 + 데이터베이스 감량판
+- **v1.1.0** — AWS Cognito + Google OAuth + 고정 allowlist 인증
+- **v1.2.0** — AWS AppSync 단일 사용자 멀티 디바이스 동기화(LWW) + S3 이미지 업로드
+- **v1.3.0** — PWA 모바일 터치 UX 점검
 
 ## 기여·보안
 

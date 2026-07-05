@@ -13,22 +13,22 @@ describe("cache quota", () => {
   });
 
   it("서버에서 재구성 가능한 cache 키만 prune 대상으로 본다", () => {
-    expect(isPrunableCacheKey("quicknote.database.cache.range.v1")).toBe(true);
-    expect(isPrunableCacheKey("quicknote.pages.v1")).toBe(false);
-    expect(isPrunableCacheKey("quicknote.sync.outbox.v1")).toBe(false);
+    expect(isPrunableCacheKey("minyoung.database.cache.range.v1")).toBe(true);
+    expect(isPrunableCacheKey("minyoung.pages.v1")).toBe(false);
+    expect(isPrunableCacheKey("minyoung.sync.outbox.v1")).toBe(false);
   });
 
   it("한도를 넘으면 오래된 캐시부터 목표 용량까지 삭제 대상으로 고른다", () => {
     const gib = 1024 * 1024 * 1024;
     const keys = selectCacheKeysToPrune([
-      { key: "quicknote.database.cache.older.v1", size: 4 * gib, updatedAt: 10 },
-      { key: "quicknote.database.cache.middle.v1", size: 4 * gib, updatedAt: 20 },
-      { key: "quicknote.database.cache.newer.v1", size: 4 * gib, updatedAt: 30 },
-      { key: "quicknote.pages.v1", size: 20 * gib, updatedAt: 1 },
+      { key: "minyoung.database.cache.older.v1", size: 4 * gib, updatedAt: 10 },
+      { key: "minyoung.database.cache.middle.v1", size: 4 * gib, updatedAt: 20 },
+      { key: "minyoung.database.cache.newer.v1", size: 4 * gib, updatedAt: 30 },
+      { key: "minyoung.pages.v1", size: 20 * gib, updatedAt: 1 },
     ]);
 
     expect(keys).toEqual([
-      "quicknote.database.cache.older.v1",
+      "minyoung.database.cache.older.v1",
     ]);
   });
 });

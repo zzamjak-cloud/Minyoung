@@ -48,7 +48,7 @@ import { usePageStore } from "../../store/pageStore";
 import { useDatabaseStore } from "../../store/databaseStore";
 import { POINTER_PRESS_FEEDBACK_CLASS } from "../common/interactionClasses";
 import { ensureBlockId } from "../../lib/mentions/ensureBlockId";
-import { buildQuickNotePageUrl } from "../../lib/navigation/quicknoteLinks";
+import { buildMinyoungPageUrl } from "../../lib/navigation/minyoungLinks";
 import {
   GUTTER_LEFT_PX,
   type HoverInfo,
@@ -413,7 +413,7 @@ export function BlockHandles({
     }
     dragCommittedRef.current = true;
     e.stopPropagation();
-    document.body.classList.add("quicknote-block-dragging");
+    document.body.classList.add("minyoung-block-dragging");
 
     // 다중 이동 입력 결정 우선순위:
     //   1) 박스 드래그로 잡힌 블록(boxSelectedStarts) 이 hover 를 포함 → 그대로 사용
@@ -444,7 +444,7 @@ export function BlockHandles({
   };
 
   const onGripDragEnd = () => {
-    document.body.classList.remove("quicknote-block-dragging");
+    document.body.classList.remove("minyoung-block-dragging");
     onClearBoxSelection?.();
   };
 
@@ -490,7 +490,7 @@ export function BlockHandles({
     // 숫자 위치(blockStart)는 폴백으로 함께 저장한다.
     const blockId = editor ? ensureBlockId(editor, hover.blockStart) : null;
     void navigator.clipboard.writeText(
-      buildQuickNotePageUrl({ pageId: activePageId, blockId, block: hover.blockStart }),
+      buildMinyoungPageUrl({ pageId: activePageId, blockId, block: hover.blockStart }),
     );
     setMenuOpen(false);
   };
@@ -620,7 +620,7 @@ export function BlockHandles({
       const rawSrc = attrs.src ?? null;
       if (!rawSrc) return;
 
-      // quicknote-file:// ref 는 다운로드 URL로 해석 후 강제 다운로드.
+      // minyoung-file:// ref 는 다운로드 URL로 해석 후 강제 다운로드.
       const fileId = decodeFileRef(rawSrc);
       const href = fileId ? await imageUrlCache.get(fileId) : rawSrc;
       if (!href) return;

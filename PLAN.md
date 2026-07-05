@@ -1,12 +1,12 @@
 # Minyoung — 개인화 노트 구현 계획
 
-기준 문서: `1.0.0.md` / 원본: `/Users/woody/Desktop/AI/QuickNote` (v5.6.17, React 19 + Tiptap 3 + Zustand + AWS CDK)
+기준 문서: `1.0.0.md` / 원본 참조 프로젝트: React 19 + Tiptap 3 + Zustand + AWS CDK 기반 노트 앱
 
 ## 0. 핵심 결정 사항
 
 | 결정 | 선택 | 근거 |
 |------|------|------|
-| 시작 방식 | **QuickNote 포크 후 감량** (신규 작성 아님) | 에디터+DB 뷰가 코드의 핵심 가치(약 13.6만 LOC). 워크스페이스 결합(254파일)은 추출보다 "단일 고정값 축소"가 훨씬 저렴 |
+| 시작 방식 | **원본 참조 프로젝트 기반 감량** (신규 작성 아님) | 에디터+DB 뷰가 코드의 핵심 가치(약 13.6만 LOC). 워크스페이스 결합(254파일)은 추출보다 "단일 고정값 축소"가 훨씬 저렴 |
 | 동기화 | **AppSync LWW 동기화(계층 A)만 유지, Yjs 실시간 협업(계층 B) 전면 제거** | 단일 사용자라 공동편집 CRDT 불필요. 단, PC웹+모바일PWA 멀티디바이스이므로 LWW + outbox 오프라인 큐는 유지 (이미 구현돼 있어 추가 비용 없음) |
 | 워크스페이스 | 완전 삭제 대신 **고정 상수 1개로 축소** (`PERSONAL_WORKSPACE_ID`) | 스토어 키·GraphQL 파티션·구독 채널에 workspaceId가 박혀 있음. 스키마를 건드리지 않고 UI/전환 로직만 제거 |
 | 인증 | Cognito Hosted UI 유지 + **pre-sign-up Lambda 이메일 allowlist 2개 고정** | `zzamjak@gmail.com`(개발), `keanux@naver.com`(실사용). 셀프 가입 차단 |
@@ -16,7 +16,7 @@
 
 ## 1단계 — 저장소·프로젝트 부트스트랩
 
-1. QuickNote를 로컬 복제 → `/Users/woody/Desktop/AI/Minyoung/app` (또는 루트)로 이식, git 히스토리 초기화
+1. 원본 참조 프로젝트를 로컬 복제 → `/Users/woody/Desktop/AI/Minyoung/app` (또는 루트)로 이식, git 히스토리 초기화
 2. `zzamjak-cloud`에 `Minyong` private 레포 생성, 원격 연결
 3. 프로젝트명 변경: `package.json` name, `index.html` 타이틀, PWA manifest(앱명/아이콘/테마색), Tauri 관련 스크립트 제거
 4. 빌드/테스트 통과 확인 (`npm run build`, `vitest`) — 감량 전 베이스라인 확보
@@ -86,7 +86,7 @@ infra/
 └── lib/
     ├── cognito-stack.ts      # User Pool + pre-sign-up allowlist + post-confirmation
     ├── sync-stack.ts         # AppSync(GraphQL) + DynamoDB + 구독
-    └── sync/schema.graphql   # QuickNote 스키마에서 Schedule/Member/Team/Org/협업 타입 제외한 축소판
+    └── sync/schema.graphql   # 원본 스키마에서 Schedule/Member/Team/Org/협업 타입 제외한 축소판
 ```
 
 - 유지 Lambda: `pre-sign-up`, `post-confirmation`, `image-presign`, `image-gc`, `trash-purge`
@@ -97,7 +97,7 @@ infra/
 ## 6단계 — PWA·모바일 대응
 
 - `vite-plugin-pwa` 기존 설정 기반: manifest 갱신(이름/아이콘), 오프라인 셸 캐시
-- 모바일 뷰포트 점검: 에디터 툴바·슬래시 메뉴·DB 뷰(table/kanban/gallery)의 터치 대응 확인 — QuickNote가 데스크톱 위주였다면 이 부분이 실질 신규 작업
+- 모바일 뷰포트 점검: 에디터 툴바·슬래시 메뉴·DB 뷰(table/kanban/gallery)의 터치 대응 확인 — 원본 참조 프로젝트가 데스크톱 위주였다면 이 부분이 실질 신규 작업
 - iOS Safari 홈화면 추가 동작 확인 (실사용자 keanux 기기 기준)
 
 ## 7단계 — 검증·배포

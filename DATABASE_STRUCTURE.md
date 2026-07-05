@@ -1,4 +1,4 @@
-# QuickNote Database 구조 및 컴포넌트 분석 리포트
+# Minyoung Database 구조 및 컴포넌트 분석 리포트
 
 생성일: 2026-06-03 | 분석 대상: `/src/components/database/`, `/src/lib/database/`, `/src/store/database*Store.ts`
 
@@ -44,7 +44,7 @@ type DatabaseStoreState = {
 | `reorderColumns` | `(databaseId: string, columnIds: string[]) => void` | 컬럼 순서 변경 |
 
 #### 저장소 설정
-- **persist 이름:** `quicknote.databases.v{DATABASE_STORE_VERSION}`
+- **persist 이름:** `minyoung.databases.v{DATABASE_STORE_VERSION}`
 - **스토리지:** `zustandStorage` (웹: localStorage, 네이티브: Tauri SQLite)
 - **마이그레이션:** `./databaseStore/migrations.ts` 분리 관리
 - **병합 전략:** `mergePersistedSubset` (selectos 기반 부분 병합)
@@ -73,7 +73,7 @@ type ViewKind = "table" | "kanban" | "gallery" | "timeline" | "list";
 | `setView` | `(databaseId: string, view: ViewKind) => void` | 뷰 종류 변경 |
 
 #### 저장소 설정
-- **persist 이름:** `quicknote.databaseViewPrefs.v1`
+- **persist 이름:** `minyoung.databaseViewPrefs.v1`
 - **Key 형식:** `{currentWorkspaceId}::{databaseId}` (워크스페이스별 격리)
 - **마이그레이션:** v0→v1 기본값 삽입
 

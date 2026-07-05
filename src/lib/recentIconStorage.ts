@@ -1,6 +1,6 @@
 // IconPicker 통합 탭 — 최근 사용 아이콘 (로컬 persist)
 
-const LS_KEY = "quicknote.recentPageIcons.v1";
+const LS_KEY = "minyoung.recentPageIcons.v1";
 const MAX_RECENT = 24;
 
 export function loadRecentIcons(): string[] {

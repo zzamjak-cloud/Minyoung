@@ -23,7 +23,7 @@ export function createSyncTable(
   opts: { ttlAttribute?: string; envPrefix?: string } = {},
 ): ModelTable {
   const table = new dynamodb.Table(scope, id, {
-    tableName: `${opts.envPrefix ?? ""}quicknote-${modelName.toLowerCase()}`,
+    tableName: `${opts.envPrefix ?? ""}${modelName.toLowerCase()}`,
     partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
     billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
     pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },

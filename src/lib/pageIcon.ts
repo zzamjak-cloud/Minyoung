@@ -3,15 +3,15 @@
 import { decodeImageRef } from "./sync/imageScheme";
 import { decodeFileRef } from "./files/scheme";
 
-export const LUCIDE_PAGE_ICON_PREFIX = "quicknote-lucide:";
+export const LUCIDE_PAGE_ICON_PREFIX = "minyoung-lucide:";
 
 export type LucidePageIcon = {
   name: string;
   color: string;
 };
 
-/** quicknote-image:// ref 인지 */
-export function isQuickNoteImageIcon(icon: string | null | undefined): boolean {
+/** minyoung-image:// ref 인지 */
+export function isMinyoungImageIcon(icon: string | null | undefined): boolean {
   if (!icon) return false;
   return decodeImageRef(icon) !== null;
 }
@@ -19,7 +19,7 @@ export function isQuickNoteImageIcon(icon: string | null | undefined): boolean {
 /** img 태그로 표시할 수 있는 아이콘(원격·data URL·가상 ref) */
 export function isImageLikePageIcon(icon: string | null | undefined): boolean {
   if (!icon) return false;
-  if (isQuickNoteImageIcon(icon)) return true;
+  if (isMinyoungImageIcon(icon)) return true;
   if (decodeFileRef(icon) !== null) return true;
   if (icon.startsWith("http://") || icon.startsWith("https://")) return true;
   if (icon.startsWith("data:image/")) return true;

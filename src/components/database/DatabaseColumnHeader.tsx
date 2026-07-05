@@ -8,7 +8,7 @@ import { DatabaseColumnMenu } from "./DatabaseColumnMenu";
 import { PageIconDisplay } from "../common/PageIconDisplay";
 import { resolveColumnIcon } from "./columnTypeIcons";
 
-const DRAG_MIME = "application/x-quicknote-db-drag";
+const DRAG_MIME = "application/x-minyoung-db-drag";
 /** 사용자가 드래그로 임의 폭으로 줄일 수 있도록 최소값을 매우 작게 — 보이긴 해야 하므로 12px. */
 const MIN_COL_WIDTH = 12;
 
@@ -64,7 +64,7 @@ export function DatabaseColumnHeader({
 
   // 드래그 종료 안전망 — dragend 가 portal span 에서 누락되는 브라우저 quirk 대응
   useEffect(() => {
-    const cleanup = () => document.body.classList.remove("quicknote-db-col-dragging");
+    const cleanup = () => document.body.classList.remove("minyoung-db-col-dragging");
     window.addEventListener("dragend", cleanup);
     return () => window.removeEventListener("dragend", cleanup);
   }, []);
@@ -149,12 +149,12 @@ export function DatabaseColumnHeader({
             e.dataTransfer.setDragImage(img, 0, 0);
             requestAnimationFrame(() => img.remove());
             // DB 컬럼 드래그 중 — dropcursor/indicator 숨김
-            document.body.classList.add("quicknote-db-col-dragging");
+            document.body.classList.add("minyoung-db-col-dragging");
             onDragStart(index);
           }}
           onDragEnd={(e) => {
             e.stopPropagation();
-            document.body.classList.remove("quicknote-db-col-dragging");
+            document.body.classList.remove("minyoung-db-col-dragging");
           }}
           style={
             thRect

@@ -1,7 +1,7 @@
 # useAnchoredPopover.ts
 
 ## 역할
-버튼 기준으로 팝오버 좌표를 계산하고, 뷰포트 경계를 넘지 않도록 위/아래 플립 및 좌우 클램프를 자동 처리하는 팝오버 훅. QuickNote 팝업 규약의 표준 구현체.
+버튼 기준으로 팝오버 좌표를 계산하고, 뷰포트 경계를 넘지 않도록 위/아래 플립 및 좌우 클램프를 자동 처리하는 팝오버 훅. Minyoung 팝업 규약의 표준 구현체.
 
 ## 위치
 `src/hooks/useAnchoredPopover.ts`
@@ -33,7 +33,7 @@
 ## 동작 흐름
 1. 트리거 버튼 클릭 → `toggle()` 또는 `openPopover()` 호출
 2. `updatePosition(width)` — `buttonRef.getBoundingClientRect()` 로 1차 좌표 설정 (버튼 바로 아래 `rect.bottom + 4`)
-3. `notifyOpened()` — `quicknote:anchored-popover-open` 이벤트 dispatch (다른 팝오버 자동 닫기)
+3. `notifyOpened()` — `minyoung:anchored-popover-open` 이벤트 dispatch (다른 팝오버 자동 닫기)
 4. `open = true` → 팝오버 DOM 렌더
 5. `useLayoutEffect` — `popoverRef.offsetHeight` 로 실제 높이 측정 후 `computeCoords` 재계산
 6. `computeCoords` 내부 플립/클램프 로직:
@@ -46,7 +46,7 @@
 | 이름 | 값 | 설명 |
 |------|----|------|
 | `VIEWPORT_PADDING` | 8 | 뷰포트 가장자리 여백(px) |
-| `ANCHORED_POPOVER_OPEN_EVENT` | `"quicknote:anchored-popover-open"` | 팝오버 간 상호 닫기 이벤트 |
+| `ANCHORED_POPOVER_OPEN_EVENT` | `"minyoung:anchored-popover-open"` | 팝오버 간 상호 닫기 이벤트 |
 
 ## 외부 의존
 - React `useCallback`, `useEffect`, `useId`, `useLayoutEffect`, `useRef`, `useState`

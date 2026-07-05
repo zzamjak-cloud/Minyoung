@@ -16,7 +16,7 @@
 - `VITE_ERROR_BEACON_URL` 미설정이면 beacon 은 **no-op** (URL 없으면 조용히 skip).
 - `navigator.sendBeacon` 미지원 환경도 skip.
 - beacon/ring 실패는 전부 swallow — 관측성 부가 기능이 본 흐름을 깨지 않는다.
-- 기존 `console.warn("[QuickNote] {context}", e)` 출력은 유지(개발 편의).
+- 기존 `console.warn("[Minyoung] {context}", e)` 출력은 유지(개발 편의).
 
 ### 과거 라이브 인시던트가 서버에 흔적 0이었던 이유와 해소
 이전에는 `reportNonFatal` 이 콘솔 출력 + 메모리 ring 까지만 수행해서,
@@ -32,11 +32,11 @@ Phase 0(`a693b82e`)에서 `sendBeacon` 경로를 추가해, `VITE_ERROR_BEACON_U
 ## dev/live 캐시 격리 (Tauri 식별자 분리)
 
 `5ba32820` 이전에는 dev 와 라이브 데스크톱 앱이 **동일 identifier** 라
-같은 앱데이터 디렉토리의 `quicknote.db`(SQLite)를 공유했다 → dev 작업이 라이브 캐시를 오염.
+같은 앱데이터 디렉토리의 `minyoung.db`(SQLite)를 공유했다 → dev 작업이 라이브 캐시를 오염.
 
 해소:
-- `src-tauri/tauri.dev.conf.json` 추가 — `identifier=com.loadcomplete.quicknote.dev`,
-  `productName="QuickNote Dev"`.
+- `src-tauri/tauri.dev.conf.json` 추가 — `identifier=com.loadcomplete.minyoung.dev`,
+  `productName="Minyoung Dev"`.
 - `npm run tauri:dev` 는 `tauri dev --config src-tauri/tauri.dev.conf.json` 로 머지 실행.
 - 라이브 `npm run tauri:build` 는 기존 identifier 유지 → **릴리스 무영향**.
 

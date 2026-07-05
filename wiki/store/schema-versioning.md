@@ -29,8 +29,8 @@ migrate: (persisted: unknown, fromVersion: number) => {
 
 ## localStorage 직접 확인 (디버깅)
 ```js
-JSON.parse(localStorage.getItem('quicknote.pages.v1') ?? '{}')
-JSON.parse(localStorage.getItem('quicknote.databases.v1') ?? '{}')
+JSON.parse(localStorage.getItem('minyoung.pages.v1') ?? '{}')
+JSON.parse(localStorage.getItem('minyoung.databases.v1') ?? '{}')
 ```
 
 ## 최근 databaseStore 변경
@@ -42,7 +42,7 @@ JSON.parse(localStorage.getItem('quicknote.databases.v1') ?? '{}')
 
 ## 초기화 (최후 수단)
 ```js
-["quicknote.pages.v1","quicknote.databases.v1","quicknote.settings.v1"]
+["minyoung.pages.v1","minyoung.databases.v1","minyoung.settings.v1"]
   .forEach(k => localStorage.removeItem(k));
 location.reload();
 // Bootstrap 이 AppSync 에서 전체 재페치함
@@ -51,7 +51,7 @@ location.reload();
 ## 워크스페이스 스냅샷 키 (zustand persist 와 별개)
 
 `src/lib/sync/workspaceSwitch.ts` 의 `WORKSPACE_SNAPSHOT_KEY_PREFIX` 는 zustand persist 가 아닌
-**커스텀 IndexedDB 키**(`quicknote.workspace.snapshot.v{N}:{workspaceId}`)다. 빠른 첫 페인트용 캐시.
+**커스텀 IndexedDB 키**(`minyoung.workspace.snapshot.v{N}:{workspaceId}`)다. 빠른 첫 페인트용 캐시.
 
 - 손상된 스냅샷을 전 사용자에게서 일괄 무효화하려면 prefix 의 버전을 올린다(예: `v2:`→`v3:`).
 - 키가 바뀌면 부팅 시 복원할 캐시가 없어 `structureCacheAvailable=false` → `resolveWorkspaceRemoteFetchMode`

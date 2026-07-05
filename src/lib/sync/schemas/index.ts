@@ -4,36 +4,15 @@
 import { z } from "zod";
 import { reportNonFatal } from "../../reportNonFatal";
 
-const WorkspaceRoleSchema = z.union([
-  z.literal("DEVELOPER"),
-  z.literal("OWNER"),
-  z.literal("LEADER"),
-  z.literal("MANAGER"),
-  z.literal("MEMBER"),
-  // 정규화 전 소문자 케이스도 허용
-  z.literal("developer"),
-  z.literal("owner"),
-  z.literal("leader"),
-  z.literal("manager"),
-  z.literal("member"),
-]);
-
-const MemberStatusSchema = z.union([
-  z.literal("ACTIVE"),
-  z.literal("REMOVED"),
-  z.literal("active"),
-  z.literal("removed"),
-]);
-
-/** 서버에서 새 필드가 추가돼도 깨지지 않도록 passthrough. */
+/** 서버에서 새 필드가 추가돼도 깨지지 않도록 passthrough. 단일 사용자 — 본인 프로필만 사용. */
 export const GqlMemberSchema = z
   .object({
     memberId: z.string(),
     email: z.string(),
     name: z.string(),
     jobRole: z.string(),
-    workspaceRole: WorkspaceRoleSchema,
-    status: MemberStatusSchema,
+    workspaceRole: z.string().nullish(),
+    status: z.string().nullish(),
     jobTitle: z.string().nullish(),
     phone: z.string().nullish(),
     avatarUrl: z.string().nullish(),
@@ -43,7 +22,6 @@ export const GqlMemberSchema = z
     createdAt: z.string().nullish(),
     removedAt: z.string().nullish(),
     clientPrefs: z.unknown().nullish(),
-    // 신규 7개 필드 — 서버 미배포 시점에도 깨지지 않도록 optional
     employmentStatus: z.string().nullish(),
     employeeNumber: z.string().nullish(),
     department: z.string().nullish(),
@@ -56,28 +34,6 @@ export const GqlMemberSchema = z
   .passthrough();
 
 export type GqlMemberParsed = z.infer<typeof GqlMemberSchema>;
-
-export const GqlTeamSchema = z
-  .object({
-    teamId: z.string(),
-    name: z.string(),
-    leaderMemberIds: z.array(z.string()).default([]),
-    members: z.array(GqlMemberSchema).default([]),
-  })
-  .passthrough();
-
-export type GqlTeamParsed = z.infer<typeof GqlTeamSchema>;
-
-export const GqlOrganizationSchema = z
-  .object({
-    organizationId: z.string(),
-    name: z.string(),
-    leaderMemberIds: z.array(z.string()).default([]),
-    members: z.array(GqlMemberSchema).default([]),
-  })
-  .passthrough();
-
-export type GqlOrganizationParsed = z.infer<typeof GqlOrganizationSchema>;
 
 export const GqlPageMetaSchema = z
   .object({

@@ -46,7 +46,7 @@ export const useDatabaseRowRemoteStore = create<DatabaseRowRemoteStore>()(
       clear: () => set({ nextTokenByDatabaseId: {}, loadingByDatabaseId: {} }),
     }),
     {
-      name: "quicknote.database-row-remote.v1",
+      name: "minyoung.database-row-remote.v1",
       storage: createJSONStorage(() => zustandStorage),
       partialize: (state) => ({ nextTokenByDatabaseId: state.nextTokenByDatabaseId }),
     },

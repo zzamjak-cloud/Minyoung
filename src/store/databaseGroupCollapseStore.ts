@@ -55,7 +55,7 @@ export const useDatabaseGroupCollapseStore = create<DatabaseGroupCollapseStore>(
       },
     }),
     {
-      name: "quicknote.database-group-collapse.v1",
+      name: "minyoung.database-group-collapse.v1",
       storage: createJSONStorage(() => zustandStorage),
     },
   ),

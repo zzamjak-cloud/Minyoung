@@ -13,15 +13,15 @@ function refsOf(value: unknown): Set<string> {
 
 describe("collectFromValue", () => {
   it("스킴으로 시작하는 단독 문자열 ref 를 수집한다 (icon/coverImage 필드 형태)", () => {
-    expect(refsOf(`quicknote-image://${ICON}`)).toEqual(new Set([ICON]));
-    expect(refsOf(`quicknote-file://${FILE}`)).toEqual(new Set([FILE]));
+    expect(refsOf(`minyoung-image://${ICON}`)).toEqual(new Set([ICON]));
+    expect(refsOf(`minyoung-file://${FILE}`)).toEqual(new Set([FILE]));
   });
 
   it("중첩 객체(doc 트리) 내부의 ref 를 수집한다", () => {
     const doc = {
       type: "doc",
       content: [
-        { type: "imageBlock", attrs: { src: `quicknote-image://${BODY}` } },
+        { type: "imageBlock", attrs: { src: `minyoung-image://${BODY}` } },
         { type: "paragraph", content: [{ type: "text", text: "무관한 텍스트" }] },
       ],
     };
@@ -30,8 +30,8 @@ describe("collectFromValue", () => {
 
   it("JSON 문자열로 직렬화된 doc/snapshot 안의 ref 도 수집한다", () => {
     const snapshot = JSON.stringify({
-      doc: { content: [{ attrs: { src: `quicknote-image://${BODY}` } }] },
-      dbCells: { colA: `quicknote-file://${FILE}` },
+      doc: { content: [{ attrs: { src: `minyoung-image://${BODY}` } }] },
+      dbCells: { colA: `minyoung-file://${FILE}` },
     });
     expect(refsOf(snapshot)).toEqual(new Set([BODY, FILE]));
   });

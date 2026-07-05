@@ -39,10 +39,9 @@ describe("startSubscriptions", () => {
     const stop = startSubscriptions("ws-1", {
       onPage: vi.fn(),
       onDatabase: vi.fn(),
-      onWorkspace: vi.fn(),
     });
 
-    await vi.waitFor(() => expect(mocks.graphql).toHaveBeenCalledTimes(3));
+    await vi.waitFor(() => expect(mocks.graphql).toHaveBeenCalledTimes(2));
 
     for (const [args, additionalHeaders] of mocks.graphql.mock.calls) {
       expect(args).toMatchObject({
@@ -54,7 +53,7 @@ describe("startSubscriptions", () => {
     }
 
     stop();
-    expect(mocks.unsubscribe).toHaveBeenCalledTimes(3);
+    expect(mocks.unsubscribe).toHaveBeenCalledTimes(2);
   });
 
   it("meta-only page subscription payload를 onPage로 전달한다", async () => {

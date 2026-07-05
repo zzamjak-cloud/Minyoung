@@ -78,7 +78,7 @@ persist 된 탭이 { databaseId: X } (풀페이지 DB 탭)
    (`src/store/uiStore.ts`, `src/App.tsx`)
 
 > 레거시 ghost(`fullPageDatabaseId` 없는 풀페이지 홈)는 서버에서 softDelete 로 제거한다.
-> `quicknote-page` 의 `byWorkspaceAndUpdatedAt` GSI 로 `databaseId=null` 루트를 조회해
+> `minyoung-page` 의 `byWorkspaceAndUpdatedAt` GSI 로 `databaseId=null` 루트를 조회해
 > 정식 페이지만 남기고 중복을 삭제(`deletedAt`/`updatedAt` 전진 + `purgeAt` epoch초)하면 delta 동기화로 전파된다.
 
 ## 임포트가 만든 미태깅 홈 (재발 경로, 2026-06-09)
@@ -91,9 +91,9 @@ persist 된 탭이 { databaseId: X } (풀페이지 DB 탭)
 - 임포트가 홈 생성 시 `layout: "fullPage"` 를 명시하고 `pageStore.markFullPageDatabaseHome(pageId, dbId)` 로 태깅한다.
 - `pageStore.markFullPageDatabaseHome` 액션 신설(태깅 + `enqueueUpsertPage`, idempotent).
 - `ensureFullPagePageForDatabase` 가 기존 홈을 찾으면 태그 누락 시 자동 보강(자기 치유, doc 로드된 경우 한정).
-- 기존 서버 미태깅 홈은 코드로 못 잡으므로 `quicknote-page` 에서 중복 홈을 softDelete 로 정리한다(`deletedAt`/`updatedAt`/`purgeAt`+30일, `attribute_not_exists(fullPageDatabaseId) AND attribute_not_exists(deletedAt)` 조건). 정식 태깅 홈만 남긴다.
+- 기존 서버 미태깅 홈은 코드로 못 잡으므로 `minyoung-page` 에서 중복 홈을 softDelete 로 정리한다(`deletedAt`/`updatedAt`/`purgeAt`+30일, `attribute_not_exists(fullPageDatabaseId) AND attribute_not_exists(deletedAt)` 조건). 정식 태깅 홈만 남긴다.
 
-> 점검 쿼리: `quicknote-page` 전체 스캔에서 `미삭제 AND 미태깅 AND 루트(databaseId 없음)` 후보 중 `doc.content[0]` 이 `databaseBlock` + `layout==="fullPage"` 인 것이 유령. 정상 워크스페이스는 0건이어야 한다.
+> 점검 쿼리: `minyoung-page` 전체 스캔에서 `미삭제 AND 미태깅 AND 루트(databaseId 없음)` 후보 중 `doc.content[0]` 이 `databaseBlock` + `layout==="fullPage"` 인 것이 유령. 정상 워크스페이스는 0건이어야 한다.
 
 ## 태그 일괄 소실 사고 (2026-06-11, dev)
 

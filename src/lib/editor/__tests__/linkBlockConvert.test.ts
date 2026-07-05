@@ -88,8 +88,8 @@ describe("getConvertibleLinkHref", () => {
     expect(getConvertibleLinkHref(asNode(para))).toBeNull();
   });
 
-  it("내부 페이지 링크(quicknote://) buttonBlock 은 변환 대상이 아니다", () => {
-    const para = paragraph([buttonNode("quicknote://page/abc123")]);
+  it("내부 페이지 링크(minyoung://) buttonBlock 은 변환 대상이 아니다", () => {
+    const para = paragraph([buttonNode("minyoung://page/abc123")]);
     expect(getConvertibleLinkHref(asNode(para))).toBeNull();
   });
 

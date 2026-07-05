@@ -1,6 +1,6 @@
 // 조직(실) CRUD 핸들러 — Team 핸들러의 미러 구조.
-// DynamoDB 테이블: quicknote-organizations (organizationId PK)
-// 관계 테이블: quicknote-member-organizations (memberId PK, organizationId SK, byOrganization GSI)
+// DynamoDB 테이블: minyoung-organizations (organizationId PK)
+// 관계 테이블: minyoung-member-organizations (memberId PK, organizationId SK, byOrganization GSI)
 
 import {
   BatchGetCommand,

@@ -1,4 +1,4 @@
-const DB_NAME = "quicknote-db-files";
+const DB_NAME = "minyoung-db-files";
 const STORE = "blobs";
 const VERSION = 1;
 

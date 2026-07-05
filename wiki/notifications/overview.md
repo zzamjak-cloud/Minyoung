@@ -19,7 +19,7 @@
 
 `InAppNotification` — `recipientMemberId`, `kind`(`mention`|`thread_reply`), `source`(`comment`|`page`), `workspaceId/Name`, `pageId/Title`, `blockId`, `fromMemberId`, `commentId`, `previewBody`, `createdAt`, `read`.
 
-- persist 키 `quicknote.notifications.v1`, store version 2 (마이그레이션 `migrateNotificationStore`).
+- persist 키 `minyoung.notifications.v1`, store version 2 (마이그레이션 `migrateNotificationStore`).
 - 최대 `MAX_NOTIFICATIONS = 500`개 유지.
 - `blockId === "__page__"` 은 페이지 레벨 댓글 sentinel — 블록 스크롤 없이 페이지로만 이동.
 - `addNotification` 은 `(recipient, kind, commentId, workspaceId)` 중복을 dedupe.

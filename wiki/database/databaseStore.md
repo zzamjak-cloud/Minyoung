@@ -92,7 +92,7 @@
 ## persist 설정
 | 항목 | 값 |
 |------|-----|
-| storage key | `"quicknote.databases.v1"` |
+| storage key | `"minyoung.databases.v1"` |
 | storage | `deferredDatabaseStorage` |
 | version | `DATABASE_STORE_PERSIST_VERSION = 5` |
 | migrate | `migrateDatabaseStore` |

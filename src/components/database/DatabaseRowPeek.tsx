@@ -35,7 +35,7 @@ import { useWorkspaceStore } from "../../store/workspaceStore";
 import { pageDocToMarkdown } from "../../lib/export/pageToMarkdown";
 import { buildPageHtmlZipBlob } from "../../lib/export/pageHtmlZip";
 import { collectDatabaseCollection } from "../../lib/export/databaseCollection";
-import { buildQuickNotePageUrl } from "../../lib/navigation/quicknoteLinks";
+import { buildMinyoungPageUrl } from "../../lib/navigation/minyoungLinks";
 import { navigateToWorkspacePage, peekNavigateToPage } from "../../lib/navigation/internalNavigation";
 import { PageCopyToWorkspaceDialog } from "../layout/PageCopyToWorkspaceDialog";
 import { computeEditorTailSpacerPx } from "../editor/editorHelpers";
@@ -50,7 +50,7 @@ import {
 import { getEditorColumnClass } from "../../lib/editorLayout";
 import { useIsMobile } from "../../hooks/useViewport";
 
-const PEEK_WIDTH_KEY = "quicknote.peekWidth.v1";
+const PEEK_WIDTH_KEY = "minyoung.peekWidth.v1";
 const DEFAULT_PEEK_WIDTH = 720;
 const MIN_PEEK_WIDTH = 380;
 const MAX_PEEK_WIDTH_RATIO = 0.9; // 화면 폭의 90%까지 허용
@@ -293,7 +293,7 @@ export function DatabaseRowPeek() {
   const copyPageLink = () => {
     if (!peekPageId) return;
     void navigator.clipboard
-      .writeText(buildQuickNotePageUrl({ pageId: peekPageId }))
+      .writeText(buildMinyoungPageUrl({ pageId: peekPageId }))
       .then(() => showToast("페이지 링크 복사 완료!", { kind: "success" }))
       .catch(() => showToast("페이지 링크 복사에 실패했습니다.", { kind: "error" }));
     setMenuOpen(false);

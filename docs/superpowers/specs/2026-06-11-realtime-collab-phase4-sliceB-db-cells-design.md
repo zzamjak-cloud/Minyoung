@@ -98,7 +98,7 @@ slice A 의 동일 DB Y.Doc·세션·룸을 그대로 쓴다. `rows` 만 추가.
 | 같은 셀 LWW 로 인한 입력 유실 체감 | 셀 단위라 충돌 범위 작음; 문자 병합은 비목표로 명시 |
 
 ## 12. 배포 / 롤아웃
-- 인프라: 서버 `dbSeed.ts`(rows 시드) 변경 → `DevQuicknoteRealtimeCollabStack` 재배포. WS·테이블·라우트 무변경.
+- 인프라: 서버 `dbSeed.ts`(rows 시드) 변경 → `DevMinyoungRealtimeCollabStack` 재배포. WS·테이블·라우트 무변경.
 - 프론트: slice A 와 동일 DB 단위 flag(`VITE_COLLAB_ENABLED_DB_IDS`). develop 구현·dev 검증·승인 후 배포.
 
 ## 13. 향후 단계

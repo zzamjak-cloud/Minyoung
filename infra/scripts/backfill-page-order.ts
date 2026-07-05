@@ -23,7 +23,7 @@
  *   AWS_REGION=ap-northeast-2 npx ts-node scripts/backfill-page-order.ts --apply  # 실제 기록
  *
  * 자격증명: 기본 AWS 자격증명 체인(env/SSO/프로파일).
- * 테이블명: 기본 "quicknote-page", 필요 시 PAGES_TABLE_NAME 으로 오버라이드.
+ * 테이블명: 기본 "minyoung-page", 필요 시 PAGES_TABLE_NAME 으로 오버라이드.
  */
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
@@ -32,7 +32,7 @@ import {
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 
-const PAGES_TABLE = process.env.PAGES_TABLE_NAME ?? "quicknote-page";
+const PAGES_TABLE = process.env.PAGES_TABLE_NAME ?? "minyoung-page";
 const APPLY = process.argv.includes("--apply");
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));

@@ -70,7 +70,7 @@ export function createSlashRenderer() {
             },
           ],
         },
-        theme: "quicknote-suggestion",
+        theme: "minyoung-suggestion",
         arrow: false,
       });
     },

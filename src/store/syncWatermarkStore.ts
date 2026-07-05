@@ -47,7 +47,7 @@ export const useSyncWatermarkStore = create<State & Actions>()(
         }),
     }),
     {
-      name: "quicknote.sync.watermark.v1",
+      name: "minyoung.sync.watermark.v1",
       storage: createJSONStorage(() => zustandStorage),
       partialize: (s) => ({ byWorkspace: s.byWorkspace }),
     },

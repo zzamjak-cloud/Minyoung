@@ -1,4 +1,4 @@
-// React 훅: TipTap 노드 src(quicknote-image:// 또는 일반 URL)를 표시 가능한 URL 로 풀어준다.
+// React 훅: TipTap 노드 src(minyoung-image:// 또는 일반 URL)를 표시 가능한 URL 로 풀어준다.
 
 import { useEffect, useState } from "react";
 import { imageUrlCache } from "./registry";

@@ -1,4 +1,4 @@
-# QuickNote Wiki
+# Minyoung Wiki
 
 AI 탐색용 위키 인덱스. 작업 전 해당 파일을 먼저 읽으면 소스 탐색 없이 구조 파악 가능.
 

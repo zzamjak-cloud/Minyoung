@@ -1,7 +1,7 @@
 // 에디터 doc 안 image 노드 src 표현 — 가상 스킴.
 // 영구 imageId 만 보유하고, 표시 시 PreSignedURL 로 변환한다.
 
-export const IMAGE_SCHEME = "quicknote-image://";
+export const IMAGE_SCHEME = "minyoung-image://";
 
 export function encodeImageRef(imageId: string): string {
   return `${IMAGE_SCHEME}${imageId}`;

@@ -407,14 +407,14 @@ export function DatabaseBlockView(props: NodeViewProps) {
       }
       // 박스 드래그 selection 이 있을 수 있어 단일 블럭 이동 경로로 직접 진입
       e.stopPropagation();
-      document.body.classList.add("quicknote-block-dragging");
+      document.body.classList.add("minyoung-block-dragging");
       startBlockNativeDrag(editor, e.nativeEvent, pos, node);
     },
     [editor, getPos, node],
   );
 
   const onInlineTitleDragEnd = useCallback(() => {
-    document.body.classList.remove("quicknote-block-dragging");
+    document.body.classList.remove("minyoung-block-dragging");
   }, []);
 
   const shellClass =

@@ -24,7 +24,7 @@ import { countPageDescendants } from "../page/pageSubpageTreeUtils";
 import { pageDocToMarkdown } from "../../lib/export/pageToMarkdown";
 import { buildPageHtmlZipBlob } from "../../lib/export/pageHtmlZip";
 import { collectDatabaseCollection } from "../../lib/export/databaseCollection";
-import { buildQuickNotePageUrl } from "../../lib/navigation/quicknoteLinks";
+import { buildMinyoungPageUrl } from "../../lib/navigation/minyoungLinks";
 import type { Page } from "../../types/page";
 
 /** 페이지 메뉴 드롭다운 왼쪽 아이콘 공통 스타일 */
@@ -176,7 +176,7 @@ export function TopBar({ onOpenNav }: { onOpenNav?: () => void } = {}) {
         e.preventDefault();
         setMenuOpen(false);
         void navigator.clipboard
-          .writeText(buildQuickNotePageUrl({ pageId: activeId }))
+          .writeText(buildMinyoungPageUrl({ pageId: activeId }))
           .then(() => showToast("페이지 링크 복사 완료!", { kind: "success" }))
           .catch(() =>
             showToast("페이지 링크 복사에 실패했습니다.", { kind: "error" }),
@@ -214,7 +214,7 @@ export function TopBar({ onOpenNav }: { onOpenNav?: () => void } = {}) {
   const copyPageLink = () => {
     if (!activeId) return;
     void navigator.clipboard
-      .writeText(buildQuickNotePageUrl({ pageId: activeId }))
+      .writeText(buildMinyoungPageUrl({ pageId: activeId }))
       .then(() => showToast("페이지 링크 복사 완료!", { kind: "success" }))
       .catch(() => showToast("페이지 링크 복사에 실패했습니다.", { kind: "error" }));
     setMenuOpen(false);

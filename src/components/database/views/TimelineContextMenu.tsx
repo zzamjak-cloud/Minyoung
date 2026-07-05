@@ -21,7 +21,7 @@ export const COLOR_PRESETS = [
 export const DEFAULT_CARD_COLOR = "#3498DB";
 
 // 다른 곳에서 컨텍스트 메뉴가 열리면 기존 메뉴를 닫기 위한 브로드캐스트 이벤트.
-export const TIMELINE_CONTEXT_MENU_OPEN_EVENT = "quicknote:timeline-context-menu-open";
+export const TIMELINE_CONTEXT_MENU_OPEN_EVENT = "minyoung:timeline-context-menu-open";
 
 export function announceTimelineContextMenuOpen() {
   window.dispatchEvent(new Event(TIMELINE_CONTEXT_MENU_OPEN_EVENT));

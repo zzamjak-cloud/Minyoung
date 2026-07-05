@@ -10,7 +10,7 @@
 |------|------|------|
 | 페이지 멘션(`@`) | `mention.tsx` (`MentionExtension`, class `page-mention`) | 모든 멘션(member/page/database)이 **이 단일 노드**로 처리됨. 멘션 버그는 무조건 `mention.tsx` 한 곳만 본다 (과거 `pageMention.tsx` 죽은 코드가 혼동을 유발해 제거함) |
 | 인라인 페이지 링크 | `pageLink.tsx` (`PageLink`) | 회색/아웃라인 버튼 |
-| 블록 링크 | `buttonBlock.tsx` (`ButtonBlock`) | "블럭 링크 복사" → 붙여넣기 시 `buttonBlock` 으로 삽입(`useEditorProps.ts`). 내부 `quicknote` 링크는 `parseQuickNoteLink` 로 판별 |
+| 블록 링크 | `buttonBlock.tsx` (`ButtonBlock`) | "블럭 링크 복사" → 붙여넣기 시 `buttonBlock` 으로 삽입(`useEditorProps.ts`). 내부 `minyoung` 링크는 `parseMinyoungLink` 로 판별 |
 
 | 인라인 **외부** 웹 링크 | TipTap `Link` mark → `<a href>` | `openOnClick: false` — 클릭 열기는 **`App.tsx` capture** ([아래](#에디터-외부-웹-링크-클릭)) |
 | 북마크 블록 | `bookmarkBlock.tsx` | `onClick` → `window.open` (에디터 capture와 별도) |
@@ -37,8 +37,8 @@
   - DB 행을 `useOpenDatabaseRow` 로 열 때 workspaceId 폴백 순서: `page.workspaceId` → rowIndex → **DB 번들 `meta.workspaceId`** → currentWorkspaceId.
 - **타 워크스페이스 페이지·인라인 DB 는 협업(Yjs)을 비활성화한다.** `useCollabSession`/`useDatabaseCollabSession` 이 `page.workspaceId`(또는 DB 번들 `meta.workspaceId`) ≠ 현재 워크스페이스면 `enabled=false` 로 게이트한다. 안 그러면 빈 Y.Doc 바인딩이 우회 적재한 본문을 덮어써(**잠깐 보였다 사라짐**) 타 워크스페이스 룸 WebSocket 연결이 404 로 실패한다(라이브 회귀). 같은 워크스페이스 협업엔 영향 없음.
 
-**자기설명적 링크 (`quicknoteLinks.ts`)**
-- `buildQuickNotePageUrl` 은 `ws`(원본 워크스페이스, 기본값=현재 워크스페이스) 파라미터를 싣는다. 타 워크스페이스에 붙여넣어 만든 버튼(`buttonBlock`)을 클릭하면 이 `ws` 로 어느 워크스페이스 페이지인지 식별한다. ⚠️ 기존(ws 없이) 복사된 링크는 다시 복사해야 한다.
+**자기설명적 링크 (`minyoungLinks.ts`)**
+- `buildMinyoungPageUrl` 은 `ws`(원본 워크스페이스, 기본값=현재 워크스페이스) 파라미터를 싣는다. 타 워크스페이스에 붙여넣어 만든 버튼(`buttonBlock`)을 클릭하면 이 `ws` 로 어느 워크스페이스 페이지인지 식별한다. ⚠️ 기존(ws 없이) 복사된 링크는 다시 복사해야 한다.
 - 붙여넣기 시 버튼 라벨은 즉시 로컬 제목(없으면 placeholder)으로 만들고, 타 워크스페이스면 `fetchPageById(ws)` 로 제목을 비동기 조회해 라벨을 갱신한다(`useEditorProps` `applyCrossWorkspaceButtonLabel`).
 
 ### 페이지 멘션 클릭 이동 — `pageMentionClick.ts` (document capture mouseup)
@@ -59,7 +59,7 @@ TipTap `Link` 는 `openOnClick: false`(`useEditorExtensions.ts`) — 편집 중 
 
 - `.ProseMirror a[href]` 클릭 시 `onEditorPointerClick` 이 **`http(s)://`·`mailto:`·`tel:`** 이면 `preventDefault` + `window.open(..., "_blank", "noopener,noreferrer")`.
 - **제외**: `[data-bookmark-block]`, `[data-page-link]`, `[data-button-block]` — 각 NodeView/블록이 자체 클릭 처리.
-- **제외**: `parseQuickNoteLink(href)` 가 잡히는 내부 quicknote URL — 페이지/블록 링크 흐름에 위임.
+- **제외**: `parseMinyoungLink(href)` 가 잡히는 내부 minyoung URL — 페이지/블록 링크 흐름에 위임.
 - CSS `.ProseMirror a[href] { cursor: pointer }`(`index.css`)만 있고 클릭이 안 되면 **App.tsx 핸들러 누락**을 의심한다(커서만 pointer 인 전형적 증상).
 
 ---
@@ -115,7 +115,7 @@ TipTap `Link` 는 `openOnClick: false`(`useEditorExtensions.ts`) — 편집 중 
 
 - 글자 크기와 행간은 부모 본문 텍스트 상속(`font-size` 미지정, `line-height: inherit`), inline 정렬은 `vertical-align: middle`, hover 시 `opacity: 0.7`.
 - 제목(`.truncate`)에만 `text-decoration: underline` + 연한 밑줄색(컬럼 구분선 톤). `text-underline-offset: 2px`.
-- 아이콘은 `<PageIconDisplay icon size="md" className="page-mention-icon" />` 로 렌더 — **이모지·커스텀 이미지(`quicknote-image://`)·Lucide 아이콘을 모두 정상 표시**. (과거 `{icon}` 텍스트 직접 출력이라 이미지 ref 가 `quicknote-image://...` 문자열로 노출되던 버그가 있었음). 아이콘 없으면 `PageIconDisplay` 가 `FileText` 폴백. `.page-mention-icon` 은 `width/height/font-size: 1em` 으로 본문 텍스트 높이 안에 고정해 아이콘이 행간을 키우지 않게 한다.
+- 아이콘은 `<PageIconDisplay icon size="md" className="page-mention-icon" />` 로 렌더 — **이모지·커스텀 이미지(`minyoung-image://`)·Lucide 아이콘을 모두 정상 표시**. (과거 `{icon}` 텍스트 직접 출력이라 이미지 ref 가 `minyoung-image://...` 문자열로 노출되던 버그가 있었음). 아이콘 없으면 `PageIconDisplay` 가 `FileText` 폴백. `.page-mention-icon` 은 `width/height/font-size: 1em` 으로 본문 텍스트 높이 안에 고정해 아이콘이 행간을 키우지 않게 한다.
 - **Lucide 컬러**: `PageIconDisplay` 가 `color={lucideIcon.color}` 로 stroke 색을 지정한다. `.page-mention-icon svg` 에 `color: inherit` / `stroke: currentColor` 를 두면 루시드 색이 사라지므로 **금지** — `index.css` 는 `:not(:has(svg))` 로 이모지만 inherit.
 - **제목 컬러**: `mention.tsx` 가 `pageStore` 의 `titleColor` 를 구독해 `.truncate` 에 `style={{ color }}` 적용. 페이지 제목 색 변경 시 멘션 제목도 즉시 연동 ([pages/overview.md](../pages/overview.md)).
 - 정적 직렬화(`renderHTML`/`renderText`)는 `isPlainEmojiIcon` 가드로 **이모지만** 텍스트로 내보낸다 — 이미지·Lucide ref 가 복사/붙여넣기 시 raw 문자열로 새지 않도록.
@@ -129,7 +129,7 @@ TipTap `Link` 는 `openOnClick: false`(`useEditorExtensions.ts`) — 편집 중 
 
 `TopBar` 우측 **페이지 트리** 버튼 → `PageSubpageTree` (`hideHeader`).
 
-- 각 행 아이콘은 **`PageIconDisplay`** 로 렌더 — 이모지·`quicknote-image://`·`quicknote-lucide:` 모두 표시.
+- 각 행 아이콘은 **`PageIconDisplay`** 로 렌더 — 이모지·`minyoung-image://`·`minyoung-lucide:` 모두 표시.
 - 과거 `pageIcon()` 헬퍼가 Lucide ref 를 raw 문자열로 출력하던 회귀와 동일 패턴 — **멘션 수정 이력과 같이 `PageIconDisplay` 단일 경로**를 유지한다.
 
 ---
@@ -166,7 +166,7 @@ TipTap `Link` 는 `openOnClick: false`(`useEditorExtensions.ts`) — 편집 중 
 | `src/lib/navigation/internalNavigation.ts` | `openPageInCurrentTab`/`openPageInNewTab`, `shouldOpenInternalLinkInNewTab`, `pushPageBrowserHistory` |
 | `src/components/layout/FavoritesList.tsx` | 즐겨찾기 목록·이동·제목 교정(서버 권위 조회) |
 | `src/lib/editor/editorNavigationBridge.ts` | 목차/댓글/검색/블록링크 스크롤(DOM 직접). PM `scrollIntoView` 무력화 우회 |
-| `src/lib/navigation/quicknoteLinks.ts` | `buildQuickNotePageUrl`/`parseQuickNoteLink`(딥링크 `?page&blockId`/`quicknote://`) |
+| `src/lib/navigation/minyoungLinks.ts` | `buildMinyoungPageUrl`/`parseMinyoungLink`(딥링크 `?page&blockId`/`minyoung://`) |
 | `src/lib/crossWorkspaceSearch.ts` | 공개 워크스페이스 교차 페이지/DB 후보 로딩·선택 후보 메타 기억 |
 | `src/store/navigationHistoryStore.ts` | 인앱 백스택(`backStack`, `lastTargetPageId`, `pushBack`/`popBack`/`jumpTo`) |
 | `src/lib/navigation/pageMentionClick.ts` | 페이지 멘션 클릭 이동(document capture mousedown/mouseup). `App.tsx` 에서 설치 |

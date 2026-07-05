@@ -2,10 +2,10 @@ import type { PageMap } from "../types/page";
 import { safeParsePageMap } from "./schemas/pageMapSchema";
 
 export const STORAGE_KEYS = {
-  pages: "quicknote.pages.v1",
-  activePageId: "quicknote.activePageId.v1",
-  settings: "quicknote.settings.v1",
-  schemaVersion: "quicknote.schemaVersion",
+  pages: "minyoung.pages.v1",
+  activePageId: "minyoung.activePageId.v1",
+  settings: "minyoung.settings.v1",
+  schemaVersion: "minyoung.schemaVersion",
 } as const;
 
 export const CURRENT_SCHEMA_VERSION = 1;

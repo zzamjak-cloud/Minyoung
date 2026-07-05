@@ -69,7 +69,7 @@ export const useFlowchartHistoryStore = create<FlowchartHistoryStore>()(
         }),
     }),
     {
-      name: "quicknote.flowchart-history.v1",
+      name: "minyoung.flowchart-history.v1",
       storage: createJSONStorage(() => zustandStorage),
     },
   ),

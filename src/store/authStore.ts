@@ -37,8 +37,8 @@ const TOKEN_KEEPALIVE_THRESHOLD_SEC = 180;
 // 직전에 인증된 세션이 있었는지 동기적으로 알려주는 마커.
 // 새로고침 시 AuthGate 가 토큰 복원(read 15s + getUser 12s 등)을 기다리지 않고
 // 캐시된 앱 셸을 먼저 그릴지 판단하는 데 쓴다.
-const HAD_SESSION_KEY = "quicknote.auth.hadSession";
-const FORCE_ACCOUNT_SELECTION_KEY = "quicknote.auth.forceAccountSelection";
+const HAD_SESSION_KEY = "minyoung.auth.hadSession";
+const FORCE_ACCOUNT_SELECTION_KEY = "minyoung.auth.forceAccountSelection";
 
 function markHadSession(): void {
   try {

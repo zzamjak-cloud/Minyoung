@@ -17,8 +17,8 @@
  *   AWS_REGION=ap-northeast-2 npx ts-node scripts/backfill-history-expires-at.ts --apply  # 실제 기록
  *
  * 자격증명: 기본 AWS 자격증명 체인(env/SSO/프로파일)을 사용한다.
- * 테이블명: 기본 live("quicknote-*-history"), dev 는 PAGE_HISTORY_TABLE_NAME /
- * DATABASE_HISTORY_TABLE_NAME 으로 오버라이드(예: "devquicknote-page-history").
+ * 테이블명: 기본 live("minyoung-*-history"), dev 는 PAGE_HISTORY_TABLE_NAME /
+ * DATABASE_HISTORY_TABLE_NAME 으로 오버라이드(예: "dev-minyoung-page-history").
  */
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
@@ -29,9 +29,9 @@ import {
 
 // 리졸버 history.ts 의 HISTORY_RETENTION_DAYS 와 동일해야 함
 const HISTORY_RETENTION_MS = 180 * 24 * 60 * 60 * 1000;
-const PAGE_HISTORY_TABLE = process.env.PAGE_HISTORY_TABLE_NAME ?? "quicknote-page-history";
+const PAGE_HISTORY_TABLE = process.env.PAGE_HISTORY_TABLE_NAME ?? "minyoung-page-history";
 const DATABASE_HISTORY_TABLE =
-  process.env.DATABASE_HISTORY_TABLE_NAME ?? "quicknote-database-history";
+  process.env.DATABASE_HISTORY_TABLE_NAME ?? "minyoung-database-history";
 const APPLY = process.argv.includes("--apply");
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));

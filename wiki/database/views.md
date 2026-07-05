@@ -19,7 +19,7 @@
 
 ## 갤러리 뷰
 - 카드 커버는 선택된 file/url 컬럼을 우선하되, 커버 URL 로드 실패·비이미지 file·컬럼 미지정 상태에서는 항목 페이지 본문 첫 이미지를 fallback으로 쓴다.
-- 커버 선택기는 항목 페이지 본문 이미지를 후보로 쓰며, `quicknote-image://`/`quicknote-file://` ref는 `useImageUrl`로 표시 URL을 풀어 썸네일을 렌더한다.
+- 커버 선택기는 항목 페이지 본문 이미지를 후보로 쓰며, `minyoung-image://`/`minyoung-file://` ref는 `useImageUrl`로 표시 URL을 풀어 썸네일을 렌더한다.
 
 ## 카드 memo (리스트/갤러리/칸반 — 성능 회귀 방지)
 

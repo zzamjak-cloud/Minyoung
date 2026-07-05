@@ -50,7 +50,7 @@ import { tryRecoverQuarantine } from "./lib/migrations/quarantineRecovery";
 // 워터마크만 전진해 페이지 누락이 고착된 캐시를 일괄 재기준선한다.
 const WORKSPACE_CACHE_REPAIR_REVISION = "2026-06-11-pagemeta-lasteditedby-schema-repair";
 const workspaceCacheRepairKey = (workspaceId: string): string =>
-  `quicknote.workspace.cacheRepair.${WORKSPACE_CACHE_REPAIR_REVISION}:${workspaceId}`;
+  `minyoung.workspace.cacheRepair.${WORKSPACE_CACHE_REPAIR_REVISION}:${workspaceId}`;
 
 function needsWorkspaceCacheRepair(workspaceId: string): boolean {
   if (typeof window === "undefined") return false;
@@ -346,18 +346,6 @@ function useSyncBootstrap(): void {
           },
           onDatabase: (d) => {
             applyRemoteDatabaseToStore(d);
-          },
-          onWorkspace: () => {
-            // 접근권한 변경 신호 → 본인 기준 워크스페이스 목록/권한 재페치(회수 시 setWorkspaces 가 자동 전환).
-            void listMyWorkspacesApi()
-              .then((workspaces) => {
-                if (!cancelled) {
-                  setWorkspaces(workspaces as Parameters<typeof setWorkspaces>[0]);
-                }
-              })
-              .catch((error) => {
-                console.warn("[sync] 워크스페이스 접근권한 갱신 실패", error);
-              });
           },
         });
 

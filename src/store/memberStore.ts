@@ -4,36 +4,30 @@ import { zustandStorage } from "../lib/storage/index";
 
 export type MemberRole = "developer" | "owner" | "leader" | "manager" | "member";
 export type MemberStatus = "active" | "removed";
-/** CSV 상태 컬럼 — 재직 여부 표시 (기존 status 와 별개) */
 export type EmploymentStatus = "재직중" | "휴직" | "병가" | "퇴사";
 
+// 단일 사용자 전용 — 멤버는 본인 1명뿐이다.
+// 프로필 표시·lastEditedBy·멘션 표기를 위해 `me` 와, 기존 소비처 호환을 위한
+// 멤버 목록 메서드를 얇게 유지한다.
 export type Member = {
   memberId: string;
   email: string;
   name: string;
   jobRole: string;
-  workspaceRole: MemberRole;
-  status: MemberStatus;
+  workspaceRole?: MemberRole;
+  status?: MemberStatus;
   jobTitle?: string;
   phone?: string;
   avatarUrl?: string;
   thumbnailUrl?: string;
   personalWorkspaceId: string;
-  /** 재직 상태 (CSV 상태 컬럼) */
   employmentStatus?: EmploymentStatus;
-  /** 사번 */
   employeeNumber?: string;
-  /** 소속(실) */
   department?: string;
-  /** 소속(팀) */
   team?: string;
-  /** 직무 카테고리 */
   jobCategory?: string;
-  /** 상세직무 */
   jobDetail?: string;
-  /** 입사일 (YYYY-MM-DD) */
   joinedAt?: string;
-  /** 구성원별 타임라인 행 개수 */
   rowCount?: number;
 };
 
@@ -45,9 +39,9 @@ export type MemberMini = {
 
 type MemberStoreState = {
   me: Member | null;
+  /** 호환용 목록 — 단일 사용자 화면에서는 보통 me 1명만 들어간다. */
   members: Member[];
   cacheWorkspaceId: string | null;
-  /** 마지막으로 서버에서 페치한 시점(ms). null=미페치 */
   lastFetchedAt: number | null;
   mentionCandidates: MemberMini[];
   mentionQuery: string;
@@ -75,12 +69,19 @@ export const useMemberStore = create<MemberStore>()(
       mentionCandidates: [],
       mentionQuery: "",
 
-      setMe: (member) => set({ me: member }),
-      setMembers: (members, workspaceId) => set((state) => ({
-        members,
-        cacheWorkspaceId: workspaceId ?? state.cacheWorkspaceId,
-        lastFetchedAt: Date.now(),
-      })),
+      setMe: (member) =>
+        set({
+          me: member,
+          members: member ? [member] : [],
+        }),
+
+      setMembers: (members, workspaceId) =>
+        set((state) => ({
+          members,
+          me: state.me ?? members[0] ?? null,
+          cacheWorkspaceId: workspaceId ?? state.cacheWorkspaceId,
+          lastFetchedAt: Date.now(),
+        })),
 
       upsertMember: (member) =>
         set((state) => {
@@ -93,6 +94,7 @@ export const useMemberStore = create<MemberStore>()(
               state.me?.memberId === member.memberId
                 ? member
                 : state.me,
+            lastFetchedAt: Date.now(),
           };
         }),
 
@@ -101,6 +103,7 @@ export const useMemberStore = create<MemberStore>()(
           members: state.members.filter((m) => m.memberId !== memberId),
           me: state.me?.memberId === memberId ? null : state.me,
           mentionCandidates: state.mentionCandidates.filter((m) => m.memberId !== memberId),
+          lastFetchedAt: Date.now(),
         })),
 
       setMentionCandidates: (query, candidates) =>
@@ -126,7 +129,7 @@ export const useMemberStore = create<MemberStore>()(
         }),
     }),
     {
-      name: "quicknote.members.cache.v1",
+      name: "minyoung.members.cache.v1",
       storage: createJSONStorage(() => zustandStorage),
       partialize: (state) => ({
         me: state.me,

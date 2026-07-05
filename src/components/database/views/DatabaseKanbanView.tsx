@@ -30,7 +30,7 @@ type Props = {
   visibleRowLimit?: number;
 };
 
-const DRAG_MIME = "application/x-quicknote-db-drag";
+const DRAG_MIME = "application/x-minyoung-db-drag";
 const UNCATEGORIZED = "__none__";
 const EMPTY_OPTIONS: SelectOption[] = [];
 

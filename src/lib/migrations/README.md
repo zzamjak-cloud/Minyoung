@@ -1,6 +1,6 @@
 # Persisted Store Migration Policy
 
-QuickNote persisted stores must preserve user data across schema changes.
+Minyoung persisted stores must preserve user data across schema changes.
 
 ## Rules
 

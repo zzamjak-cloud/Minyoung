@@ -220,7 +220,7 @@ export const slashMenuEntries: SlashMenuEntry[] = [
     command: (ctx) => {
       clearSlashRange(ctx);
       setTimeout(() => {
-        window.dispatchEvent(new CustomEvent("quicknote:open-image-upload"));
+        window.dispatchEvent(new CustomEvent("minyoung:open-image-upload"));
       }, 0);
     },
   }),
@@ -234,7 +234,7 @@ export const slashMenuEntries: SlashMenuEntry[] = [
       clearSlashRange(ctx);
       setTimeout(() => {
         window.dispatchEvent(
-          new CustomEvent("quicknote:open-server-image-picker"),
+          new CustomEvent("minyoung:open-server-image-picker"),
         );
       }, 0);
     },
@@ -249,7 +249,7 @@ export const slashMenuEntries: SlashMenuEntry[] = [
       clearSlashRange(ctx);
       setTimeout(() => {
         window.dispatchEvent(
-          new CustomEvent("quicknote:open-server-video-picker"),
+          new CustomEvent("minyoung:open-server-video-picker"),
         );
       }, 0);
     },
@@ -262,7 +262,7 @@ export const slashMenuEntries: SlashMenuEntry[] = [
     command: (ctx) => {
       clearSlashRange(ctx);
       setTimeout(() => {
-        window.dispatchEvent(new CustomEvent("quicknote:open-emoji-picker"));
+        window.dispatchEvent(new CustomEvent("minyoung:open-emoji-picker"));
       }, 0);
     },
   }),

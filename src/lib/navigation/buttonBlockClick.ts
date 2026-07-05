@@ -4,7 +4,7 @@
 // (모바일에서 일반 페이지 링크·멘션은 되는데 블록 링크 버튼만 안 되던 원인.)
 import { usePageStore } from "../../store/pageStore";
 import { useNavigationHistoryStore } from "../../store/navigationHistoryStore";
-import { parseQuickNoteLink } from "./quicknoteLinks";
+import { parseMinyoungLink } from "./minyoungLinks";
 import {
   openDatabaseInCurrentTab,
   openDatabaseInNewTab,
@@ -34,7 +34,7 @@ export function resolveButtonPress(
 
 export function navigateButtonBlock(press: ButtonPress, event: MouseEvent): void {
   const href = press.href.trim();
-  const internalHref = href ? parseQuickNoteLink(href) : null;
+  const internalHref = href ? parseMinyoungLink(href) : null;
   const newTab = shouldOpenInternalLinkInNewTab(event);
   if (internalHref) {
     const applyTab = () => {

@@ -7,7 +7,7 @@
 | 파일 | 역할 |
 |------|------|
 | `src/lib/sync/pageContentLoad.ts` | `ensurePageContentLoaded()` 구현 |
-| `src/store/pageContentLoadStore.ts` | metaOnly 상태 추적. persist 키 `quicknote.page-content-load.v1` |
+| `src/store/pageContentLoadStore.ts` | metaOnly 상태 추적. persist 키 `minyoung.page-content-load.v1` |
 
 ## Store 구조
 

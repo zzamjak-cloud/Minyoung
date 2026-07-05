@@ -74,9 +74,9 @@ describe("DatabaseTimelineView 워크스페이스 전환 후 연간 자동 스�
     resizeCallback = null;
     observedElement = null;
     localStorage.clear();
-    localStorage.setItem("quicknote.timeline.granularity", "year");
-    localStorage.setItem("quicknote.timeline.year", "2025");
-    localStorage.setItem("quicknote.timeline.zoom", "100");
+    localStorage.setItem("minyoung.timeline.granularity", "year");
+    localStorage.setItem("minyoung.timeline.year", "2025");
+    localStorage.setItem("minyoung.timeline.zoom", "100");
     useDatabaseStore.setState({ databases: {}, cacheWorkspaceId: null });
     usePageStore.setState({ pages: {}, activePageId: null });
     useMemberStore.setState({

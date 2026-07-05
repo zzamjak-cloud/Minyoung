@@ -51,7 +51,6 @@ function resetAuthEnv() {
   delete env.VITE_COGNITO_REGION;
   delete env.VITE_COGNITO_USER_POOL_ID;
   delete env.VITE_COGNITO_WEB_CLIENT_ID;
-  delete env.VITE_COGNITO_DESKTOP_CLIENT_ID;
 }
 
 function encodeJwtPayload(payload: Record<string, unknown>): string {
@@ -155,7 +154,7 @@ describe("authStore", () => {
       VITE_COGNITO_WEB_CLIENT_ID: "live_web",
     });
     memory.set(
-      "quicknote.auth.tokens.v1",
+      "minyoung.auth.tokens.v1",
       JSON.stringify({
         idToken: encodeJwtPayload({
           iss: "https://cognito-idp.ap-northeast-2.amazonaws.com/dev_pool",
@@ -168,6 +167,6 @@ describe("authStore", () => {
     );
 
     expect(await readStoredTokens()).toBeNull();
-    expect(memory.has("quicknote.auth.tokens.v1")).toBe(false);
+    expect(memory.has("minyoung.auth.tokens.v1")).toBe(false);
   });
 });

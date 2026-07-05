@@ -66,9 +66,9 @@
 | `CELL_WIDTH_DEFAULT` | `100` | `timelineZoom.ts` | 기본 셀(1일) 너비(px) |
 | `CELL_WIDTH_STEP` | `8` | `timelineZoom.ts` | 드래그 날짜 스냅 단위(px) |
 | `DRAG_ACTIVATE_PX` | `3` | `DatabaseTimelineCard.tsx` | 드래그 인식 최소 이동량(px) |
-| `LS_ZOOM_KEY` | `"quicknote.timeline.zoom"` | `DatabaseTimelineView.tsx` | localStorage 줌 저장 키 |
-| `LS_GRANULARITY_KEY` | `"quicknote.timeline.granularity"` | `DatabaseTimelineView.tsx` | localStorage 단위 저장 키 |
-| `LS_MONTH_KEY` | `"quicknote.timeline.month"` | `DatabaseTimelineView.tsx` | localStorage 현재 월 저장 키 |
+| `LS_ZOOM_KEY` | `"minyoung.timeline.zoom"` | `DatabaseTimelineView.tsx` | localStorage 줌 저장 키 |
+| `LS_GRANULARITY_KEY` | `"minyoung.timeline.granularity"` | `DatabaseTimelineView.tsx` | localStorage 단위 저장 키 |
+| `LS_MONTH_KEY` | `"minyoung.timeline.month"` | `DatabaseTimelineView.tsx` | localStorage 현재 월 저장 키 |
 
 ## 주요 렌더 구조
 - 좌측 고정 레이블 열: 행 제목, 아이콘

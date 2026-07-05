@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
 export type AnchoredCoords = { top: number; left: number };
-const ANCHORED_POPOVER_OPEN_EVENT = "quicknote:anchored-popover-open";
+const ANCHORED_POPOVER_OPEN_EVENT = "minyoung:anchored-popover-open";
 
 // 화면 가장자리 여백 — 팝업이 뷰포트 밖으로 나가지 않도록 사방에 둔다.
 const VIEWPORT_PADDING = 8;

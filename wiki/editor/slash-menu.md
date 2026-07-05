@@ -14,13 +14,13 @@
 
 ## `/이모지` — 인라인 아이콘 삽입
 
-슬래시 **「이모지」** 는 `quicknote:open-emoji-picker` 이벤트로 `Editor.tsx` 의 `IconPickerPanel` 을 연다.
+슬래시 **「이모지」** 는 `minyoung:open-emoji-picker` 이벤트로 `Editor.tsx` 의 `IconPickerPanel` 을 연다.
 
 | 선택 종류 | 삽입 노드 | 비고 |
 |-----------|-----------|------|
 | 이모지 텍스트 | plain text | |
 | Lucide | `lucideInlineIcon` | name + color attrs |
-| 커스텀 이미지 | **`imageInlineIcon`** | `attrs.src` = `quicknote-image://…` |
+| 커스텀 이미지 | **`imageInlineIcon`** | `attrs.src` = `minyoung-image://…` |
 
 > **CRITICAL 회귀 주의 — 커스텀을 `image` 블록으로 삽입 금지**
 > 커스텀 탭·업로드 선택을 TipTap `image` 노드로 넣으면 본문에 **원본 크기 이미지**가 붙는다. 반드시 `imageInlineIcon`(약 1.15em, `lucideInlineIcon` 과 동일 규격)을 사용한다.

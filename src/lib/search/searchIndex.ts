@@ -28,7 +28,7 @@ const SAVE_DEBOUNCE_MS = 800;
 
 function persistKey(workspaceId: string | null): string {
   // ".cache." 세그먼트 포함 → quota 초과 시 LRU prune 대상(서버/메모리에서 재구성 가능)
-  return `quicknote.search.cache.index.${workspaceId ?? "none"}.v${SEARCH_INDEX_VERSION}`;
+  return `minyoung.search.cache.index.${workspaceId ?? "none"}.v${SEARCH_INDEX_VERSION}`;
 }
 
 function toIndexed(rec: PageSearchRecord): IndexedRecord {

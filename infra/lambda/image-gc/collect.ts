@@ -1,8 +1,8 @@
-// 자산 ref(quicknote-image:// / quicknote-file://) 도달성 수집 — 순수 로직.
-export const SCHEMES = ["quicknote-image://", "quicknote-file://"];
+// 자산 ref(minyoung-image:// / minyoung-file://) 도달성 수집 — 순수 로직.
+export const SCHEMES = ["minyoung-image://", "minyoung-file://"];
 
 // 문자열 내 임베드 ref 추출용 — JSON 직렬화된 doc/snapshot 문자열도 커버한다.
-const EMBEDDED_REF_RE = /quicknote-(?:image|file):\/\/([^"'\\\s)}\]]+)/g;
+const EMBEDDED_REF_RE = /minyoung-(?:image|file):\/\/([^"'\\\s)}\]]+)/g;
 
 export function collectFromValue(value: unknown, out: Set<string>): void {
   if (value === null || value === undefined) return;

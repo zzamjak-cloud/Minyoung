@@ -197,7 +197,7 @@ export const useNotificationStore = create<NotificationState & NotificationActio
         ).length,
     }),
     {
-      name: "quicknote.notifications.v1",
+      name: "minyoung.notifications.v1",
       storage: createJSONStorage(() => zustandStorage),
       version: NOTIFICATION_STORE_VERSION,
       migrate: migrateNotificationStore,

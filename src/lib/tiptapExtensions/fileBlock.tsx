@@ -1,6 +1,6 @@
 // 일반 파일 노드 — atom block.
 // mimeType 에 따라 NodeView 가 비디오 플레이어 / 오디오 플레이어 / 파일 카드를 렌더한다.
-// src 는 quicknote-file:// 가상 스킴 ref(또는 외부 URL).
+// src 는 minyoung-file:// 가상 스킴 ref(또는 외부 URL).
 
 import { Node, mergeAttributes } from "@tiptap/core";
 import {

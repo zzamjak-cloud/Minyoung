@@ -44,7 +44,7 @@ export const useDatabasePageTreeCollapseStore = create<DatabasePageTreeCollapseS
       },
     }),
     {
-      name: "quicknote.database-page-tree-collapse.v1",
+      name: "minyoung.database-page-tree-collapse.v1",
       storage: createJSONStorage(() => zustandStorage),
     },
   ),

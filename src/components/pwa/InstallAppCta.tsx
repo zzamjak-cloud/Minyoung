@@ -32,7 +32,7 @@ export function InstallAppCta() {
               앱 설치
             </div>
             <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              홈 화면/독에 QuickNote 를 추가해 더 빠르게 실행하세요.
+              홈 화면/독에 Minyoung 를 추가해 더 빠르게 실행하세요.
             </p>
           </div>
           <button

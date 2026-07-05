@@ -11,7 +11,6 @@ scalar AWSDateTime
 enum WorkspaceRole { DEVELOPER OWNER LEADER MANAGER MEMBER }
 enum WorkspaceType { PERSONAL SHARED }
 enum AccessLevel  { EDIT VIEW }
-enum AccessSubjectType { TEAM MEMBER EVERYONE }
 enum MemberStatus { ACTIVE REMOVED }
 enum ImageStatus { PENDING READY }
 
@@ -31,7 +30,6 @@ type Member {
   cognitoSub: String
   """클라이언트별 동기화 JSON(예: 즐겨찾기). 멤버 본인만 갱신."""
   clientPrefs: AWSJSON
-  teams: [Team!]!
   createdAt: AWSDateTime!
   removedAt: AWSDateTime
   """재직 상태 (재직중 | 휴직 | 병가 | 퇴사)"""
@@ -52,31 +50,6 @@ type Member {
   rowCount: Int
 }
 
-type MemberMini {
-  memberId: ID!
-  name: String!
-  jobRole: String!
-}
-
-type Team {
-  teamId: ID!
-  name: String!
-  members: [Member!]!
-  leaderMemberIds: [ID!]!
-  createdAt: AWSDateTime!
-  removedAt: AWSDateTime
-}
-
-"""조직(실) — Team 과 동일 구조. 별도 DynamoDB 테이블(quicknote-organizations)에 저장."""
-type Organization {
-  organizationId: ID!
-  name: String!
-  members: [Member!]!
-  leaderMemberIds: [ID!]!
-  createdAt: AWSDateTime!
-  removedAt: AWSDateTime
-}
-
 type WorkspaceOptions {
   jobFunctions: [String!]!
   jobTitles: [String!]!
@@ -85,25 +58,9 @@ type WorkspaceOptions {
 type Workspace {
   workspaceId: ID!
   name: String!
-  type: WorkspaceType!
-  ownerMemberId: ID!
-  access: [WorkspaceAccessEntry!]!
-  myEffectiveLevel: AccessLevel!
   createdAt: AWSDateTime!
   removedAt: AWSDateTime
   options: WorkspaceOptions!
-}
-
-type WorkspaceMeta {
-  members: [Member!]!
-  teams: [Team!]!
-  organizations: [Organization!]!
-}
-
-type WorkspaceAccessEntry {
-  subjectType: AccessSubjectType!
-  subjectId: ID
-  level: AccessLevel!
 }
 
 type Page @aws_cognito_user_pools @aws_iam {
@@ -114,7 +71,7 @@ type Page @aws_cognito_user_pools @aws_iam {
   """페이지 제목 텍스트 색(hex)."""
   titleColor: String
   icon: String
-  """페이지 상단 커버. `quicknote-image://{imageId}` S3 자산 참조 권장(레거시 data URL 가능)."""
+  """페이지 상단 커버. `minyoung-image://{imageId}` S3 자산 참조 권장(레거시 data URL 가능)."""
   coverImage: String
   parentId: ID
   """정렬 순서. 레거시·이상 데이터에서 null 일 수 있어 nullable. 클라이언트는 updatedAt 으로 폴백."""
@@ -141,7 +98,7 @@ type PageMeta {
   """페이지 제목 텍스트 색(hex)."""
   titleColor: String
   icon: String
-  """페이지 상단 커버. `quicknote-image://{imageId}` S3 자산 참조 권장(레거시 data URL 가능)."""
+  """페이지 상단 커버. `minyoung-image://{imageId}` S3 자산 참조 권장(레거시 data URL 가능)."""
   coverImage: String
   parentId: ID
   """정렬 순서. 레거시·이상 데이터에서 null 일 수 있어 nullable. 클라이언트는 updatedAt 으로 폴백."""
@@ -397,14 +354,6 @@ input ImageUploadInput {
   compressed: Boolean
 }
 
-input CreateMemberInput {
-  email: String!
-  name: String!
-  jobRole: String!
-  workspaceRole: WorkspaceRole = MEMBER
-  teamIds: [ID!]
-}
-
 input UpdateMemberInput {
   memberId: ID!
   name: String
@@ -413,7 +362,6 @@ input UpdateMemberInput {
   phone: String
   avatarUrl: String
   thumbnailUrl: String
-  teamIds: [ID!]
   employmentStatus: String
   employeeNumber: String
   department: String
@@ -422,17 +370,6 @@ input UpdateMemberInput {
   jobDetail: String
   joinedAt: String
   rowCount: Int
-}
-
-input WorkspaceAccessInput {
-  subjectType: AccessSubjectType!
-  subjectId: ID
-  level: AccessLevel!
-}
-
-input CreateWorkspaceInput {
-  name: String!
-  access: [WorkspaceAccessInput!]!
 }
 
 input WorkspaceOptionsInput {
@@ -462,27 +399,12 @@ input RestoreDatabaseVersionInput {
   historyId: ID!
 }
 
-input MemberFilter {
-  status: MemberStatus
-  teamId: ID
-  workspaceRole: WorkspaceRole
-}
-
 # ========== Query ==========
 type Query {
   me: Member!
 
-  listMembers(filter: MemberFilter): [Member!]!
-  getMember(memberId: ID!): Member
-  listTeams: [Team!]!
-  getTeam(teamId: ID!): Team
-  listOrganizations: [Organization!]!
-
-  searchMembersForMention(query: String, limit: Int = 20): [MemberMini!]!
-
   listMyWorkspaces: [Workspace!]!
   getWorkspace(workspaceId: ID!): Workspace
-  getWorkspaceMeta(workspaceId: ID!): WorkspaceMeta!
 
   getPage(id: ID!, workspaceId: ID!): Page
   """id 단독 페이지 해석(workspaceId 모를 때). 조회 후 해당 워크스페이스 view 권한 검사."""
@@ -520,39 +442,11 @@ type Query {
 
 # ========== Mutation ==========
 type Mutation {
-  createMember(input: CreateMemberInput!): Member!
   updateMember(input: UpdateMemberInput!): Member!
-  promoteToManager(memberId: ID!): Member!
-  demoteToMember(memberId: ID!): Member!
-  setMemberRole(memberId: ID!, role: WorkspaceRole!): Member!
-  transferOwnership(toMemberId: ID!): Member!
-  removeMember(memberId: ID!): Member!
-  restoreMember(memberId: ID!): Member!
-  assignMemberToTeam(memberId: ID!, teamId: ID!): Boolean!
-  unassignMemberFromTeam(memberId: ID!, teamId: ID!): Boolean!
   """로그인한 멤버 본인의 clientPrefs 저장(LWW 타임스탬프 포함 JSON). MEMBER 역할 허용."""
   updateMyClientPrefs(input: UpdateMyClientPrefsInput!): Member!
 
-  createTeam(name: String!): Team!
-  updateTeam(teamId: ID!, name: String, leaderMemberIds: [ID!]): Team!
-  deleteTeam(teamId: ID!): Boolean!
-  archiveTeam(teamId: ID!): Team!
-  restoreTeam(teamId: ID!): Team!
-
-  createOrganization(name: String!): Organization!
-  updateOrganization(organizationId: ID!, name: String, leaderMemberIds: [ID!]): Organization!
-  deleteOrganization(organizationId: ID!): Boolean!
-  archiveOrganization(organizationId: ID!): Organization!
-  restoreOrganization(organizationId: ID!): Organization!
-  assignMemberToOrganization(memberId: ID!, organizationId: ID!): Boolean!
-  unassignMemberFromOrganization(memberId: ID!, organizationId: ID!): Boolean!
-
-  createWorkspace(input: CreateWorkspaceInput!): Workspace!
   updateWorkspace(input: UpdateWorkspaceInput!): Workspace!
-  setWorkspaceAccess(workspaceId: ID!, entries: [WorkspaceAccessInput!]!): Workspace!
-  deleteWorkspace(workspaceId: ID!): Boolean!
-  archiveWorkspace(workspaceId: ID!): Workspace!
-  restoreWorkspace(workspaceId: ID!): Workspace!
 
   upsertPage(input: PageInput!): Page!
   publishPageChanged(input: PageInput!): Page! @aws_iam
@@ -609,8 +503,4 @@ type Subscription {
     @aws_subscribe(mutations: ["upsertDatabase", "softDeleteDatabase", "restoreDatabase"])
   onCustomIconChanged(workspaceId: ID!): CustomIcon
     @aws_subscribe(mutations: ["createCustomIcon", "deleteCustomIcon"])
-  """워크스페이스 접근권한 변경 실시간 알림. 클라이언트는 이 신호로 워크스페이스를 재페치해
-     각자 본인 기준 권한(myEffectiveLevel)을 갱신한다(회수 시 자동 전환)."""
-  onWorkspaceChanged(workspaceId: ID!): Workspace
-    @aws_subscribe(mutations: ["setWorkspaceAccess"])
 }

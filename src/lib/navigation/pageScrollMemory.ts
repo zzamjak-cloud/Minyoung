@@ -5,7 +5,7 @@ type ScrollSnapshot = {
 
 export type PageScrollScope = "main" | "db-row" | "peek";
 
-const STORAGE_KEY = "quicknote.pageScrollMemory.v1";
+const STORAGE_KEY = "minyoung.pageScrollMemory.v1";
 const DEFAULT_SCOPE: PageScrollScope = "main";
 const scrollByKey = new Map<string, ScrollSnapshot>();
 const activeBindings = new Set<{ pageId: string; scope: PageScrollScope; scroller: HTMLElement }>();

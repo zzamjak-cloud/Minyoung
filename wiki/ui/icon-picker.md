@@ -8,7 +8,7 @@
 |------|------|
 | `src/components/common/IconPicker.tsx` | 트리거 버튼 + 포털 팝오버. `IconPickerPanel` export(동일 파일) |
 | `src/components/common/IconPickerEmoji.tsx` | 이모지 탭 |
-| `src/components/common/PageIconDisplay.tsx` | 이모지·`quicknote-image://`·Lucide(`quicknote-lucide:`) 렌더 |
+| `src/components/common/PageIconDisplay.tsx` | 이모지·`minyoung-image://`·Lucide(`minyoung-lucide:`) 렌더 |
 | `src/lib/recentIconStorage.ts` | 통합 탭 "최근 항목" localStorage |
 | `src/lib/lucideIconColorStorage.ts` | 루시드 탭 마지막 선택 색 localStorage |
 | `src/lib/pageIcon.ts` | `encodeLucidePageIcon` / `decodeLucidePageIcon` |
@@ -25,16 +25,16 @@
 
 ## 최근 항목 (통합 탭)
 
-- 키: `quicknote.recentPageIcons.v1` (localStorage)
+- 키: `minyoung.recentPageIcons.v1` (localStorage)
 - 이모지·Lucide·커스텀 이미지 ref 선택 시 `pushRecentIcon`으로 맨 앞에 적재
 - 통합 탭에서 최근 아이콘 클릭 시 종류별로 분기: Lucide → `onPickLucide`, 이미지 ref → `onPickCustom`, 그 외 → `onPickEmoji`
 - 패널은 picker 닫힐 때 언마운트되므로 재오픈 시 `loadRecentIcons()`로 최신 목록 표시
 
 ## 루시드 색상 유지
 
-- 키: `quicknote.iconPickerLucideColor.v1` (localStorage)
+- 키: `minyoung.iconPickerLucideColor.v1` (localStorage)
 - 색상 칩 선택 시 `saveLucideIconColor` — 패널 재오픈·탭 전환 후에도 마지막 색 유지
-- Lucide 아이콘 저장 형식: `quicknote-lucide:{Name}:{hexWithoutHash}` (`pageIcon.ts`)
+- Lucide 아이콘 저장 형식: `minyoung-lucide:{Name}:{hexWithoutHash}` (`pageIcon.ts`)
 
 ## 사용처
 

@@ -4,8 +4,8 @@ import { isFileRef } from "../files/scheme";
 
 /**
  * doc 트리를 순회해 zip 으로 묶어야 할 자산 ref 를 수집한다.
- * - image 노드 src 중 quicknote-image:// ref
- * - fileBlock 노드 src 중 quicknote-file:// ref
+ * - image 노드 src 중 minyoung-image:// ref
+ * - fileBlock 노드 src 중 minyoung-file:// ref
  * 중복은 제거하며 등장 순서를 유지한다.
  */
 export function collectDocAssetRefs(doc: JSONContent | null | undefined): string[] {

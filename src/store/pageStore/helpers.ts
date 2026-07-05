@@ -98,14 +98,14 @@ export function enqueueUpsertPage(
   enqueueAsync("upsertPage", payload);
 }
 
-/** href 에서 pageId 를 추출 — HTTP URL (?page=xxx) 과 quicknote://page/xxx 스킴 모두 처리 */
+/** href 에서 pageId 를 추출 — HTTP URL (?page=xxx) 과 minyoung://page/xxx 스킴 모두 처리 */
 export function extractPageIdFromHref(href: string): string | null {
   if (!href) return null;
   try {
     const url = new URL(href);
     const qp = url.searchParams.get("page");
     if (qp) return qp;
-    if (url.protocol === "quicknote:" && url.hostname === "page") {
+    if (url.protocol === "minyoung:" && url.hostname === "page") {
       return url.pathname.replace(/^\/+/, "") || null;
     }
   } catch {

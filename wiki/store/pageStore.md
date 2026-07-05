@@ -90,7 +90,7 @@ export function createXxxActions(set: PageStoreSet, get: PageStoreGet): Pick<Pag
 
 ## Persist
 
-- localStorage 키: `quicknote.pages.v1`
+- localStorage 키: `minyoung.pages.v1`
 - storage: `deferredPageStorage` (커스텀 deferred 스토리지)
 - version: `PAGE_STORE_PERSIST_VERSION` (`src/store/pageStore/migrations.ts` 에서 관리)
 - 저장 필드: `pages`, `activePageId`, `cacheWorkspaceId`, `migrationQuarantine`

@@ -507,7 +507,7 @@ export const useSettingsStore = create<SettingsStore>()(
       },
     }),
     {
-      name: "quicknote.settings.v1",
+      name: "minyoung.settings.v1",
       storage: createJSONStorage(() => zustandStorage),
       version: SETTINGS_STORE_VERSION,
       migrate: migrateSettingsStore,

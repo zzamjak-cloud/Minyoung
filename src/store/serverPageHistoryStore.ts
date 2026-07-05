@@ -8,9 +8,6 @@ import {
   savePageVersionApi,
 } from "../lib/sync/pageHistoryApi";
 import { applyRemotePageToStore } from "../lib/sync/storeApply";
-import { gqlPageToLocalPage } from "../lib/sync/storeApply/helpers";
-import { requestPageBodyRestore } from "../lib/collab/pageCollabRegistry";
-import { restoreRowCellsToCollabDoc } from "../lib/collab/dbCellsCollab";
 import { clearLocalDeleteGuard } from "../lib/sync/localDeleteGuards";
 import { usePageStore, enqueuePageUpsertForSync } from "./pageStore";
 import { formatError } from "../lib/util/formatError";
@@ -114,15 +111,7 @@ export const useServerPageHistoryStore = create<State & Actions>()((set, get) =>
     const restored = await restorePageVersionApi({ pageId, workspaceId, historyId });
     // 사용자가 명시적으로 복원 → 삭제 가드를 해제해야 복원본이 무시/제거되지 않는다.
     clearLocalDeleteGuard("page", pageId, workspaceId);
-    const local = gqlPageToLocalPage(restored);
-    // 협업 활성 페이지는 Y룸이 본문 권위 — store 만 갱신하면 화면이 안 바뀐다.
-    // 열려 있는 Editor 에 재시드(언바인딩→Y룸 본문 교체→재바인딩)를 요청한다(없으면 false → 비협업 폴백).
-    requestPageBodyRestore(pageId, local.doc);
-    // DB 행 셀: 복원본 셀을 DB Y룸(권위)에 그 시점 상태로 정확히 복원. 협업 비활성이면 no-op.
-    if (local.databaseId && local.dbCells) {
-      restoreRowCellsToCollabDoc(local.databaseId, pageId, local.dbCells);
-    }
-    // store 반영(비협업 본문 주입 + 메타). 협업 본문/셀은 위 Y룸 재시드가 권위(preserveCollabDoc 가 로컬 유지).
+    // store 반영(본문 주입 + 메타).
     applyRemotePageToStore(restored);
     await get().fetchPageHistory(pageId, workspaceId);
     return true;

@@ -379,7 +379,7 @@ export async function recordPageHistory(args: {
           changedUnits: [...new Set([...priorUnits, ...changedUnits])].sort(),
           lastActivityAt: nowIso,
           contributors: mergeContributors(latest.contributors, caller),
-          // 세션 최종 편집자(= Yjs lastEditedBy 와 동일 소스인 upsert caller)로 갱신
+          // 세션 최종 편집자(upsert caller)로 갱신
           createdByMemberId: args.caller.memberId,
           createdByName: args.caller.name,
           expiresAt: historyExpiresAtSec(nowMs), // 세션 갱신 시 보존 기간도 연장

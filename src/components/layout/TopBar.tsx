@@ -53,8 +53,6 @@ import { usePageStore } from "../../store/pageStore";
 import { useDatabaseStore } from "../../store/databaseStore";
 import { useUiStore } from "../../store/uiStore";
 import { NotificationBell } from "../notifications/NotificationBell";
-import { CollabPresenceAvatars } from "../collab/CollabPresenceAvatars";
-import { CollabConnectionBadge } from "../collab/CollabConnectionBadge";
 import { OfflineBadge } from "../pwa/OfflineBadge";
 import { SimpleConfirmDialog } from "../ui/SimpleConfirmDialog";
 import { PageHistoryPreviewDialog } from "../history/PageHistoryPreviewDialog";
@@ -419,9 +417,7 @@ export function TopBar({ onOpenNav }: { onOpenNav?: () => void } = {}) {
         </div>
       ) : null}
       <div className="flex items-center gap-1">
-        <CollabPresenceAvatars />
         <OfflineBadge />
-        <CollabConnectionBadge />
         {activeId && (
           <>
           {showSubpageTree && (

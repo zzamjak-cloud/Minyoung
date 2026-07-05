@@ -181,7 +181,7 @@ export function DatabaseToolbarControls({
   const projects = useSchedulerProjectsStore((s) => s.projects);
   const members = useMemberStore((s) => s.members);
   const [rulesExpanded, setRulesExpanded] = useState(false);
-  // panelState.searchQuery 는 타입상 string 이지만 부분 panelState(서버/collab DbStructure)에서
+  // panelState.searchQuery 는 타입상 string 이지만 부분 panelState(서버 유래)에서
   // undefined 가 흘러들 수 있다. 가드 없이 .trim() 하면 RootErrorBoundary 로 전파돼 앱 전체가
   // 빈 화면이 된다(라이브 사고). 정규화 로컬로 일원화한다.
   const searchQuery = panelState.searchQuery ?? "";

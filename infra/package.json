@@ -46,7 +46,6 @@
     "@aws-sdk/client-cognito-identity-provider": "^3.1043.0",
     "aws-cdk-lib": "^2.170.0",
     "aws-jwt-verify": "^5.2.1",
-    "constructs": "^10.4.2",
-    "yjs": "^13.6.31"
+    "constructs": "^10.4.2"
   }
 }

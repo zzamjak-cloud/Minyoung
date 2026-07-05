@@ -20,7 +20,6 @@ import { extractMentionMemberHitsFromDoc } from "../lib/comments/extractMentions
 import {
   isLCSchedulerDatabaseId,
 } from "../lib/scheduler/database";
-import { writeCellsToCollabDoc } from "../lib/collab/dbCellsCollab";
 import { LC_SCHEDULER_WORKSPACE_ID } from "../lib/scheduler/scope";
 import {
   EMPTY_DOC,
@@ -598,14 +597,7 @@ export const usePageStore = create<PageStore>()(
             { id: pageId, dbCells: { [columnId]: value } },
             () => toPageSnapshot(after),
           );
-          // 협업 ON DB 행 페이지: 셀을 Y.Doc(실시간 권위)으로 라우팅하고, 동시에 본문을 건드리지 않는
-          // cellsOnly upsert 로 Pages.dbCells + 페이지 히스토리에 영속한다. (과거엔 페이지 upsert 를
-          // 통째로 생략해 셀이 서버/히스토리에 남지 않아 버전 복원 시 셀이 사라졌다.)
-          // 비협업이면 writeCellsToCollabDoc 가 false → 일반 페이지 upsert 경로.
-          const routed =
-            after.databaseId != null &&
-            writeCellsToCollabDoc(after.databaseId, pageId, { [columnId]: value });
-          enqueueUpsertPage(after, routed ? { cellsOnly: true } : undefined);
+          enqueueUpsertPage(after);
         }
       },
 

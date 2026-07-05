@@ -51,7 +51,7 @@ export function isEmptyBlockNode(node: unknown): boolean {
 
 /**
  * 시그니처용 노드 정규화 — attrs/marks 의 null 값 키를 깊이 제거한다.
- * editor.getJSON 과 y-prosemirror materialize 결과의 기본값 표현 차이를 흡수한다.
+ * 서로 다른 직렬화 경로 간 기본값 표현 차이를 흡수한다.
  */
 export function normalizeForSignature(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(normalizeForSignature);

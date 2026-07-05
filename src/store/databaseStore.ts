@@ -53,10 +53,6 @@ import {
 } from "./databaseStore/helpers";
 import { createColumnActions } from "./databaseStore/actions/columnActions";
 import { createRowActions } from "./databaseStore/actions/rowActions";
-import { getDbCollab } from "../lib/collab/dbCollabRegistry";
-import { readDbStructure } from "../lib/collab/dbBundleYjs";
-import { writeCellsToCollabDoc } from "../lib/collab/dbCellsCollab";
-import type { Page } from "../types/page";
 
 export { migrateDatabaseStore } from "./databaseStore/migrations";
 export { normalizeDbTitle } from "./databaseStore/helpers";
@@ -162,13 +158,6 @@ type DatabaseStoreActions = {
   ) => void;
   deletePreset: (databaseId: string, presetId: string) => void;
   applyPresetToRow: (databaseId: string, pageId: string, presetId: string) => boolean;
-  /** 협업 Y.Doc materialize → store 구조 반영(meta·행 보존) + baseline 갱신 + 서버 영속. */
-  applyCollabDbStructure: (
-    databaseId: string,
-    structure: import("../lib/collab/dbBundleYjs").DbStructure,
-  ) => void;
-  /** 서버 시드 누락/캡 대비: Y rows 가 비어 있을 때만 로컬 행 셀로 보충(map-keyed → 동시 시드 수렴). */
-  seedCollabRowsFromStore: (databaseId: string) => void;
 };
 
 export type DatabaseStore = DatabaseStoreState & DatabaseStoreActions;
@@ -244,87 +233,6 @@ export const useDatabaseStore = create<DatabaseStore>()(
             workspaceId,
             updatedAt,
           });
-        }
-      },
-
-      applyCollabDbStructure: (databaseId, structure) => {
-        const before = get().databases[databaseId];
-        if (!before) return;
-        // 미시드(빈) Y.Doc 구조로 기존 DB 를 덮어쓰면 컬럼·행이 통째로 사라진다(데이터 유실).
-        // 컬럼은 항상 최소 title 1개라 columns 가 비면 = Y.Doc 미시드/sync 전 → 기존 구조가 있으면 materialize 생략.
-        if ((structure.columns?.length ?? 0) === 0 && before.columns.length > 0) return;
-        // slice C: 멤버십(rowMembers)·순서(rowPageOrder LWW)로 표시 순서 계산.
-        // finalOrder = 순서∩멤버 ++ (멤버 중 순서에 없는 것 append). 멤버 비면 구버전 폴백.
-        const members = structure.rowMembers ?? [];
-        const memberSet = new Set(members);
-        const order = structure.rowPageOrder ?? [];
-        let finalOrder: string[];
-        if (memberSet.size === 0) {
-          // 부분 시드(컬럼만 있고 멤버·순서 모두 빈) Y 구조가 기존 행 순서를 비우지 못하게 보존한다.
-          finalOrder =
-            order.length === 0 && before.rowPageOrder.length > 0
-              ? before.rowPageOrder
-              : order;
-        } else {
-          const inOrder = order.filter((id) => memberSet.has(id));
-          const seen = new Set(inOrder);
-          finalOrder = [...inOrder, ...members.filter((id) => !seen.has(id))];
-        }
-        const nextBundle: DatabaseBundle = {
-          ...before,
-          columns: structure.columns as ColumnDef[],
-          presets: structure.presets as DatabaseRowPreset[],
-          // 부분 panelState(서버/collab DbStructure 가 searchQuery 등 일부 키를 빠뜨릴 수 있음)를
-          // 그대로 저장하면 소비 측이 panelState.searchQuery.trim() 에서 크래시한다.
-          // emptyPanelState 기본값으로 항상 완전한 형태를 보장(patchDatabasePanelState 와 동일 패턴).
-          panelState: {
-            ...emptyPanelState(),
-            ...((structure.panelState ?? {}) as Partial<DatabasePanelState>),
-          },
-          rowPageOrder: finalOrder,
-          meta: { ...before.meta, updatedAt: now() },
-        };
-        set((state) => ({ databases: { ...state.databases, [databaseId]: nextBundle } }));
-        const handle = getDbCollab(databaseId);
-        if (handle) handle.baseline = structure; // 다음 reconcile 삭제 판정 기준 갱신
-        // 서버 영속(LWW 파생본). skipCollab 으로 reconcile 가로채기를 우회 → 루프 없음.
-        enqueueUpsertDatabase(nextBundle, undefined, { skipCollab: true });
-        // slice B: Y rows → 각 행 dbCells materialize. slice C: 멤버 행에만 적용(비멤버=삭제됨).
-        const rows = structure.rows ?? {};
-        const changed: Page[] = [];
-        usePageStore.setState((s) => {
-          let dirty = false;
-          const nextPages = { ...s.pages };
-          for (const [rowPageId, cells] of Object.entries(rows)) {
-            if (memberSet.size > 0 && !memberSet.has(rowPageId)) continue; // 비멤버 제외(삭제 승)
-            const page = nextPages[rowPageId];
-            if (!page) continue;
-            if (JSON.stringify(page.dbCells ?? {}) === JSON.stringify(cells)) continue;
-            const updated = { ...page, dbCells: cells as Record<string, CellValue>, updatedAt: now() };
-            nextPages[rowPageId] = updated;
-            changed.push(updated);
-            dirty = true;
-          }
-          return dirty ? { pages: nextPages } : s;
-        });
-        for (const p of changed) enqueueUpsertPageRaw(p, { includeCells: true });
-      },
-
-      // 서버 시드 누락/캡 대비: Y rows 가 비어 있을 때만 로컬 행 셀로 보충.
-      // rows 는 map-keyed 라 동시 시드도 LWW 수렴(중복 없음).
-      seedCollabRowsFromStore: (databaseId) => {
-        const handle = getDbCollab(databaseId);
-        if (!handle) return;
-        const existingRows = readDbStructure(handle.doc).rows;
-        if (Object.keys(existingRows).length > 0) return; // 서버 시드 우선
-        const bundle = get().databases[databaseId];
-        if (!bundle) return;
-        const pages = usePageStore.getState().pages;
-        for (const rowPageId of bundle.rowPageOrder) {
-          const cells = pages[rowPageId]?.dbCells;
-          if (cells && Object.keys(cells).length > 0) {
-            writeCellsToCollabDoc(databaseId, rowPageId, cells);
-          }
         }
       },
 

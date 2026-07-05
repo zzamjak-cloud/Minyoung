@@ -14,10 +14,6 @@ import {
   clearLocalDeleteGuard,
   markLocallyDeletedEntity,
 } from "../../../lib/sync/localDeleteGuards";
-import {
-  writeCellsToCollabDoc,
-  deleteRowFromCollabDoc,
-} from "../../../lib/collab/dbCellsCollab";
 import { useDatabaseRowIndexStore } from "../../databaseRowIndexStore";
 import { EMPTY_DOC, nextOrderForParent } from "../../pageStore/helpers";
 import {
@@ -100,9 +96,6 @@ export function createRowActions(
           };
         });
       }
-      // 협업 ON: 신규 행 셀을 Y rows 로 시드(빈 defaults 라도 inner map 생성 → 동시편집 병합 보장).
-      // 비협업이면 writeCellsToCollabDoc 가 false(no-op) → 기존 페이지 upsert 경로 유지.
-      writeCellsToCollabDoc(databaseId, pageId, defaults);
       set((state) => {
         const b = state.databases[databaseId];
         if (!b) return state;
@@ -186,11 +179,6 @@ export function createRowActions(
 
       // 단일 pageStore setState로 모든 페이지 일괄 반영
       usePageStore.setState((s) => ({ pages: { ...s.pages, ...pageUpdates } }));
-      // 협업 ON: 가져온 각 행의 셀도 Y rows 로 시드(비협업이면 no-op).
-      for (const pageId of pageIds) {
-        const cells = pageUpdates[pageId]?.dbCells;
-        if (cells) writeCellsToCollabDoc(databaseId, pageId, cells);
-      }
 
       // 신규 행만 rowPageOrder에 추가 (시드 행은 이미 포함됨)
       const newPageIds = existingSeedPageId ? pageIds.slice(1) : pageIds;
@@ -563,10 +551,6 @@ export function createRowActions(
         };
       });
 
-      // 행이 더 이상 이 DB 소속이 아니므로 DB Y룸 rows 맵에서 제거한다.
-      // (안 하면 materialize 가 Y룸의 남은 행을 store 로 되살려 유령 행이 됨 — 전환된 페이지는
-      // 삭제가 아니라 살아 있어 tombstone 으로 걸러지지도 않는다.)
-      deleteRowFromCollabDoc(fromDbId, pageId);
       // 행 인덱스 폴백 캐시도 prune — 검색/멘션/뷰 재구성 시 유령 행 재유입 차단.
       void useDatabaseRowIndexStore.getState().removePagesFromAllIndexes([pageId]);
 

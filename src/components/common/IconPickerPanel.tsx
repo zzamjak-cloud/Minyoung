@@ -36,7 +36,7 @@ const LUCIDE_ICON_CATEGORIES: LucideCategory[] = [
     items: [
       { name: "Briefcase", label: "업무", keywords: "work business" },
       { name: "Building2", label: "회사", keywords: "company office" },
-      { name: "Handshake", label: "협업", keywords: "partner collaboration" },
+      { name: "Handshake", label: "협업", keywords: "partner teamwork" },
       { name: "Users", label: "팀", keywords: "team members" },
       { name: "UserRound", label: "사용자", keywords: "person profile" },
       { name: "Presentation", label: "발표", keywords: "deck meeting" },

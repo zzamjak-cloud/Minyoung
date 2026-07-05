@@ -21,7 +21,6 @@ import {
 } from "../../scheduler/database";
 import { LC_SCHEDULER_WORKSPACE_ID } from "../../scheduler/scope";
 import { refreshWorkspaceSnapshot, workspaceHasStructureCache } from "../workspaceSwitch";
-import { isPageCollabActive } from "../../collab/pageCollabRegistry";
 import { isDeletedSchedulePage } from "../../scheduler/deletedSchedulePages";
 import {
   isoToMs,
@@ -118,36 +117,7 @@ function gqlPageMetaToLocalPage(p: GqlPageMeta, local?: Page): Page {
   };
 }
 
-/**
- * 협업 세션이 열린 페이지의 본문(doc) 권위는 Y.Doc/materialize 다. 원격 page.doc echo(REST)가
- * 라이브 편집분을 옛 내용으로 덮지 않도록, 본문이 로드된 활성 협업 페이지는 doc 을 로컬 값으로
- * 보존하고 메타(title/icon/order 등)만 원격을 반영한다. (초기 하이드레이션 = local 없음/meta-only,
- * 세션 비활성 = 정상 적용.)
- */
-function preserveCollabDoc(
-  merged: Page,
-  local: Page | undefined,
-  localIsMetaOnly: boolean,
-): Page {
-  if (local && !localIsMetaOnly && isPageCollabActive(merged.id)) {
-    if (isPlaceholderPageDoc(local.doc) && !isPlaceholderPageDoc(merged.doc)) {
-      return merged;
-    }
-    return { ...merged, doc: local.doc, updatedAt: local.updatedAt };
-  }
-  return merged;
-}
-
-function isPlaceholderPageDoc(doc: Page["doc"] | null | undefined): boolean {
-  const content = doc?.content;
-  if (!Array.isArray(content) || content.length === 0) return true;
-  return content.every((node) => {
-    if (node?.type !== "paragraph") return false;
-    return !Array.isArray(node.content) || node.content.length === 0;
-  });
-}
-
-// 명시적 cross-workspace 페이지 적재(미리보기 peek·collab 시드·타 워크스페이스 인라인 DB 행 등)용.
+// 명시적 cross-workspace 페이지 적재(미리보기 peek·타 워크스페이스 인라인 DB 행 등)용.
 // shouldApplyRemoteSnapshot 가드는 subscription 레이스로 인한 타 워크스페이스 오염 방지가 목적이라 유지하되,
 // 호출처가 의도적으로 다른 워크스페이스 페이지를 적재할 때는 가드 우회로 직접 store 에 넣는다(불필요한 경고 제거).
 // workspaceId 가 현재와 달라 사이드바·동기화 대상에선 자동 제외된다.
@@ -220,7 +190,7 @@ export function applyRemotePageToStore(
         : { ...s, cacheWorkspaceId: nextCacheWorkspaceId };
     }
 
-    const merged = preserveCollabDoc(gqlPageToLocalPage(p), local, localIsMetaOnly);
+    const merged = gqlPageToLocalPage(p);
     return {
       ...s,
       pages: { ...s.pages, [p.id]: merged },
@@ -351,7 +321,7 @@ export function applyRemotePagesToStore(
       }
 
       if (local && !localIsMetaOnly && !shouldApplyRemotePageOverwrite(local, p)) continue;
-      const merged = preserveCollabDoc(gqlPageToLocalPage(p), local, localIsMetaOnly);
+      const merged = gqlPageToLocalPage(p);
       ensurePagesCopy();
       nextPages[p.id] = merged;
       if (merged.databaseId) affectedDatabaseIds.add(merged.databaseId);

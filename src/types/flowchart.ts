@@ -1,7 +1,7 @@
 // 플로우차트 블록 데이터 모델.
 // React Flow(@xyflow/react)의 nodes/edges/viewport 를 그대로 보관하되,
 // TipTap 블록 attrs 에는 항상 "JSON 문자열 한 번 인코딩" 형태로 저장한다.
-// (databaseBlock.panelState 와 동일 전략 — Yjs 동기화 시 통짜 문자열 교체가 안전)
+// (databaseBlock.panelState 와 동일 전략 — 동기화 시 통짜 문자열 교체가 안전)
 
 export const FLOWCHART_SCHEMA_VERSION = 1;
 

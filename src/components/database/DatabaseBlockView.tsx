@@ -56,7 +56,6 @@ import {
   resolveDatabaseInitialRowLimit,
   resolveDatabaseVisibleRowLimit,
 } from "./databaseRowLimit";
-import { useDatabaseCollabSession } from "../../lib/collab/useDatabaseCollabSession";
 import { useIsMobile } from "../../hooks/useViewport";
 import { DatabaseCardListView } from "./views/DatabaseCardListView";
 import {
@@ -99,13 +98,6 @@ export function DatabaseBlockView(props: NodeViewProps) {
   );
   const databaseWorkspaceId =
     bundle?.meta.workspaceId ?? hostPageWorkspaceId ?? currentWorkspaceId;
-
-  // DB 구조·셀 실시간 협업(Phase 4) — flag ON 인 DB 만 활성. materialize 시 store 에 투영, 첫 sync 시 행 셀 시드 폴백.
-  useDatabaseCollabSession(
-    viewDatabaseId,
-    (structure) => useDatabaseStore.getState().applyCollabDbStructure(viewDatabaseId, structure),
-    () => useDatabaseStore.getState().seedCollabRowsFromStore(viewDatabaseId),
-  );
 
   const hasDatabaseId = databaseId.length > 0;
   const needsBinding = !hasDatabaseId;

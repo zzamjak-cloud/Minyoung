@@ -29,8 +29,6 @@ import { MAX_UPSERT_PAGE_PAYLOAD_BYTES, payloadByteLength } from "../pageStore/h
 import { toUpsertPageInput } from "../../lib/sync/mappers/upsertPageInput";
 import { isLCSchedulerDatabaseId, isLCMilestoneDatabaseId, isLCFeatureDatabaseId } from "../../lib/scheduler/database";
 import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
-import { getDbCollab, isDbCollabActive } from "../../lib/collab/dbCollabRegistry";
-import { reconcileStructureIntoYDoc } from "../../lib/collab/dbStructureReconcile";
 import type { DbMap } from "./migrations";
 
 // v5 fallback: 아직 memberStore(me.memberId)와 완전 연동 전이라 auth sub 를 사용.
@@ -86,23 +84,7 @@ export function toGqlDatabase(
 export function enqueueUpsertDatabase(
   bundle: DatabaseBundle,
   templates?: DatabaseTemplate[],
-  opts?: { skipCollab?: boolean },
 ): void {
-  // 협업 ON DB: LWW 대신 Y.Doc 에 구조 reconcile. 서버 영속은 materialize→applyCollabDbStructure(skipCollab) 가 담당.
-  if (!opts?.skipCollab) {
-    const collab = getDbCollab(bundle.meta.id);
-    if (collab) {
-      reconcileStructureIntoYDoc(collab.doc, {
-        columns: bundle.columns,
-        presets: bundle.presets ?? [],
-        panelState: bundle.panelState ?? {},
-        rowPageOrder: bundle.rowPageOrder,
-        rows: {},
-        rowMembers: bundle.rowPageOrder,
-      }, collab.baseline);
-      return;
-    }
-  }
   const workspaceId = bundle.meta.workspaceId ?? resolveWorkspaceIdByDatabaseId(bundle.meta.id);
   if (!workspaceId) {
     console.warn("[sync] upsertDatabase skipped: workspaceId 미설정", { dbId: bundle.meta.id });
@@ -126,14 +108,10 @@ export function enqueueUpsertDatabase(
 
 // 행 페이지를 직접 mutate 한 경우 페이지 enqueue 를 보조해주는 헬퍼.
 // doc/dbCells 는 AppSync AWSJSON 요구사항에 맞춰 JSON.stringify 로 직렬화.
-// 협업 ON DB 행 페이지는 셀 권위가 Y.Doc 이므로, materialize(includeCells)가 아닌
-// 비셀 변경발 upsert 는 dbCells 를 제외해 다른 클라 셀의 LWW 스톰프를 막는다.
-export function enqueueUpsertPageRaw(p: Page, opts?: { includeCells?: boolean }): void {
+export function enqueueUpsertPageRaw(p: Page): void {
   const createdByMemberId = getCreatedByMemberId();
   const workspaceId = p.workspaceId ?? resolveWorkspaceIdByDatabaseId(p.databaseId ?? null);
-  const collabActive = p.databaseId ? isDbCollabActive(p.databaseId) : false;
-  const dbCells =
-    collabActive && !opts?.includeCells ? null : p.dbCells ? JSON.stringify(p.dbCells) : null;
+  const dbCells = p.dbCells ? JSON.stringify(p.dbCells) : null;
   // 매퍼는 raw 경로의 기존 필드 집합(titleColor/coverImage/fullPageDatabaseId 미포함)을
   // includeMetaColors/includeFullPageDatabaseId 미지정으로 그대로 유지한다.
   const payload = toUpsertPageInput(p, createdByMemberId, {

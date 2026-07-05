@@ -221,7 +221,7 @@ export function buildPagePreviewChanges(
   const beforeCells = pageCells(before);
   const afterCells = pageCells(after);
   for (const key of new Set([...Object.keys(beforeCells), ...Object.keys(afterCells)])) {
-    const colLabel = ctx.getColumnName?.(key) ?? key;
+    const columnLabel = ctx.getColumnName?.(key) ?? key;
     const beforeVal = resolveCellValue(beforeCells[key], key, ctx);
     const afterVal = resolveCellValue(afterCells[key], key, ctx);
     if (beforeVal === afterVal) continue;
@@ -229,7 +229,7 @@ export function buildPagePreviewChanges(
     const afterEmpty = afterCells[key] == null || afterCells[key] === "";
     out.push({
       id: `cell:${key}`,
-      label: `속성: ${colLabel}`,
+      label: `속성: ${columnLabel}`,
       before: beforeVal,
       after: afterVal,
       kind: beforeEmpty ? "added" : afterEmpty ? "removed" : "changed",
@@ -295,7 +295,7 @@ export function buildPagePropertyRows(
   const afterCells = pageCells(after);
   for (const key of new Set([...Object.keys(beforeCells), ...Object.keys(afterCells)])) {
     if (key.startsWith("_qn_")) continue; // 내부 메타 셀 제외
-    const colLabel = ctx.getColumnName?.(key) ?? key;
+    const columnLabel = ctx.getColumnName?.(key) ?? key;
     const bRaw = beforeCells[key];
     const aRaw = afterCells[key];
     const same = equalJson(bRaw ?? null, aRaw ?? null);
@@ -304,7 +304,7 @@ export function buildPagePropertyRows(
     const bEmpty = bRaw == null || bRaw === "";
     rows.push({
       id: `cell:${key}`,
-      label: `속성: ${colLabel}`,
+      label: `속성: ${columnLabel}`,
       before: resolveCellValue(bRaw, key, ctx),
       after: resolveCellValue(aRaw, key, ctx),
       status: same ? "unchanged" : bEmpty ? "added" : aEmpty ? "removed" : "changed",

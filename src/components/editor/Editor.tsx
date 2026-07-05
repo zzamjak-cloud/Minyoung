@@ -12,9 +12,6 @@ import {
 import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useEditor, EditorContent } from "@tiptap/react";
-import type { Editor as TiptapEditor } from "@tiptap/core";
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import { Selection } from "@tiptap/pm/state";
 import type { createLowlight } from "lowlight";
 import "tippy.js/dist/tippy.css";
 
@@ -110,25 +107,7 @@ import {
   trySyncFullPageDatabaseTitle,
 } from "./editorHelpers";
 import { useEditorExtensions } from "./useEditorExtensions";
-import { useCollabSession } from "../../lib/collab/useCollabSession";
-import { useCollabPresence } from "../../lib/collab/useCollabPresence";
-import { registerPageRestoreHandler } from "../../lib/collab/pageCollabRegistry";
-import {
-  seedCollabDocIfEmpty,
-  isPlaceholderBodyJson,
-  isCollabDocBodyEmpty,
-  sanitizeCollabDocAttrsForRender,
-  isCollabDocRenderableForEditor,
-  replaceCollabDocContent,
-  hasRenderableCollabContent,
-} from "../../lib/collab/yjsDoc";
 import { EditorErrorBoundary } from "./EditorErrorBoundary";
-import { fetchPageById } from "../../lib/sync/bootstrap";
-import {
-  applyRemotePageToStoreCrossWorkspaceAware,
-  pruneServerMissingPageFromCache,
-} from "../../lib/sync/storeApply";
-import { gqlPageToLocalPage } from "../../lib/sync/storeApply/helpers";
 import { useEditorProps } from "./useEditorProps";
 import { setUniqueIdFilterHostEditor } from "./editorUniqueIdFilter";
 import { DatabaseFullPageStandalone } from "../database/DatabaseFullPageStandalone";
@@ -164,50 +143,6 @@ const MemoBubbleToolbar = memo(BubbleToolbar);
 const MemoImageResizeOverlay = memo(ImageResizeOverlay);
 const DOC_SYNC_IDLE_MS = 3000;
 const DYNAMIC_LAYOUT_INPUT_AUTOSAVE_DEBOUNCE_MS = 1200;
-
-function findFirstInlineSelectionPos(doc: TiptapEditor["state"]["doc"]): number | null {
-  const stack: Array<{ node: ProseMirrorNode; pos: number; isDoc: boolean }> = [
-    { node: doc, pos: 0, isDoc: true },
-  ];
-
-  while (stack.length > 0) {
-    const { node, pos, isDoc } = stack.pop()!;
-    if (node.isTextblock && node.inlineContent) {
-      return pos + 1;
-    }
-
-    const children: Array<{ node: ProseMirrorNode; pos: number; isDoc: boolean }> = [];
-    let offset = 0;
-    const base = isDoc ? 0 : pos + 1;
-    for (let i = 0; i < node.childCount; i += 1) {
-      const child = node.child(i);
-      children.push({ node: child, pos: base + offset, isDoc: false });
-      offset += child.nodeSize;
-    }
-    for (let i = children.length - 1; i >= 0; i -= 1) {
-      stack.push(children[i]!);
-    }
-  }
-
-  return null;
-}
-
-function normalizeSelectionBeforeCollabBind(editor: TiptapEditor): void {
-  const { state } = editor;
-  const { selection } = state;
-  if (selection.$from.parent.inlineContent && selection.$to.parent.inlineContent) return;
-  const pos = findFirstInlineSelectionPos(state.doc);
-  if (pos == null) return;
-  const safePos = Math.min(pos, state.doc.content.size);
-  const safeSelection = Selection.near(state.doc.resolve(safePos), 1);
-  if (safeSelection.eq(selection)) return;
-  editor.view.dispatch(
-    state.tr
-      .setSelection(safeSelection)
-      .setMeta("addToHistory", false)
-      .setMeta("preventUpdate", true),
-  );
-}
 
 /** 에디터 내부 오류를 에디터 영역에 격리 — 루트 경계 전파로 사이드바까지 무너지는 것을 방지. */
 export function Editor(props: EditorProps = {}) {
@@ -428,28 +363,11 @@ function EditorInner({
     };
   }, []);
 
-  // 협업 세션 — flag OFF 면 enabled:false(현행 경로). ON 이면 Y.Doc·provider 생성·sync 상태 추적.
-  const collab = useCollabSession(effectivePageId);
-  const collabDoc = collab.enabled ? collab.doc : null;
-  const collabAwareness = collab.enabled ? collab.awareness : null;
-  // 협업 게이팅 입력 — union 타입 안전 접근(비활성 시 false). 변수로 추출해 effect deps 정적 검사 통과.
-  const collabEnabled = collab.enabled;
-  const collabSynced = collab.enabled && collab.synced;
-  // 시드 완료 후에만 에디터에 바인딩되는 Y.Doc. 빈 fragment 에 ySyncPlugin 이 먼저 붙으면
-  // 빈 문단을 주입해 seedCollabDocIfEmpty 가 "콘텐츠 있음"으로 오판 → 본문 시드가 영구
-  // 차단된다(2026-06-11 dev 전 페이지 빈 화면 사고). 시드 → 바인딩 순서를 강제하는 게이트.
-  const [collabBoundDoc, setCollabBoundDoc] = useState<typeof collabDoc>(null);
-  // presence 훅 — awareness 가 null 이면 내부에서 store 를 비운다 (React hook 규칙: 무조건 최상위 호출)
-  useCollabPresence(collabAwareness);
-
   const extensions = useEditorExtensions({
     lowlightApi,
     isFullPageDatabase,
     effectivePageId,
     myMemberId,
-    // 시드가 끝난 doc 만 바인딩한다(위 collabBoundDoc 주석 참고).
-    collabDoc: collabBoundDoc,
-    collabAwareness: collabBoundDoc ? collabAwareness : null,
   });
 
   const editorProps = useEditorProps({
@@ -483,7 +401,7 @@ function EditorInner({
         setUniqueIdFilterHostEditor(null);
       },
     },
-    [lowlightApi, isFullPageDatabase, collabBoundDoc, collabAwareness],
+    [lowlightApi, isFullPageDatabase],
   );
 
   useEffect(() => {
@@ -619,168 +537,11 @@ function EditorInner({
   // 즉시 editor 에 반영되도록 한다. 자기 타이핑은 editor.getJSON() === safeDoc 비교로 걸러지므로 무한 루프 없음.
   // 사용자 입력 중(focused)이면 cursor 보존을 위해 blur 까지 setContent 를 보류.
   const lastSyncedPageIdRef = useRef<string | null>(null);
-  // 협업 ON 페이지 시드 상태 — 페이지당 서버 fresh 본문으로 1회만 시드 후 바인딩.
-  const collabSeedStateRef = useRef<{
-    pageId: string;
-    status: "idle" | "fetching" | "done";
-  }>({ pageId: "", status: "idle" });
-  const [collabSeedRetry, setCollabSeedRetry] = useState(0);
-  // 버전 복원 시 store 가 채워 넣는 복원 본문. 다음 시드 효과 실행에서 Y룸에 교체된다.
-  const pendingRestoreDocRef = useRef<unknown>(null);
-  // 복원 교체 직후 1회, done 재실행의 repair(현재 본문으로 되돌림) 를 건너뛰기 위한 플래그.
-  const restoreJustAppliedRef = useRef(false);
-  // 복원 핸들러 등록: 언바인딩 → 재시드 트리거. 실제 교체/재바인딩은 아래 시드 효과가 수행.
-  useEffect(() => {
-    if (!collabEnabled || !effectivePageId) return;
-    return registerPageRestoreHandler(effectivePageId, (restoredDocJson) => {
-      pendingRestoreDocRef.current = restoredDocJson;
-      setCollabBoundDoc(null);
-      collabSeedStateRef.current = { pageId: effectivePageId, status: "idle" };
-      setCollabSeedRetry((c) => c + 1);
-    });
-  }, [collabEnabled, effectivePageId]);
-  useEffect(() => {
-    if (!editor || editor.isDestroyed) return;
-    // 준비 전(세션 없음·서버 sync 전)에는 바인딩을 풀어 둔다 —
-    // 빈 Y.Doc 에 ySyncPlugin 이 붙어 빈 문단을 주입하는 경로 자체를 차단.
-    if (!collabEnabled || !collabSynced || !collabDoc || !effectivePageId) {
-      setCollabBoundDoc(null);
-      return;
-    }
-    if (collabSeedStateRef.current.pageId !== effectivePageId) {
-      collabSeedStateRef.current = { pageId: effectivePageId, status: "idle" };
-    }
-    const seedState = collabSeedStateRef.current;
-    const bindCollabDoc = () => {
-      if (editor.isDestroyed) return;
-      normalizeSelectionBeforeCollabBind(editor);
-      sanitizeCollabDocAttrsForRender(collabDoc, editor.schema);
-      setCollabBoundDoc(collabDoc);
-    };
-    const repairPlaceholderCollabDocFromStore = () => {
-      if (hasRenderableCollabContent(collabDoc, editor.schema)) return;
-      const freshDoc = usePageStore.getState().pages[effectivePageId]?.doc ?? safePageDoc;
-      if (!freshDoc || isPlaceholderBodyJson(freshDoc)) return;
-      replaceCollabDocContent(collabDoc, editor.schema, freshDoc);
-    };
-    // 버전 복원: 언바인딩된(collabBoundDoc=null) 지금 Y룸 본문을 복원본으로 교체한 뒤 재바인딩한다.
-    // 바인딩 상태에서 교체하면 PM 뷰가 안 따라오므로, 이 "교체 후 바인딩" 순서가 유일하게 안전.
-    const pendingRestore = pendingRestoreDocRef.current;
-    if (pendingRestore != null) {
-      pendingRestoreDocRef.current = null;
-      replaceCollabDocContent(collabDoc, editor.schema, pendingRestore);
-      // 복원본은 권위 — 다음 done 재실행의 repair(현재 store 본문으로 되돌림) 를 1회 차단.
-      restoreJustAppliedRef.current = true;
-      seedState.status = "done";
-      bindCollabDoc();
-      return;
-    }
-    if (seedState.status === "done") {
-      if (restoreJustAppliedRef.current) {
-        restoreJustAppliedRef.current = false;
-      } else {
-        repairPlaceholderCollabDocFromStore();
-      }
-      bindCollabDoc();
-      return;
-    }
-    if (seedState.status === "fetching") return;
-    seedState.status = "fetching";
-    let cancelled = false;
-    void (async () => {
-      try {
-        // 피어가 이미 시드/편집했고 렌더 가능한 doc 이면 그대로 바인딩 — 시드 주체는 룸당 사실상 1명이 된다.
-        if (
-          !isCollabDocBodyEmpty(collabDoc) &&
-          hasRenderableCollabContent(collabDoc, editor.schema)
-        ) {
-          seedState.status = "done";
-          if (!cancelled) bindCollabDoc();
-          return;
-        }
-        // 시드 소스는 서버 fresh 본문으로 일원화 — 클라이언트마다 다른 로컬 본문으로 결정적
-        // 시드(고정 clientID)를 하면 같은 (clientID, clock) 에 서로 다른 내용이 생겨 CRDT 가
-        // 갈라진다(라이브 "한 줄 불일치" 사고). 서버 본문은 모든 클라이언트에서 byte-동일하다.
-        const workspaceId = page?.workspaceId ?? currentWorkspaceId;
-        if (!workspaceId) {
-          seedState.status = "idle";
-          return;
-        }
-        const remote = await fetchPageById(workspaceId, effectivePageId);
-        if (cancelled || collabSeedStateRef.current !== seedState) return;
-        if (editor.isDestroyed) {
-          seedState.status = "idle";
-          return;
-        }
-        if (!remote) {
-          // GET_PAGE 의 네트워크/인가 오류는 throw(catch 경로) — null 은 서버가 확정적으로
-          // "페이지 없음"을 응답한 경우다(영구삭제된 페이지의 stale 캐시 진입 등). 재시도 루프
-          // 대신 로컬 캐시를 자기치유로 정리한다. 신생/outbox 대기 페이지라 prune 이 보류되면
-          // 기존처럼 잠시 후 재시도한다(업로드 완료 대기).
-          const pruned = await pruneServerMissingPageFromCache(effectivePageId, workspaceId);
-          seedState.status = "idle";
-          if (!pruned && !cancelled) {
-            window.setTimeout(() => {
-              if (!cancelled) setCollabSeedRetry((c) => c + 1);
-            }, 1500);
-          }
-          return;
-        }
-        const remoteDoc = gqlPageToLocalPage(remote).doc;
-        applyRemotePageToStoreCrossWorkspaceAware(remote);
-        // fetch 동안 피어 시드가 도착했으면 그쪽이 권위. 단, 기존 Y.Doc 이 렌더 불가능하면
-        // 서버 fresh 본문(실패 시 현재 로컬 본문)으로 교체해 오염된 collab room 진입 크래시를 끊는다.
-        if (!hasRenderableCollabContent(collabDoc, editor.schema)) {
-          const freshDoc = remoteDoc ?? usePageStore.getState().pages[effectivePageId]?.doc ?? safePageDoc;
-          if (freshDoc) {
-            replaceCollabDocContent(collabDoc, editor.schema, freshDoc);
-          }
-        } else if (isCollabDocBodyEmpty(collabDoc)) {
-          const freshDoc = remoteDoc ?? usePageStore.getState().pages[effectivePageId]?.doc ?? safePageDoc;
-          // 서버 본문이 placeholder 면 "진짜 빈 페이지"로 확정 — 시드 없이 바인딩해야 신규
-          // 페이지 편집이 가능하다(PM 초기 빈 문단은 빈 페이지에선 무해, materialize 가드와 정합).
-          if (freshDoc && !isPlaceholderBodyJson(freshDoc)) {
-            seedCollabDocIfEmpty(collabDoc, editor.schema, freshDoc);
-          }
-        }
-        if (!isCollabDocRenderableForEditor(collabDoc, editor.schema)) {
-          seedState.status = "idle";
-          return;
-        }
-        seedState.status = "done";
-        if (!cancelled) bindCollabDoc();
-      } catch (err) {
-        seedState.status = "idle";
-        reportNonFatal(err, "collab.seedFromServer");
-        window.setTimeout(() => {
-          if (!cancelled) setCollabSeedRetry((c) => c + 1);
-        }, 1500);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      // 진행 중 fetch 가 dep 변경으로 폐기되면 다음 실행이 재시도할 수 있게 되돌린다.
-      if (seedState.status === "fetching") seedState.status = "idle";
-    };
-  }, [
-    editor,
-    collabEnabled,
-    collabSynced,
-    collabDoc,
-    effectivePageId,
-    page?.workspaceId,
-    currentWorkspaceId,
-    safePageDoc,
-    collabSeedRetry,
-  ]);
 
   // 동일 pageDoc 참조에 대해 정규화 updateDoc 을 한 번만 실행하기 위한 가드
   const lastNormalizedDocRef = useRef<unknown>(null);
   useLayoutEffect(() => {
     if (!editor || !pageDoc || !safePageDoc || !effectivePageId) return;
-    // 협업 바인딩 후에는 본문 권위가 Y.Doc — 원격/스토어 JSON 을 에디터로 역주입하지 않는다.
-    // 바인딩 전(시드 대기)에는 일반 경로로 주입해 본문을 즉시 표시한다(이때 에디터는 read-only).
-    if (collabBoundDoc) return;
     if (
       lastNormalizedDocRef.current !== pageDoc &&
       !tipTapJsonDocEquals(editor.schema, safePageDoc, pageDoc)
@@ -842,7 +603,6 @@ function EditorInner({
     safePageDoc,
     isFullPageDatabase,
     updateDoc,
-    collabBoundDoc,
   ]);
 
   // 검색 결과 클릭으로 들어온 대기 중 이동 요청 소비.
@@ -904,7 +664,6 @@ function EditorInner({
   useEffect(() => {
     if (!editor) return;
     const handler = () => {
-      if (collab.enabled) return; // 협업 모드: materialize 가 단방향 저장 담당
       if (!effectivePageId) return;
       if (!storeDocHydratedRef.current) return;
       // selection 변경 등 doc 내용이 바뀌지 않은 경우 타이머 스케줄 자체를 생략
@@ -949,7 +708,7 @@ function EditorInner({
         docSyncTimerRef.current = null;
       }
     };
-  }, [editor, effectivePageId, flushDocSync, scheduleDocSync, updateDoc, collab.enabled]);
+  }, [editor, effectivePageId, flushDocSync, scheduleDocSync, updateDoc]);
 
   useEffect(() => {
     if (!editor) return;
@@ -1269,11 +1028,7 @@ function EditorInner({
   // DB 블록의 React NodeView 내부 input/button 은 contenteditable 영향 밖이라 정상 동작.
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
-    // 협업 ON 페이지: 시드·바인딩 완료 전에는 read-only.
-    // 바인딩 전에 입력을 허용하면 빈 Y.Doc 오편집(시드 영구 차단 + 입력이 본문 대체)이 생긴다.
-    const collabBlocking =
-      collabEnabled && (pageContentMissing || !collabBoundDoc);
-    editor.setEditable(!isFullPageDatabase && !collabBlocking);
+    editor.setEditable(!isFullPageDatabase);
     if (isFullPageDatabase) {
       // PM 이 atom 단독 doc 에 자동으로 NodeSelection 을 만들어 .ProseMirror-selectednode 가
       // 보이는 현상 + BubbleToolbar 가 뜨는 현상을 막기 위해 선택을 점선택으로 접고 포커스 해제.
@@ -1284,13 +1039,7 @@ function EditorInner({
       }
       if (!editor.isDestroyed && editor.view.dom instanceof HTMLElement) editor.view.dom.blur();
     }
-  }, [
-    editor,
-    isFullPageDatabase,
-    collabEnabled,
-    collabBoundDoc,
-    pageContentMissing,
-  ]);
+  }, [editor, isFullPageDatabase]);
 
   // 슬래시 "페이지 링크" 명령이 발행하는 커스텀 이벤트를 수신 → mention search modal 열기
   useEffect(() => {

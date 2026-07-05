@@ -16,7 +16,6 @@ import { LC_SCHEDULER_WORKSPACE_ID } from "../../lib/scheduler/scope";
 import { useAuthStore } from "../authStore";
 import { useMemberStore } from "../memberStore";
 import { useWorkspaceStore } from "../workspaceStore";
-import { isDbCollabActive } from "../../lib/collab/dbCollabRegistry";
 
 export const MAX_UPSERT_PAGE_PAYLOAD_BYTES = 350 * 1024;
 export const META_ONLY_PAGE_UPSERT_FLAG = "__metaOnly";
@@ -99,17 +98,6 @@ export function enqueueUpsertPage(
   // (협업 셀 권위는 여전히 Y룸이지만, 서버는 durable mirror + 히스토리 소스로 함께 보유.)
   if (opts?.cellsOnly) {
     payload.doc = structuredClone(EMPTY_DOC);
-  }
-  // 협업 ON DB 행 페이지: 셀 권위는 Y.Doc. 비셀 변경발 upsert 는 dbCells 제외.
-  // (includeCells/cellsOnly 면 실제 셀을 보낸다.)
-  if (
-    !opts?.metaOnly &&
-    !opts?.cellsOnly &&
-    p.databaseId &&
-    isDbCollabActive(p.databaseId) &&
-    !opts?.includeCells
-  ) {
-    payload.dbCells = null;
   }
   const bytes = payloadByteLength(payload);
   if (bytes > MAX_UPSERT_PAGE_PAYLOAD_BYTES) {

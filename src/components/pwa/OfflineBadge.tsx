@@ -6,7 +6,6 @@ import { usePendingOutboxCount } from "../../hooks/usePendingOutboxCount";
 // - 오프라인: 회/호박색 CloudOff. 대기 건수 있으면 함께 표기.
 // - 온라인 + 대기 건수>0: 동기화 진행 중(파란색 RefreshCw).
 // - 온라인 + 대기 0: 렌더하지 않음.
-// 협업 연결 배지(CollabConnectionBadge)는 협업 활성 시에만 뜨므로 보완 관계.
 export function OfflineBadge() {
   const online = useOnlineStatus();
   const pending = usePendingOutboxCount();

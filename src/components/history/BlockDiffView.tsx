@@ -45,8 +45,6 @@ function ReadOnlyBlocksPane({ blocks, tone }: { blocks: BlockNode[]; tone: PaneT
     isFullPageDatabase: false,
     effectivePageId: null,
     myMemberId: undefined,
-    collabDoc: null,
-    collabAwareness: null,
   });
   const content = useMemo<JSONContent>(
     () => ({ type: "doc", content: blocks as JSONContent[] }),

@@ -2,7 +2,6 @@
 import * as cdk from "aws-cdk-lib";
 import { CognitoStack } from "../lib/cognito-stack";
 import { QuicknoteSyncStack } from "../lib/sync-stack";
-import { QuicknoteRealtimeCollabStack } from "../lib/realtime-collab-stack";
 
 const app = new cdk.App();
 
@@ -57,7 +56,7 @@ const imagesBucketName =
   (app.node.tryGetContext("imagesBucketName") as string | undefined) ??
   `${envPrefix}quicknote-images-${env.account ?? "unknown"}-${env.region}`;
 
-const syncStack = new QuicknoteSyncStack(app, `${stackPrefix}QuicknoteSyncStack`, {
+new QuicknoteSyncStack(app, `${stackPrefix}QuicknoteSyncStack`, {
   env,
   envPrefix,
   description: `QuickNote [${deployEnv}] 동기화 스택 (AppSync + DDB + S3 + Lambda)`,
@@ -77,29 +76,4 @@ const syncStack = new QuicknoteSyncStack(app, `${stackPrefix}QuicknoteSyncStack`
   workspaceAccessTableName: isDev
     ? `${envPrefix}quicknote-workspace-access-v6`
     : (app.node.tryGetContext("workspaceAccessTableName") as string | undefined),
-});
-
-// 실시간 협업 스택 — WS API + Yjs 테이블 + Lambda.
-// 기본은 Cognito/Sync 스택에서 교차참조로 주입한다(live·전체 배포 시).
-// 단, 단일 스택만 격리 배포할 때는 교차참조(Fn::ImportValue)가 생기면 생산 스택까지
-// 함께 갱신해야 하므로, COLLAB_* 환경변수가 주어지면 그 리터럴 값을 사용해 교차참조를 끊는다.
-new QuicknoteRealtimeCollabStack(app, `${stackPrefix}QuicknoteRealtimeCollabStack`, {
-  env,
-  envPrefix,
-  description: `QuickNote [${deployEnv}] 실시간 협업 스택 (WS API + DDB + Lambda)`,
-  userPoolId: process.env.COLLAB_USER_POOL_ID ?? cognitoStack.userPoolId,
-  userPoolClientId: process.env.COLLAB_WEB_CLIENT_ID ?? cognitoStack.webClientId,
-  userPoolDesktopClientId: process.env.COLLAB_DESKTOP_CLIENT_ID ?? cognitoStack.desktopClientId,
-  pageTableName: process.env.COLLAB_PAGE_TABLE_NAME ?? syncStack.pageTable.table.tableName,
-  pageTableArn: process.env.COLLAB_PAGE_TABLE_ARN ?? syncStack.pageTable.table.tableArn,
-  membersTableName: process.env.COLLAB_MEMBERS_TABLE_NAME ?? syncStack.membersTable.tableName,
-  membersTableArn: process.env.COLLAB_MEMBERS_TABLE_ARN ?? syncStack.membersTable.tableArn,
-  memberTeamsTableName: process.env.COLLAB_MEMBER_TEAMS_TABLE_NAME ?? syncStack.memberTeamsTable.tableName,
-  memberTeamsTableArn: process.env.COLLAB_MEMBER_TEAMS_TABLE_ARN ?? syncStack.memberTeamsTable.tableArn,
-  workspaceAccessTableName:
-    process.env.COLLAB_WORKSPACE_ACCESS_TABLE_NAME ?? syncStack.workspaceAccessTable.tableName,
-  workspaceAccessTableArn:
-    process.env.COLLAB_WORKSPACE_ACCESS_TABLE_ARN ?? syncStack.workspaceAccessTable.tableArn,
-  databaseTableName: process.env.COLLAB_DATABASE_TABLE_NAME ?? syncStack.databaseTable.table.tableName,
-  databaseTableArn: process.env.COLLAB_DATABASE_TABLE_ARN ?? syncStack.databaseTable.table.tableArn,
 });

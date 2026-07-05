@@ -5,10 +5,7 @@ import "./index.css";
 import { reportNonFatal } from "./lib/reportNonFatal";
 import { Bootstrap } from "./Bootstrap";
 import { RootErrorBoundary } from "./components/RootErrorBoundary";
-import {
-  purgeLegacyLocalStorage,
-  purgeLegacyTauriData,
-} from "./lib/sync/legacyCleanup";
+import { purgeLegacyLocalStorage } from "./lib/sync/legacyCleanup";
 import { registerDevTools } from "./lib/devtools/snapshot";
 import { attemptChunkReload } from "./lib/chunkReload";
 import { initPwa } from "./lib/pwa/swController";
@@ -17,7 +14,6 @@ import { initOfflineGapTracking } from "./lib/sync/offlineGap";
 
 // v4 첫 부팅 시 v1~v3 잔여 데이터 폐기 (사용자 합의 — 기존은 개발 테스트 데이터).
 purgeLegacyLocalStorage();
-void purgeLegacyTauriData();
 registerDevTools();
 
 // PWA Service Worker 등록(웹 전용) — auth 게이트와 무관하게 부팅 시 등록해 로그인 전에도 설치 가능.

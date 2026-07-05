@@ -1,9 +1,6 @@
 import type { PersistStorage, StorageValue } from "zustand/middleware";
 import type { KVStorage } from "./adapter";
 
-const isTauri =
-  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
 let _resolved: KVStorage | null = null;
 let _promise: Promise<KVStorage> | null = null;
 
@@ -11,13 +8,8 @@ function resolve(): Promise<KVStorage> {
   if (_resolved) return Promise.resolve(_resolved);
   if (!_promise) {
     _promise = (async () => {
-      if (isTauri) {
-        const { tauriStorage } = await import("./tauri");
-        _resolved = tauriStorage;
-      } else {
-        const { webStorage } = await import("./web");
-        _resolved = webStorage;
-      }
+      const { webStorage } = await import("./web");
+      _resolved = webStorage;
       return _resolved;
     })();
   }
@@ -120,9 +112,9 @@ export function makeDeferredStorage<S = any>(): PersistStorage<S> {
   };
   _deferredInstances.push(inst);
 
-  // 탭/앱 닫기 직전 미flush 항목을 localStorage 에 동기 기록(비동기 SQLite 쓰기는 unload 중 완료 불가).
-  // ⚠️ 데스크톱(Tauri)은 getItem 이 SQLite 에서 읽으므로, 실제 저장 키와 다른 전용 prefix 키에
-  //    백업해야 한다(같은 키면 web 의 localStorage 백엔드와 충돌). getItem 이 이 백업을 우선 복원한다.
+  // 탭 닫기 직전 미flush 항목을 localStorage 에 동기 기록(비동기 쓰기는 unload 중 완료 불가).
+  // 실제 저장 키와 다른 전용 prefix 키에 백업한다(같은 키면 web 의 localStorage 백엔드와 충돌).
+  // getItem 이 이 백업을 우선 복원한다.
   const unloadKey = (name: string) => `__qn_unload__${name}`;
   if (typeof window !== "undefined") {
     window.addEventListener("beforeunload", () => {
@@ -136,8 +128,8 @@ export function makeDeferredStorage<S = any>(): PersistStorage<S> {
     getItem: async (name) => {
       const s = await resolve();
       // 직전 종료 시 미flush 로 localStorage 에 백업된 최신 상태가 있으면 우선 복원하고
-      // 실제 저장소(데스크톱=SQLite)로 승격한다. 그러지 않으면 종료 직전 변경분이 유실되어
-      // stale(부분) 캐시가 로드된다 — 데스크톱 사이드바 페이지 소실 회귀의 원인.
+      // 실제 저장소로 승격한다. 그러지 않으면 종료 직전 변경분이 유실되어
+      // stale(부분) 캐시가 로드된다 — 사이드바 페이지 소실 회귀의 원인.
       try {
         const fallback = localStorage.getItem(unloadKey(name));
         if (fallback) {

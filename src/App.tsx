@@ -25,10 +25,6 @@ import { useDatabaseStore } from "./store/databaseStore";
 import { usePageMetaRemoteStore } from "./store/pageMetaRemoteStore";
 import { useUiStore } from "./store/uiStore";
 import { useWorkspaceStore } from "./store/workspaceStore";
-import { MigrationScreen } from "./components/MigrationScreen";
-import { hasLocalStorageData, migrateFromLocalStorage } from "./lib/migration/fromLocalStorage";
-import { zustandStorage } from "./lib/storage/index";
-import { useAutoUpdate } from "./hooks/useAutoUpdate";
 import { PwaUpdateBanner } from "./components/ui/PwaUpdateBanner";
 import { buildQuickNotePageUrl, parseQuickNoteLink, type QuickNoteLinkTarget } from "./lib/navigation/quicknoteLinks";
 import { ensurePageContentLoaded } from "./lib/sync/pageContentLoad";
@@ -43,8 +39,6 @@ import {
 } from "./lib/navigation/pageScrollMemory";
 import { LC_SCHEDULER_WORKSPACE_ID } from "./lib/scheduler/scope";
 import { isProtectedDatabaseId } from "./lib/scheduler/database";
-
-const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 const DatabaseRowPage = lazy(() =>
   import("./components/database/DatabaseRowPage").then((m) => ({
@@ -61,12 +55,6 @@ const BlockCommentThreadPanel = lazy(() =>
     default: m.BlockCommentThreadPanel,
   })),
 );
-const AutoUpdateDialog = lazy(() =>
-  import("./components/ui/AutoUpdateDialog").then((m) => ({
-    default: m.AutoUpdateDialog,
-  })),
-);
-
 function isLCSchedulerModalOpen(): boolean {
   return Boolean(document.querySelector("[data-lc-scheduler-modal='true']"));
 }
@@ -119,16 +107,6 @@ function App() {
   );
   // 사이드바 첫 번째 인덱스(루트) 페이지 — 새로고침 시 기본 선택 대상.
   const firstSidebarPageId = usePageStore(selectFirstSidebarRootId);
-  const [migrating, setMigrating] = useState(
-    () => isTauri && hasLocalStorageData(),
-  );
-  const autoUpdate = useAutoUpdate();
-
-  useEffect(() => {
-    if (!migrating) return;
-    migrateFromLocalStorage(zustandStorage).then(() => setMigrating(false));
-  }, [migrating]);
-
   const hydrationDone = useRef(false);
   /** 새로고침 후 첫 사이드바 페이지 강제 선택을 앱 로드당 1회만 수행 */
   const didForceInitialSelectRef = useRef(false);
@@ -562,8 +540,6 @@ function App() {
     return () => window.removeEventListener("quicknote:open-search", open);
   }, []);
 
-  if (migrating) return <MigrationScreen />;
-
   return (
     <AuthGate>
       <div className="flex h-[100dvh] bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
@@ -631,21 +607,6 @@ function App() {
         <TextPromptDialog />
         <ToastViewport />
         <PwaUpdateBanner />
-        {autoUpdate.isSupported && (
-          <Suspense fallback={null}>
-            <AutoUpdateDialog
-              open={autoUpdate.open}
-              version={autoUpdate.latestVersion}
-              notes={autoUpdate.releaseNotes}
-              state={autoUpdate.state}
-              progressPercent={autoUpdate.progressPercent}
-              errorMessage={autoUpdate.errorMessage}
-              onClose={autoUpdate.closeDialog}
-              onUpdate={autoUpdate.startUpdate}
-              onRestart={autoUpdate.restartNow}
-            />
-          </Suspense>
-        )}
       </div>
     </AuthGate>
   );

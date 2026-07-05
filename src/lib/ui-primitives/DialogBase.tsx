@@ -8,7 +8,7 @@ export interface DialogBaseProps {
   children: ReactNode;
   /** alertdialog 로 노출할지 (기본 dialog). 파괴적/경고용에 true. */
   role?: "dialog" | "alertdialog";
-  /** 오버레이 클릭으로 닫을지. AutoUpdateDialog 같이 진행 중인 작업은 false. */
+  /** 오버레이 클릭으로 닫을지. 진행 중인 작업이 있는 다이얼로그는 false. */
   closeOnOverlay?: boolean;
   /** ESC 키로 닫을지. */
   closeOnEsc?: boolean;

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-// oidcClient 모듈은 Tauri/storage 의존성이 있어 테스트에선 통째로 mock.
+// oidcClient 모듈은 storage 의존성이 있어 테스트에선 통째로 mock.
 const signinCallback = vi.fn();
 const signinSilent = vi.fn();
 const getUser = vi.fn();

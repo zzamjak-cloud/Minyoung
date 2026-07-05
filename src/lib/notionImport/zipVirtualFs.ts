@@ -70,50 +70,6 @@ class ZipDirHandle {
   }
 }
 
-class TauriFileHandle {
-  readonly kind = "file" as const;
-  readonly name: string;
-  private readonly path: string;
-
-  constructor(name: string, path: string) {
-    this.name = name;
-    this.path = path;
-  }
-
-  async getFile(): Promise<File> {
-    const { readFile } = await import("@tauri-apps/plugin-fs");
-    const bytes = await readFile(this.path);
-    return new File([bytes], this.name, { type: guessMime(this.name) });
-  }
-}
-
-class TauriDirHandle {
-  readonly kind = "directory" as const;
-  readonly name: string;
-  private readonly path: string;
-
-  constructor(name: string, path: string) {
-    this.name = name;
-    this.path = path;
-  }
-
-  async *entries(): AsyncGenerator<[string, TauriFileHandle | TauriDirHandle]> {
-    const [{ readDir }, { join }] = await Promise.all([
-      import("@tauri-apps/plugin-fs"),
-      import("@tauri-apps/api/path"),
-    ]);
-    const entries = await readDir(this.path);
-    for (const entry of entries) {
-      const childPath = await join(this.path, entry.name);
-      if (entry.isDirectory) {
-        yield [entry.name, new TauriDirHandle(entry.name, childPath)];
-      } else if (entry.isFile) {
-        yield [entry.name, new TauriFileHandle(entry.name, childPath)];
-      }
-    }
-  }
-}
-
 function guessMime(name: string): string {
   const lower = name.toLowerCase();
   if (lower.endsWith(".png")) return "image/png";
@@ -226,9 +182,4 @@ export function createFilesVirtualDir(files: File[]): FileSystemDirectoryHandle 
   const tree = buildTreeFromFiles(files);
   const handle = new ZipDirHandle(tree.name || "folder-root", tree);
   return handle as unknown as FileSystemDirectoryHandle;
-}
-
-export function createTauriVirtualDir(path: string): FileSystemDirectoryHandle {
-  const name = path.split(/[\\/]/).filter(Boolean).pop() ?? "folder-root";
-  return new TauriDirHandle(name, path) as unknown as FileSystemDirectoryHandle;
 }

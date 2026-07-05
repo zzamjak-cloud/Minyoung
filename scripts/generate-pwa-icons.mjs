@@ -1,11 +1,9 @@
-// PWA 아이콘 생성: 로컬 네이티브 앱 아이콘(src-tauri/icons/icon.icns 에서 추출한 512px)을
-// 소스로 PWA/모바일 아이콘 PNG 세트 + favicon.svg(래스터 임베드)를 생성한다.
+// PWA 아이콘 생성: scripts/app-icon-512.png(512px 원본)를 소스로
+// PWA/모바일 아이콘 PNG 세트 + favicon.svg(래스터 임베드)를 생성한다.
 // 실행: node scripts/generate-pwa-icons.mjs
 //
-// 소스 갱신: 네이티브 아이콘이 바뀌면
-//   iconutil -c iconset src-tauri/icons/icon.icns -o /tmp/qn.iconset
-//   cp /tmp/qn.iconset/icon_512x512.png scripts/app-icon-512.png
-// 후 이 스크립트를 다시 실행한다.
+// 소스 갱신: 앱 아이콘이 바뀌면 512px PNG 를 scripts/app-icon-512.png 로 교체 후
+// 이 스크립트를 다시 실행한다.
 import sharp from "sharp";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";

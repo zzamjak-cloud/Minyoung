@@ -3,9 +3,6 @@
 // 부팅 시점(main.tsx)에 리스너를 건다. 설정 화면의 "앱 설치" CTA 가 promptInstall() 로 트리거.
 import { isStandalonePwa } from "./displayMode";
 
-const isTauri =
-  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
 // 표준 타입 정의 부재 — beforeinstallprompt 이벤트 형태.
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -22,7 +19,7 @@ const listeners = new Set<Listener>();
 let snapshot = {
   canInstall: false,
   installed: typeof window !== "undefined" ? isStandalonePwa() : false,
-  isSupported: !isTauri,
+  isSupported: true,
 };
 
 function setState(next: Partial<typeof snapshot>) {
@@ -31,7 +28,7 @@ function setState(next: Partial<typeof snapshot>) {
 }
 
 export function initInstallPrompt() {
-  if (initialized || isTauri || typeof window === "undefined") return;
+  if (initialized || typeof window === "undefined") return;
   initialized = true;
 
   window.addEventListener("beforeinstallprompt", (e) => {

@@ -7,10 +7,6 @@ type JwtClaims = {
   aud?: unknown;
 };
 
-function isTauriRuntime(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-}
-
 function sanitizeScopePart(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]/g, "_");
 }
@@ -19,9 +15,7 @@ function expectedAuthContext(): { issuer: string; clientId: string } | null {
   const env = import.meta.env as Record<string, string | undefined>;
   const region = env.VITE_COGNITO_REGION ?? "ap-northeast-2";
   const userPoolId = env.VITE_COGNITO_USER_POOL_ID;
-  const clientId = isTauriRuntime()
-    ? env.VITE_COGNITO_DESKTOP_CLIENT_ID
-    : env.VITE_COGNITO_WEB_CLIENT_ID;
+  const clientId = env.VITE_COGNITO_WEB_CLIENT_ID;
   if (!userPoolId || !clientId) return null;
   return {
     issuer: `https://cognito-idp.${region}.amazonaws.com/${userPoolId}`,

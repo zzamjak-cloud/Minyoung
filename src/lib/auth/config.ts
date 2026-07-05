@@ -1,12 +1,6 @@
-// Cognito + Google OAuth 설정. Tauri 데스크톱과 웹의 redirect URI / client id 가 다르다.
-
-export const isTauri =
-  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
-export type AuthRuntime = "web" | "desktop";
+// Cognito + Google OAuth 설정 (웹 전용).
 
 export type AuthConfig = {
-  runtime: AuthRuntime;
   region: string;
   userPoolId: string;
   hostedUiDomain: string; // ex) quicknote-auth.auth.ap-northeast-2.amazoncognito.com
@@ -27,7 +21,6 @@ function required(name: string, value: string | undefined): string {
 }
 
 export function buildAuthConfig(): AuthConfig {
-  const runtime: AuthRuntime = isTauri ? "desktop" : "web";
   const env = import.meta.env;
 
   const region = required("VITE_COGNITO_REGION", env.VITE_COGNITO_REGION);
@@ -40,24 +33,17 @@ export function buildAuthConfig(): AuthConfig {
     env.VITE_COGNITO_HOSTED_UI_DOMAIN,
   );
 
-  const clientId =
-    runtime === "desktop"
-      ? required(
-          "VITE_COGNITO_DESKTOP_CLIENT_ID",
-          env.VITE_COGNITO_DESKTOP_CLIENT_ID,
-        )
-      : required(
-          "VITE_COGNITO_WEB_CLIENT_ID",
-          env.VITE_COGNITO_WEB_CLIENT_ID,
-        );
+  const clientId = required(
+    "VITE_COGNITO_WEB_CLIENT_ID",
+    env.VITE_COGNITO_WEB_CLIENT_ID,
+  );
 
-  const redirectUri =
-    runtime === "desktop"
-      ? required("VITE_AUTH_REDIRECT_DESKTOP", env.VITE_AUTH_REDIRECT_DESKTOP)
-      : required("VITE_AUTH_REDIRECT_WEB", env.VITE_AUTH_REDIRECT_WEB);
+  const redirectUri = required(
+    "VITE_AUTH_REDIRECT_WEB",
+    env.VITE_AUTH_REDIRECT_WEB,
+  );
 
   return {
-    runtime,
     region,
     userPoolId,
     hostedUiDomain,

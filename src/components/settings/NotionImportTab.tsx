@@ -26,7 +26,7 @@ import {
   type UploadedNotionAsset,
 } from "../../lib/notionImport/assetUpload";
 import { NotionCsvFolderSection } from "./NotionCsvFolderSection";
-import { createFilesVirtualDir, createTauriVirtualDir } from "../../lib/notionImport/zipVirtualFs";
+import { createFilesVirtualDir } from "../../lib/notionImport/zipVirtualFs";
 import { usePageStore } from "../../store/pageStore";
 import { flushDebouncedKeys } from "../../lib/sync/debouncePerKey";
 import { useDatabaseStore } from "../../store/databaseStore";
@@ -99,8 +99,6 @@ export function NotionImportTab() {
   const canUseNativeFolderPicker = isFolderPickerSupported();
   const isSourceLoading = status.kind === "loading";
   const folderInputRef = useRef<HTMLInputElement | null>(null);
-  const isTauriRuntime = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-  const importBlockedInTauri = isTauriRuntime && import.meta.env.PROD;
 
   const pages = useMemo(
     () => (status.kind === "ready" ? status.preview.pages : []),
@@ -174,40 +172,6 @@ export function NotionImportTab() {
       const preferred = preview.pages.find((p) => p.format === "html") ?? preview.pages[0];
       setSelectedPath(preferred?.path ?? "");
     } catch (error) {
-      setStatus({
-        kind: "error",
-        message: error instanceof Error ? error.message : "폴더 분석 중 오류가 발생했습니다.",
-      });
-    }
-  };
-
-  const onPickTauriFolder = async () => {
-    setStatus({ kind: "loading" });
-    setImportCompleted(false);
-    setHasDetectedDbSource(false);
-    try {
-      const { open } = await import("@tauri-apps/plugin-dialog");
-      const selected = await open({
-        title: "Notion 내보내기 폴더 선택",
-        directory: true,
-        multiple: false,
-        recursive: true,
-      });
-      if (selected === null || Array.isArray(selected)) {
-        setStatus({ kind: "idle" });
-        return;
-      }
-      const dir = createTauriVirtualDir(selected);
-      const label = selected.split(/[\\/]/).filter(Boolean).pop() ?? "Notion export";
-      setSharedSource({ kind: "folder-handle", label, dir });
-      const pairs = await detectCsvDbPairsRecursive(dir);
-      setHasDetectedDbSource(pairs.length > 0);
-      const preview = await scanNotionFolder(dir);
-      setStatus({ kind: "ready", preview, sourceName: label });
-      const preferred = preview.pages.find((p) => p.format === "html") ?? preview.pages[0];
-      setSelectedPath(preferred?.path ?? "");
-    } catch (error) {
-      console.error("[NotionImport] Tauri 폴더 선택 실패", error);
       setStatus({
         kind: "error",
         message: error instanceof Error ? error.message : "폴더 분석 중 오류가 발생했습니다.",
@@ -836,19 +800,14 @@ export function NotionImportTab() {
             <button
               type="button"
               onClick={() => {
-                if (isSourceLoading || importBlockedInTauri) return;
+                if (isSourceLoading) return;
                 if (canUseNativeFolderPicker) {
                   void onPickFolder();
                   return;
                 }
-                if (isTauriRuntime) {
-                  void onPickTauriFolder();
-                  return;
-                }
                 folderInputRef.current?.click();
               }}
-              disabled={isSourceLoading || importBlockedInTauri}
-              title={importBlockedInTauri ? "데스크톱 앱에서는 웹앱에서 가져오기를 사용하세요." : undefined}
+              disabled={isSourceLoading}
               className="inline-flex items-center rounded bg-zinc-900 px-3 py-1.5 text-xs text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400"
             >
               {isSourceLoading ? <Loader2 size={12} className="mr-1.5 animate-spin" /> : null}
@@ -905,10 +864,9 @@ export function NotionImportTab() {
                   <button
                     type="button"
                     onClick={() => void onImportSelectedPage()}
-                    disabled={isImporting || importCompleted || importBlockedInTauri}
-                    title={importBlockedInTauri ? "데스크톱 앱에서는 웹앱에서 가져오기를 사용하세요." : undefined}
+                    disabled={isImporting || importCompleted}
                     className={`inline-flex items-center rounded px-3 py-1.5 text-sm text-white ${
-                      isImporting || importCompleted || importBlockedInTauri
+                      isImporting || importCompleted
                         ? "cursor-not-allowed bg-zinc-400"
                         : "bg-blue-600 hover:bg-blue-700"
                     }`}

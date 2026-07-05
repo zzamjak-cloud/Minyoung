@@ -3,9 +3,6 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
-const isTauri = process.env.TAURI_ARCH !== undefined;
-
-// PWA 는 웹(Vercel) 빌드 전용 — Tauri 데스크톱 빌드에서는 SW/manifest 를 생성하지 않는다.
 const pwaPlugin = VitePWA({
   // prompt: 새 SW 를 waiting 으로 둔다. 모바일/설치 PWA 는 swController 가 자동 적용(applyPwaUpdate),
   // 데스크톱 웹은 배너로 사용자 확인(편집 손실 방지). 런타임에서 기기별로 분기한다.
@@ -48,24 +45,15 @@ const pwaPlugin = VitePWA({
 });
 
 export default defineConfig({
-  plugins: [react(), !isTauri && pwaPlugin].filter(Boolean),
-  // Tauri 빌드는 PWA 플러그인을 제외하므로 virtual:pwa-register 가 없다.
-  // usePwaUpdate 의 동적 import 가 빌드타임에 해석 실패하지 않도록 스텁으로 대체.
-  ...(isTauri && {
-    resolve: {
-      alias: { "virtual:pwa-register": "/src/lib/pwa/registerStub.ts" },
-    },
-  }),
-  clearScreen: !isTauri,
+  plugins: [react(), pwaPlugin],
   server: {
     port: 5173,
     strictPort: true,
   },
-  envPrefix: ["VITE_", "TAURI_"],
+  envPrefix: ["VITE_"],
   build: {
-    ...(isTauri && { target: ["es2021", "chrome105", "safari14"] }),
-    minify: isTauri && process.env.TAURI_DEBUG ? false : "esbuild",
-    sourcemap: isTauri ? !!process.env.TAURI_DEBUG : false,
+    minify: "esbuild",
+    sourcemap: false,
     // lucide(586 kB), tiptap(470 kB), 앱 소스 번들(923 kB·gzip 270 kB)은 분할 불가 범위
     // 실제 전송 크기(gzip) 기준으로 문제없으므로 경고 임계값을 올림
     chunkSizeWarningLimit: 1000,

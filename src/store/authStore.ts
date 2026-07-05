@@ -234,8 +234,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   async signIn() {
-    // OidcClient 로 authorize URL 만 만들고, 웹/데스크톱 분기에 따라 외부에서 연다.
-    // (UserManager.signinRedirect 는 항상 현재 창을 갈아끼우므로 Tauri 에선 사용 불가.)
+    // OidcClient 로 authorize URL 만 만들고 동일 탭 리다이렉트로 연다.
     // request_type="si:r" 을 명시해 UserManager.signinCallback 이 redirect 흐름으로 인식하게 한다.
     // 릴리스 번들에 VITE_* 가 비어 있으면 여기서 throw → UI 에 메시지로 노출한다.
     try {

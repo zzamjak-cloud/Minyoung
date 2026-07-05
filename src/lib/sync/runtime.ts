@@ -22,7 +22,7 @@ export async function getSyncEngine(): Promise<SyncEngine> {
         () => useWorkspaceStore.getState().currentWorkspaceId ?? null,
       );
       // 콘솔에서 stale outbox 를 즉시 비울 수 있는 디버그 헬퍼.
-      // 데스크톱(Tauri SQLite) / 웹(IndexedDB) 모두 같은 한 줄로 동작.
+      // 웹(IndexedDB) outbox 를 같은 한 줄로 비운다.
       if (typeof window !== "undefined") {
         const w = window as unknown as Record<string, unknown>;
         w.__QN_clearOutbox = async () => {

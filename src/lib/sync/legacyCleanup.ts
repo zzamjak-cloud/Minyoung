@@ -18,31 +18,3 @@ export function purgeLegacyLocalStorage(): void {
   }
   pruneLocalDeleteGuardsOnStartup();
 }
-
-const LEGACY_SQL_TABLES = [
-  "pages",
-  "databases",
-  "contacts",
-  "history",
-];
-
-const isTauri =
-  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
-export async function purgeLegacyTauriData(): Promise<void> {
-  if (!isTauri) return;
-  try {
-    const { default: Database } = await import("@tauri-apps/plugin-sql");
-    const d = await Database.load("sqlite:quicknote.db");
-    for (const t of LEGACY_SQL_TABLES) {
-      try {
-        await d.execute(`DROP TABLE IF EXISTS ${t}`);
-        if (import.meta.env.DEV) console.info(`[v4] dropped legacy SQLite table: ${t}`);
-      } catch (err) {
-        console.warn(`[v4] drop ${t} failed`, err);
-      }
-    }
-  } catch (err) {
-    console.warn("[v4] tauri sql cleanup skipped", err);
-  }
-}

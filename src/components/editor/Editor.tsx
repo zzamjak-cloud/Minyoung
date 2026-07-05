@@ -1365,7 +1365,7 @@ function EditorInner({
       data-qn-scroll-scope={!bodyOnly && !peek ? "main" : undefined}
       className={`qn-editor-body-scroll relative flex flex-col bg-white dark:bg-[#111111] ${bodyOnly ? "min-h-0" : "min-h-0 flex-1 overflow-y-auto"}`}
     >
-      {/* 커버는 max-w- 컬럼 밖에 두어 좁은 본문 폭에서도 에디터 패널 전체 너비로 펼친다(웹·Tauri 공통). */}
+      {/* 커버는 max-w- 컬럼 밖에 두어 좁은 본문 폭에서도 에디터 패널 전체 너비로 펼친다(패널 공통). */}
       {!bodyOnly && page.coverImage ? (
         <div className="w-full shrink-0">
           <PageCoverImage

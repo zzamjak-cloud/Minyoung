@@ -2,27 +2,16 @@ import { useEffect, type ReactNode } from "react";
 import pkg from "../../../package.json";
 import { useAuthStore, hasHadSessionHint } from "../../store/authStore";
 import { LoginScreen } from "./LoginScreen";
-import { setupDeepLinkListener } from "../../lib/auth/deepLink";
 
 /** read + silent + getUser 연속 시 상한을 넘기면 복구 안전망 발동 */
 const STUCK_LOADING_BAIL_MS = 45_000;
 
-function isSigninCallbackUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.pathname.endsWith("/auth/callback");
-  } catch {
-    return url.includes("/auth/callback");
-  }
-}
-
 type Props = { children: ReactNode };
 
-// 앱 진입 직전 게이트. 부팅 시 restoreSession + Tauri 딥링크 리스너 설치.
+// 앱 진입 직전 게이트. 부팅 시 restoreSession 을 수행한다.
 export function AuthGate({ children }: Props) {
   const state = useAuthStore((s) => s.state);
   const restoreSession = useAuthStore((s) => s.restoreSession);
-  const handleCallback = useAuthStore((s) => s.handleCallback);
   const bailIfStuckLoading = useAuthStore((s) => s.bailIfStuckLoading);
 
   useEffect(() => {
@@ -39,19 +28,6 @@ export function AuthGate({ children }: Props) {
     }, STUCK_LOADING_BAIL_MS);
     return () => window.clearTimeout(id);
   }, [bailIfStuckLoading]);
-
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    void (async () => {
-      unlisten = await setupDeepLinkListener((url) => {
-        if (!isSigninCallbackUrl(url)) return;
-        void handleCallback(url);
-      });
-    })();
-    return () => {
-      unlisten?.();
-    };
-  }, [handleCallback]);
 
   if (state.status === "loading") {
     // 직전 세션이 있었으면 토큰 복원(최대 수십 초)을 기다리지 않고 캐시된 앱 셸을 먼저 그린다.

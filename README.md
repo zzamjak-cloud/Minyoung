@@ -91,7 +91,7 @@ npx vercel --prod --yes --archive=tgz
 ```
 
 - 웹 빌드는 Vercel 측에서 `npm install`·`npm run build`로 수행된다.
-- 프로덕션 배포 완료 후 기본 별칭 예: `https://minyoung.vercel.app` (대시보드의 Production 도메인·별칭이 최종 기준)
+- 프로덕션 배포 완료 후 기본 별칭: `https://minyoung-black.vercel.app` (대시보드의 Production 도메인·별칭이 최종 기준)
 
 ### 웹 배포 환경변수
 

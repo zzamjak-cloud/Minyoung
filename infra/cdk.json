@@ -21,11 +21,11 @@
     "cognitoDomainPrefix": "minyoung-auth",
     "webCallbackUrls": [
       "http://localhost:5173/auth/callback",
-      "https://minyoung.vercel.app/auth/callback"
+      "https://minyoung-black.vercel.app/auth/callback"
     ],
     "webLogoutUrls": [
       "http://localhost:5173/auth/signout",
-      "https://minyoung.vercel.app/auth/signout"
+      "https://minyoung-black.vercel.app/auth/signout"
     ]
   }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { notionMarkdownToDoc } from "../../lib/notionImport/markdownToDoc";
+import { markdownToDoc } from "../markdownToDoc";
 
-describe("notionMarkdownToDoc", () => {
+describe("markdownToDoc", () => {
   it("헤딩/문단/리스트/체크리스트를 변환한다", () => {
     const md = [
       "# 제목",
@@ -13,7 +13,7 @@ describe("notionMarkdownToDoc", () => {
       "- [ ] 미완료",
     ].join("\n");
 
-    const doc = notionMarkdownToDoc(md);
+    const doc = markdownToDoc(md);
     const types = (doc.content ?? []).map((node) => node.type);
 
     expect(types).toContain("heading");
@@ -24,14 +24,14 @@ describe("notionMarkdownToDoc", () => {
 
   it("코드블록을 변환한다", () => {
     const md = ["```ts", "const x = 1;", "```"].join("\n");
-    const doc = notionMarkdownToDoc(md);
+    const doc = markdownToDoc(md);
     expect(doc.content?.[0]?.type).toBe("codeBlock");
     expect(doc.content?.[0]?.attrs).toMatchObject({ language: "ts" });
   });
 
   it("첫 제목 중복을 제거하고 굵은 텍스트를 mark로 변환한다", () => {
     const md = ["# CAT 생활", "", "✈️ **출퇴근 / 자리비움 / 휴가**"].join("\n");
-    const doc = notionMarkdownToDoc(md, { pageTitle: "CAT 생활" });
+    const doc = markdownToDoc(md, { pageTitle: "CAT 생활" });
     expect(doc.content?.[0]?.type).toBe("paragraph");
     const marks = doc.content?.[0]?.content?.[1]?.marks ?? [];
     expect(marks[0]).toMatchObject({ type: "bold" });
@@ -40,11 +40,11 @@ describe("notionMarkdownToDoc", () => {
   it("aside 블록을 callout으로 변환한다", () => {
     const md = [
       "<aside>",
-      "<img src=\"https://www.notion.so/icons/info-alternate_blue.svg\" alt=\"icon\" width=\"40px\" />",
+      "<img src=\"https://example.com/icons/info-alternate_blue.svg\" alt=\"icon\" width=\"40px\" />",
       "**Q. 질문** A. 답변",
       "</aside>",
     ].join("\n");
-    const doc = notionMarkdownToDoc(md);
+    const doc = markdownToDoc(md);
     expect(doc.content?.[0]?.type).toBe("callout");
     expect(doc.content?.[0]?.attrs).toMatchObject({ preset: "info" });
   });
@@ -54,7 +54,7 @@ describe("notionMarkdownToDoc", () => {
       "<span style=\"color: #e11d48\">빨강 텍스트</span> 일반",
       "<font color=\"#2563eb\">파랑 텍스트</font>",
     ].join("\n");
-    const doc = notionMarkdownToDoc(md);
+    const doc = markdownToDoc(md);
     const marks = (doc.content ?? [])
       .flatMap((node) => node.content ?? [])
       .flatMap((inline) => inline.marks ?? []);
@@ -72,7 +72,7 @@ describe("notionMarkdownToDoc", () => {
       "  - 하위 항목",
       "    - 3단계 항목",
     ].join("\n");
-    const doc = notionMarkdownToDoc(md);
+    const doc = markdownToDoc(md);
     const topList = doc.content?.[0];
     expect(topList?.type).toBe("bulletList");
     const nestedList = topList?.content?.[0]?.content?.find((c) => c.type === "bulletList");
@@ -88,7 +88,7 @@ describe("notionMarkdownToDoc", () => {
       "| 철수 | 20 |",
       "| 영희 | 21 |",
     ].join("\n");
-    const doc = notionMarkdownToDoc(md);
+    const doc = markdownToDoc(md);
     const table = doc.content?.[0];
     expect(table?.type).toBe("table");
 
@@ -116,7 +116,7 @@ describe("notionMarkdownToDoc", () => {
       "| :--- | :--: | ---: |",
       "| a | b | c |",
     ].join("\n");
-    const doc = notionMarkdownToDoc(md);
+    const doc = markdownToDoc(md);
     const table = doc.content?.[0];
     expect(table?.type).toBe("table");
     expect(table?.content?.length).toBe(2);
@@ -129,7 +129,7 @@ describe("notionMarkdownToDoc", () => {
       "| --- | --- |",
       "| **굵게** | `코드` |",
     ].join("\n");
-    const doc = notionMarkdownToDoc(md);
+    const doc = markdownToDoc(md);
     const bodyRow = doc.content?.[0]?.content?.[1];
     const boldCell = bodyRow?.content?.[0]?.content?.[0]?.content?.[0];
     expect(boldCell?.marks?.[0]).toMatchObject({ type: "bold" });
@@ -143,7 +143,7 @@ describe("notionMarkdownToDoc", () => {
       "| --- | --- |",
       "| a \\| b | true |",
     ].join("\n");
-    const doc = notionMarkdownToDoc(md);
+    const doc = markdownToDoc(md);
     const bodyRow = doc.content?.[0]?.content?.[1];
     expect(bodyRow?.content?.length).toBe(2); // 셀이 3개로 쪼개지지 않아야 함
     const firstCellText = bodyRow?.content?.[0]?.content?.[0]?.content?.[0]?.text;
@@ -157,7 +157,7 @@ describe("notionMarkdownToDoc", () => {
       "| 1 |", // 부족
       "| 1 | 2 | 3 | 4 |", // 초과
     ].join("\n");
-    const doc = notionMarkdownToDoc(md);
+    const doc = markdownToDoc(md);
     const rows = doc.content?.[0]?.content ?? [];
     // 모든 행의 셀 수가 헤더(3)와 동일해야 함
     expect(rows.every((r) => r.content?.length === 3)).toBe(true);
@@ -168,7 +168,7 @@ describe("notionMarkdownToDoc", () => {
       "| 그냥 | 텍스트 |",
       "| 두번째 | 줄 |",
     ].join("\n");
-    const doc = notionMarkdownToDoc(md);
+    const doc = markdownToDoc(md);
     expect(doc.content?.[0]?.type).not.toBe("table");
   });
 });

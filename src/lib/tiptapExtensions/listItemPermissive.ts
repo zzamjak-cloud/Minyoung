@@ -6,7 +6,7 @@ import { ListItem } from "@tiptap/extension-list";
  *
  * 기본 스키마는 첫 자식이 반드시 paragraph 라 다음 두 시나리오를 지원하지 못한다:
  *   1) 비어있는 새 항목에 /이미지 로 이미지를 삽입 → 이미지가 listItem 밖으로 lift 됨.
- *   2) 부모 항목 텍스트와 자식 항목 사이에 이미지/미디어 끼워 넣기 — Notion 가져오기 시
+ *   2) 부모 항목 텍스트와 자식 항목 사이에 이미지/미디어 끼워 넣기 —
  *      block child 를 첨부해도 schema가 받아주지 않으면 사라진다.
  *
  * 변경: 첫 위치에도 이미지·fileBlock·horizontalRule·columnLayout·callout·toggle·blockquote 같은

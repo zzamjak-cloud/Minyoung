@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { pageDocToMarkdown } from "../../lib/export/pageToMarkdown";
-import { notionMarkdownToDoc } from "../../lib/notionImport/markdownToDoc";
+import { markdownToDoc } from "../../lib/editor/markdownToDoc";
 import type { JSONContent } from "@tiptap/react";
 
 const sampleTableDoc: JSONContent = {
@@ -56,9 +56,9 @@ describe("pageDocToMarkdown", () => {
     );
   });
 
-  it("내보낸 표 마크다운을 notionMarkdownToDoc으로 table 블록으로 복원한다", () => {
+  it("내보낸 표 마크다운을 markdownToDoc으로 table 블록으로 복원한다", () => {
     const md = pageDocToMarkdown(sampleTableDoc).trim();
-    const doc = notionMarkdownToDoc(md);
+    const doc = markdownToDoc(md);
     expect(doc.content?.[0]?.type).toBe("table");
     expect(doc.content?.[0]?.content?.length).toBe(2);
   });
@@ -104,7 +104,7 @@ describe("pageDocToMarkdown", () => {
     };
     const md = pageDocToMarkdown(doc).trim();
     expect(md).toContain("a \\| b");
-    const parsed = notionMarkdownToDoc(md);
+    const parsed = markdownToDoc(md);
     const cellText =
       parsed.content?.[0]?.content?.[1]?.content?.[0]?.content?.[0]?.content?.[0]
         ?.text;

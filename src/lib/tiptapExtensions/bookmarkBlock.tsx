@@ -40,7 +40,7 @@ function BookmarkBlockView({ node, updateAttributes, selected }: NodeViewProps) 
     const controller = new AbortController();
     void fetchBookmarkMetadata(attrs.href, controller.signal).then((meta) => {
       if (controller.signal.aborted) return;
-      // 기존 attrs 가 비어 있는 필드만 fetched 메타로 보강 — Notion 임포트에서 추출한 메타를 덮지 않음.
+      // 기존 attrs 가 비어 있는 필드만 fetched 메타로 보강 — 이미 채워진 메타를 덮지 않음.
       updateAttributes({
         title: attrs.title || meta.title,
         description: attrs.description || meta.description,

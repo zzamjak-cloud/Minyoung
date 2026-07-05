@@ -1,9 +1,78 @@
 import type { JSONContent } from "@tiptap/react";
-import {
-  isLikelyUrlText,
-  normalizeImportedLinkHref,
-  summarizeImportedLinkText,
-} from "./linkUtils";
+import { sanitizeWebLinkHref } from "../safeUrl";
+
+// ---------------------------------------------------------------------------
+// 링크 정규화 유틸 — 붙여넣은 텍스트의 href 를 안전한 절대 URL 로 정리한다.
+// ---------------------------------------------------------------------------
+
+const REDIRECT_QUERY_KEYS = ["url", "u", "target", "q"];
+
+export function normalizeImportedLinkHref(rawHref: string): string | null {
+  const trimmed = rawHref.trim();
+  if (!trimmed) return null;
+
+  const direct = sanitizeWebLinkHref(trimmed);
+  if (direct) return direct;
+
+  if (/^www\./i.test(trimmed)) {
+    const prefixed = sanitizeWebLinkHref(`https://${trimmed}`);
+    if (prefixed) return prefixed;
+  }
+
+  try {
+    const decoded = decodeURIComponent(trimmed);
+    const decodedSafe = sanitizeWebLinkHref(decoded);
+    if (decodedSafe) return decodedSafe;
+  } catch {
+    // 디코드 실패는 무시하고 다음 케이스를 검사한다.
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    for (const key of REDIRECT_QUERY_KEYS) {
+      const value = parsed.searchParams.get(key);
+      if (!value) continue;
+      const safe = sanitizeWebLinkHref(value) ?? sanitizeWebLinkHref(decodeURIComponent(value));
+      if (safe) return safe;
+    }
+  } catch {
+    // URL 파싱 실패는 링크 미지원으로 처리한다.
+  }
+
+  return null;
+}
+
+export function isLikelyUrlText(raw: string): boolean {
+  const t = raw.trim();
+  return /^https?:\/\//i.test(t) || /^www\./i.test(t);
+}
+
+export function summarizeImportedLinkText(rawHref: string): string {
+  const safe = normalizeImportedLinkHref(rawHref);
+  if (!safe) return rawHref;
+  try {
+    const u = new URL(safe);
+    const host = u.hostname.replace(/^www\./, "");
+    const path = u.pathname.replace(/\/+$/, "");
+    if (host.includes("drive.google.com") || host.includes("docs.google.com")) {
+      return "🔗 Google Drive";
+    }
+    if (host.includes("flex.team")) {
+      return "🔗 flex.team";
+    }
+    if (!path || path === "/") {
+      return `🔗 ${host}`;
+    }
+    const parts = path.split("/").filter(Boolean).slice(0, 2);
+    return `🔗 ${host}/${parts.join("/")}`;
+  } catch {
+    return rawHref;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 마크다운 → tiptap JSONContent 변환
+// ---------------------------------------------------------------------------
 
 function textNode(text: string): JSONContent {
   return { type: "text", text };
@@ -350,7 +419,7 @@ function splitTableRow(line: string): string[] {
   return cells.map((c) => c.trim());
 }
 
-// 셀 1개를 tableHeader/tableCell 노드로. htmlToDoc.tableFromElement 와 동일 구조
+// 셀 1개를 tableHeader/tableCell 노드로 변환
 function tableCellNode(text: string, isHeader: boolean): JSONContent {
   const inline = text ? parseInlineContent(text) : [];
   const paragraph: JSONContent = {
@@ -394,7 +463,7 @@ function buildTableNode(headerLine: string, bodyLines: string[]): JSONContent {
   };
 }
 
-export function notionMarkdownToDoc(markdown: string, options?: { pageTitle?: string }): JSONContent {
+export function markdownToDoc(markdown: string, options?: { pageTitle?: string }): JSONContent {
   const normalizedMarkdown = options?.pageTitle
     ? stripLeadingTitle(markdown, options.pageTitle)
     : markdown;

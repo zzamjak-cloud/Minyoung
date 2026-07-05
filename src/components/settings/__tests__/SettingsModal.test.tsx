@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { SettingsModal } from "../SettingsModal";
 import { useMemberStore } from "../../../store/memberStore";
 
-describe("SettingsModal role tabs", () => {
+describe("SettingsModal (개인용 단일 화면)", () => {
   beforeEach(() => {
     useMemberStore.setState({
       me: null,
@@ -13,7 +13,7 @@ describe("SettingsModal role tabs", () => {
     });
   });
 
-  it("member 권한은 내 프로필/로그아웃만 보인다", () => {
+  it("프로필/화면 설정/로그아웃만 보인다", () => {
     useMemberStore.setState({
       me: {
         memberId: "m1",
@@ -29,13 +29,10 @@ describe("SettingsModal role tabs", () => {
     render(<SettingsModal open onClose={() => {}} />);
     expect(screen.getAllByText("내 프로필").length).toBeGreaterThan(0);
     expect(screen.getByText("로그아웃")).toBeTruthy();
-    expect(screen.queryByText("구성원")).toBeNull();
-    expect(screen.queryByText("프로젝트")).toBeNull();
-    expect(screen.queryByText("팀")).toBeNull();
-    expect(screen.queryByText("워크스페이스")).toBeNull();
+    expect(screen.getByText("m1@x.com")).toBeTruthy();
   });
 
-  it("owner/manager 권한은 관리 탭이 추가로 보인다", () => {
+  it("owner 권한이어도 관리 탭이 노출되지 않는다", () => {
     useMemberStore.setState({
       me: {
         memberId: "m2",
@@ -49,8 +46,11 @@ describe("SettingsModal role tabs", () => {
     });
 
     render(<SettingsModal open onClose={() => {}} />);
-    expect(screen.getByText("구성원")).toBeTruthy();
-    expect(screen.getByText("팀")).toBeTruthy();
-    expect(screen.getByText("워크스페이스")).toBeTruthy();
+    expect(screen.queryByText("구성원")).toBeNull();
+    expect(screen.queryByText("팀 관리")).toBeNull();
+    expect(screen.queryByText("조직 관리")).toBeNull();
+    expect(screen.queryByText("워크스페이스 관리")).toBeNull();
+    expect(screen.queryByText("자산")).toBeNull();
+    expect(screen.queryByText("가져오기", { exact: false })).toBeNull();
   });
 });

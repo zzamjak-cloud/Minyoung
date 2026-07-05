@@ -95,7 +95,7 @@ npx vercel --prod --yes --archive=tgz
 
 ### 웹 배포 환경변수
 
-- **웹 배포/Vercel 빌드**에서는 로컬 `.env`가 쓰이지 않는다. `npm run build`가 CI에서 실행될 때 `VITE_*`가 주입되어야 프로덕션 앱에서 Google 로그인이 동작한다. 아래 이름으로 환경변수를 등록할 것.
+- **웹 배포/Vercel 빌드**에서는 로컬 `.env`가 쓰이지 않는다. `npm run build`가 CI에서 실행될 때 `VITE_*`가 주입되어야 프로덕션 앱에서 이메일 로그인이 동작한다. 아래 이름으로 환경변수를 등록할 것.
   - `VITE_COGNITO_REGION`
   - `VITE_COGNITO_USER_POOL_ID`
   - `VITE_COGNITO_HOSTED_UI_DOMAIN`
@@ -113,9 +113,9 @@ npx vercel --prod --yes --archive=tgz
 
 ## 인증 (v3.0.0+)
 
-웹은 **AWS Cognito User Pool + Google OAuth** 페더레이션으로 로그인한다. 고정 allowlist 이메일만 가입할 수 있다.
+웹은 **AWS Cognito User Pool 이메일/비밀번호 인증**으로 로그인한다. 고정 allowlist 이메일만 가입할 수 있다.
 
-- 웹: Hosted UI 로 리다이렉트 → Google → `/auth/callback`
+- 웹: Hosted UI 로 리다이렉트 → 이메일/비밀번호 로그인 또는 가입 → `/auth/callback`
 - 토큰: PKCE Authorization Code 흐름. `oidc-client-ts` + `zustandStorage` 어댑터로 영속화
 - 화이트리스트: Cognito PreSignUp Lambda 가 `zzamjak@gmail.com`, `keanux@naver.com` 외 가입을 거부
 
@@ -155,7 +155,7 @@ npm run build
 ## 로드맵
 
 - **v1.0.0** — Minyoung 기반 웹 에디터 + 데이터베이스 감량판
-- **v1.1.0** — AWS Cognito + Google OAuth + 고정 allowlist 인증
+- **v1.1.0** — AWS Cognito 이메일/비밀번호 + 고정 allowlist 인증
 - **v1.2.0** — AWS AppSync 단일 사용자 멀티 디바이스 동기화(LWW) + S3 이미지 업로드
 - **v1.3.0** — PWA 모바일 터치 UX 점검
 

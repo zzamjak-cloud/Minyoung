@@ -2,7 +2,7 @@
 
 CDK(TypeScript) 로 정의한 두 개의 스택:
 
-- **`MinyoungCognitoStack`** — AWS Cognito + Google OAuth + 고정 allowlist Lambda
+- **`MinyoungCognitoStack`** — AWS Cognito 이메일/비밀번호 인증 + 고정 allowlist Lambda
 - **`MinyoungSyncStack`** — AppSync GraphQL API + DynamoDB + S3 + Lambda(이미지 PreSign · 야간 GC) + EventBridge cron
 
 ## 사전 준비
@@ -13,15 +13,7 @@ CDK(TypeScript) 로 정의한 두 개의 스택:
    ```bash
    npx cdk bootstrap aws://<account>/<region>
    ```
-4. Google Cloud Console 에서 **OAuth 2.0 Client ID** 발급.
-   - 애플리케이션 유형: 웹 애플리케이션
-   - 승인된 리디렉션 URI: `https://<cognitoDomainPrefix>.auth.<region>.amazoncognito.com/oauth2/idpresponse`
-   - 발급된 client id / secret 을 Secrets Manager 에 등록:
-     ```bash
-     aws secretsmanager create-secret \
-       --name minyoung/google-oauth \
-       --secret-string '{"clientId":"...","clientSecret":"..."}'
-     ```
+4. 별도 Google OAuth secret 은 필요 없다. Cognito Hosted UI 의 이메일/비밀번호 폼을 사용한다.
 
 ## 배포
 
@@ -46,6 +38,9 @@ npm run deploy
 가입 가능 이메일은 `infra/lambda/pre-sign-up/index.ts` 에서
 `zzamjak@gmail.com`, `keanux@naver.com` 두 개로 고정한다.
 요구사항상 런타임 환경변수나 CDK context 로 확장하지 않는다.
+
+사용자는 Cognito Hosted UI 가입 화면에서 이메일/비밀번호로 계정을 만든다.
+allowlist 외 이메일은 PreSignUp Lambda 에서 거부된다.
 
 이미 가입된 사용자를 제거하려면 Cognito에서 별도 삭제한다:
 

@@ -241,21 +241,15 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const client = getOidcClient();
       const cfg = buildAuthConfig();
       const forceAccountSelection = shouldForceAccountSelection();
-      const prompt = forceAccountSelection ? "login select_account" : "select_account";
       const request = await client.createSigninRequest({
         redirect_uri: cfg.redirectUri,
         response_type: "code",
         scope: cfg.scope,
         request_type: "si:r",
-        // 동일 브라우저 세션에서 다른 Google 계정으로 전환할 수 있도록 계정 선택을 강제한다.
-        // identity_provider 는 항상 포함한다: 동일 Google 계정이 늘 같은 federation 경로로
-        // 로그인되어 동일 sub 가 보장된다. (생략 시 Hosted UI 경유로 같은 이메일이라도 다른 sub 가
-        // 발급돼 기존 페이지/DB/이미지가 "다른 사용자"로 보여 사라지는 사고가 난다.)
-        extraQueryParams: {
-          identity_provider: cfg.identityProvider,
-          prompt,
-          ...(forceAccountSelection ? { max_age: "0" } : {}),
-        },
+        // 동일 브라우저 세션에서 다시 로그인 화면을 강제로 열어 계정 전환을 가능하게 한다.
+        ...(forceAccountSelection
+          ? { extraQueryParams: { prompt: "login", max_age: "0" } }
+          : {}),
       });
       await openAuthUrl(request.url);
     } catch (err) {

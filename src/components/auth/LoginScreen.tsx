@@ -30,7 +30,7 @@ export function LoginScreen() {
             Minyoung 로그인
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            허용된 Google 계정으로 로그인하세요.
+            허용된 이메일로 로그인하세요.
           </p>
         </div>
 
@@ -50,7 +50,7 @@ export function LoginScreen() {
           }}
           className="flex w-full items-center justify-center gap-2 rounded-md bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
         >
-          Google로 로그인
+          이메일로 로그인
         </button>
       </div>
     </div>

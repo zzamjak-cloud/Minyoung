@@ -35,13 +35,10 @@ const workspaceAccessTableName = tableName("workspace-access-v1");
 const cognitoStack = new CognitoStack(app, `${stackPrefix}CognitoStack`, {
   env,
   envPrefix,
-  description: `Minyoung [${deployEnv}] 인증 스택 (User Pool + Google IdP + allowlist Lambda)`,
+  description: `Minyoung [${deployEnv}] 인증 스택 (User Pool 이메일 로그인 + allowlist Lambda)`,
   cognitoDomainPrefix,
   webCallbackUrls,
   webLogoutUrls,
-  googleSecretName:
-    (app.node.tryGetContext("googleSecretName") as string | undefined) ??
-    "minyoung/google-oauth",
   membersTableName,
   workspacesTableName,
   workspaceAccessTableName,

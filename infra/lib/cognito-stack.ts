@@ -6,7 +6,6 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaNode from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
-import * as secrets from "aws-cdk-lib/aws-secretsmanager";
 
 export interface CognitoStackProps extends cdk.StackProps {
   /** 리소스 이름 접두사. dev 환경은 "dev-", live 환경은 "" */
@@ -14,7 +13,6 @@ export interface CognitoStackProps extends cdk.StackProps {
   cognitoDomainPrefix: string;
   webCallbackUrls: string[];
   webLogoutUrls: string[];
-  googleSecretName: string;
   /** 실제 배포된 Members DynamoDB 테이블 이름. */
   membersTableName?: string;
   workspacesTableName?: string;
@@ -95,11 +93,11 @@ export class CognitoStack extends cdk.Stack {
 
     const userPool = new cognito.UserPool(this, "UserPool", {
       userPoolName: `${props.envPrefix}minyoung-users`,
-      selfSignUpEnabled: true, // 페더레이션 진입을 위해 필요. PreSignUp Lambda로 차단.
+      selfSignUpEnabled: true, // Hosted UI 이메일 가입을 열고 PreSignUp Lambda로 allowlist 외 가입을 차단한다.
       signInAliases: { email: true },
       autoVerify: { email: true },
       mfa: cognito.Mfa.OFF,
-      accountRecovery: cognito.AccountRecovery.NONE, // 비밀번호 가입 미사용
+      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       removalPolicy: cdk.RemovalPolicy.RETAIN, // 사용자 데이터 보존
       lambdaTriggers: {
         preSignUp: preSignUpFn,
@@ -112,27 +110,7 @@ export class CognitoStack extends cdk.Stack {
       },
     });
 
-    // Google client id/secret 은 Secrets Manager 에서 주입.
-    const googleSecret = secrets.Secret.fromSecretNameV2(
-      this,
-      "GoogleOAuthSecret",
-      props.googleSecretName,
-    );
-
-    const googleProvider = new cognito.UserPoolIdentityProviderGoogle(this, "GoogleIdp", {
-      userPool,
-      clientId: googleSecret.secretValueFromJson("clientId").unsafeUnwrap(),
-      clientSecretValue: googleSecret.secretValueFromJson("clientSecret"),
-      scopes: ["profile", "email", "openid"],
-      attributeMapping: {
-        email: cognito.ProviderAttribute.GOOGLE_EMAIL,
-        givenName: cognito.ProviderAttribute.GOOGLE_GIVEN_NAME,
-        familyName: cognito.ProviderAttribute.GOOGLE_FAMILY_NAME,
-        profilePicture: cognito.ProviderAttribute.GOOGLE_PICTURE,
-      },
-    });
-
-    const supportedIdps = [cognito.UserPoolClientIdentityProvider.GOOGLE];
+    const supportedIdps = [cognito.UserPoolClientIdentityProvider.COGNITO];
 
     const oAuthFlows: cognito.OAuthFlows = {
       authorizationCodeGrant: true,
@@ -161,7 +139,6 @@ export class CognitoStack extends cdk.Stack {
       idTokenValidity: cdk.Duration.hours(1),
       refreshTokenValidity: cdk.Duration.days(30),
     });
-    webClient.node.addDependency(googleProvider);
 
     const domain = userPool.addDomain("HostedUiDomain", {
       cognitoDomain: { domainPrefix: props.cognitoDomainPrefix },

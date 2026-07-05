@@ -1,4 +1,4 @@
-// Cognito + Google OAuth 설정 (웹 전용).
+// Cognito 이메일/비밀번호 OIDC 설정 (웹 전용).
 
 export type AuthConfig = {
   region: string;
@@ -9,8 +9,6 @@ export type AuthConfig = {
   postLogoutRedirectUri: string;
   authority: string; // OIDC issuer
   scope: string;
-  // Hosted UI 가 Cognito 의 자체 가입 폼 대신 Google 로 바로 가도록 강제할 때 사용.
-  identityProvider: "Google";
 };
 
 function required(name: string, value: string | undefined): string {
@@ -52,6 +50,5 @@ export function buildAuthConfig(): AuthConfig {
     postLogoutRedirectUri: redirectUri.replace(/\/auth\/callback$/, "/auth/signout"),
     authority: `https://cognito-idp.${region}.amazonaws.com/${userPoolId}`,
     scope: "openid email profile",
-    identityProvider: "Google",
   };
 }

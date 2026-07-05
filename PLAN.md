@@ -9,7 +9,7 @@
 | 시작 방식 | **원본 참조 프로젝트 기반 감량** (신규 작성 아님) | 에디터+DB 뷰가 코드의 핵심 가치(약 13.6만 LOC). 워크스페이스 결합(254파일)은 추출보다 "단일 고정값 축소"가 훨씬 저렴 |
 | 동기화 | **AppSync LWW 동기화(계층 A)만 유지, Yjs 실시간 협업(계층 B) 전면 제거** | 단일 사용자라 공동편집 CRDT 불필요. 단, PC웹+모바일PWA 멀티디바이스이므로 LWW + outbox 오프라인 큐는 유지 (이미 구현돼 있어 추가 비용 없음) |
 | 워크스페이스 | 완전 삭제 대신 **고정 상수 1개로 축소** (`PERSONAL_WORKSPACE_ID`) | 스토어 키·GraphQL 파티션·구독 채널에 workspaceId가 박혀 있음. 스키마를 건드리지 않고 UI/전환 로직만 제거 |
-| 인증 | Cognito Hosted UI 유지 + **pre-sign-up Lambda 이메일 allowlist 2개 고정** | `zzamjak@gmail.com`(개발), `keanux@naver.com`(실사용). 셀프 가입 차단 |
+| 인증 | Cognito Hosted UI 이메일/비밀번호 + **pre-sign-up Lambda 이메일 allowlist 2개 고정** | `zzamjak@gmail.com`(개발), `keanux@naver.com`(실사용). Google 계정이 아니어도 로그인 가능 |
 | 인프라 | 동일 AWS 계정, **완전 별도 CDK 앱** (스택 접두사 `Minyoung*`, 별도 DynamoDB/Cognito/S3) | 1.0.0.md 요구사항: 기존과 동일 방식, 별도 프로젝트 |
 | 배포 | 웹: Vercel / 모바일: PWA (vite-plugin-pwa 기존 설정 재활용) | 네이티브 앱 제외 |
 | 저장소 | `zzamjak-cloud/Minyoung` 신규 생성 | 저장소명 `Minyoung` 확정 |

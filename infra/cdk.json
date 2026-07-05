@@ -26,7 +26,6 @@
     "webLogoutUrls": [
       "http://localhost:5173/auth/signout",
       "https://minyoung.vercel.app/auth/signout"
-    ],
-    "googleSecretName": "minyoung/google-oauth"
+    ]
   }
 }

@@ -38,7 +38,6 @@ export function getOidcManager(): UserManager {
     automaticSilentRenew: false,
     loadUserInfo: false,
     monitorSession: false,
-    extraQueryParams: { identity_provider: cfg.identityProvider },
     stateStore,
     userStore: userStore as unknown as WebStorageStateStore,
   });

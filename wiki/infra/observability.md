@@ -25,21 +25,11 @@
 
 Phase 0(`a693b82e`)에서 `sendBeacon` 경로를 추가해, `VITE_ERROR_BEACON_URL` 이 설정된 빌드는
 비치명 에러를 백엔드로 전송한다. **beacon URL 을 빌드 env 로 주입해야 실제 전송이 켜진다**
-(웹은 Vercel env, 데스크톱 릴리스는 GitHub Secrets — [deploy.md](deploy.md) STEP 3.5 와 동일 원리).
+(Vercel env — [deploy.md](deploy.md) STEP 3.5 와 동일 원리).
 
 ---
 
-## dev/live 캐시 격리 (Tauri 식별자 분리)
+## dev/live 캐시 격리
 
-`5ba32820` 이전에는 dev 와 라이브 데스크톱 앱이 **동일 identifier** 라
-같은 앱데이터 디렉토리의 `minyoung.db`(SQLite)를 공유했다 → dev 작업이 라이브 캐시를 오염.
-
-해소:
-- `src-tauri/tauri.dev.conf.json` 추가 — `identifier=com.loadcomplete.minyoung.dev`,
-  `productName="Minyoung Dev"`.
-- `npm run tauri:dev` 는 `tauri dev --config src-tauri/tauri.dev.conf.json` 로 머지 실행.
-- 라이브 `npm run tauri:build` 는 기존 identifier 유지 → **릴리스 무영향**.
-
-### 회귀 방지
-- dev 빌드는 별도 identifier·productName 을 쓰므로 라이브 앱데이터와 절대 섞이지 않는다.
-- dev conf 의 identifier 를 라이브와 같게 되돌리면 캐시 오염이 재발한다. 분리 유지할 것.
+웹 전용 앱이므로 dev 와 라이브는 서로 다른 origin(Vercel preview URL vs 프로덕션 URL)에서 동작하고,
+localStorage/IndexedDB 가 origin 단위로 분리되어 dev 작업이 라이브 캐시를 오염시키지 않는다.

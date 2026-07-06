@@ -3,6 +3,10 @@
 페이지·데이터베이스 버전 히스토리는 **서버 권위(server-authoritative)** 로 일원화돼 있다.
 로컬 `historyStore` 는 거의 은퇴 상태(아래 "로컬 historyStore" 참고).
 
+> **참고 — 협업(Yjs) 제거됨**: 실시간 협업(Yjs) 기능은 현재 제거됐다. 아래에 남은
+> 협업(Yjs)/materialize/Y룸 관련 서술은 역사적 설계 근거·경로다. 단일유저 편집에서는
+> 서버 upsert(및 로컬 편집 flush) 경로만 동작하므로, "협업 ON" 분기는 현재 발생하지 않는다.
+
 ## 세션 머지 모델 (2026-06-12 개편)
 
 upsert 마다 1버전이 아니라 **편집 세션 1건 = 버전 1건**(`page.session`/`database.session`).
@@ -39,9 +43,9 @@ upsert 마다 1버전이 아니라 **편집 세션 1건 = 버전 1건**(`page.se
   단일 정의로 통합됐고 클라(`blockDiff.ts`)·서버(`historySession.ts`)가 같은 소스를 import 한다 — 아래 "공통 시그니처 코어" 절 참고. **분기시키지 말 것.**
 - **⚠ 배포 순서**: `snapshot` 등 신규 필드는 클라 쿼리가 select 한다 — **CDK(스키마) 선배포 후 프론트**
   (PageMeta FieldUndefined 사고와 동일 규칙).
-- **⚠ 협업 모드 본문 영속 의존성**: 협업 ON 페이지는 materialize 의 `updateDoc(deferSync)` 가 sync enqueue 를
-  생략하므로, 서버 `page.doc` 업서트가 없으면 **히스토리가 아예 안 쌓인다.** `useCollabSession` 의 주기 업서트
-  (로컬 편집 시 8s 간격 + 페이지 이탈 flush)가 이를 담당 → [`collab/overview.md`](../collab/overview.md) 참고.
+- **⚠ (역사적) 협업 모드 본문 영속 의존성**: 협업 ON 페이지는 materialize 의 `updateDoc(deferSync)` 가 sync enqueue 를
+  생략하므로 서버 `page.doc` 업서트가 없으면 히스토리가 안 쌓였고, `useCollabSession` 의 주기 업서트가 이를 담당했다.
+  협업 기능 제거로 현재는 로컬 편집 flush + 서버 upsert 경로만 히스토리를 채우므로 이 의존성은 해당 없음.
 - 구(patch/anchor) 엔트리는 읽기 전용 레거시로 공존 — 재구성 경로가 snapshot 우선, 없으면 anchor+patch 폴백.
   이번 개편 이전에 "전체 변경"으로 기록된 세션은 그대로 남는다(새 기록부터 정상). 거슬리면 목록에서 선택 삭제.
 - Y.Snapshot/룸 update 로그 기반 히스토리는 **채택하지 않음**: gc:false 비대화, rt-ydoc-updates 50건 압축,

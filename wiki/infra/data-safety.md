@@ -49,7 +49,7 @@ location.reload();
 persist 키 중복 정의를 제거했다. 새 키는 중앙 정의를 import 하고 문자열 리터럴을 곳곳에 박지 않는다(중복 금지).
 
 ### dev/live 캐시 격리
-dev 데스크톱 빌드는 별도 Tauri identifier 를 써 라이브 앱데이터를 오염시키지 않는다.
+웹 전용이라 dev 와 라이브가 서로 다른 origin 에서 동작해 localStorage/IndexedDB 가 자동 분리된다.
 세부는 [observability.md](observability.md).
 
 ## 제거된 데드코드 12건 (behavior-preserving)

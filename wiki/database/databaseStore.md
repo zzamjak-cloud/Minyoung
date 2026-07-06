@@ -51,8 +51,6 @@
 | `deleteDatabase` | `(id: string) => void` | DB 영구 삭제. 블록만 지울 때는 호출하지 않음 |
 | `setDatabaseTitle` | `(id, title) => boolean` | 제목 변경. 정규화 후 중복이면 false 반환 |
 | `patchDatabasePanelState` | `(databaseId, patch) => void` | 필터 프리셋 탭·뷰 설정을 동기화 payload에 반영 |
-| `applyCollabDbStructure` | `(databaseId, structure) => void` | 협업 Y-doc 구조를 store에 반영 |
-| `seedCollabRowsFromStore` | `(databaseId) => void` | 협업 doc에 현재 store 행을 시드 |
 | `getBundle` | `(databaseId) => DatabaseBundle \| undefined` | DB 번들 조회 |
 | `resolveBundle` | `(databaseId) => DatabaseBundle \| undefined` | getBundle 별칭 |
 | `addTemplate` | `(databaseId) => string` | 템플릿 생성, templateId 반환 |
@@ -119,6 +117,6 @@ DB 변이의 히스토리 기록은 `historyStore.recordDbMutation(databaseId, k
 - 행 추가 시 활성 필터를 통과하는 값을 해당 컬럼에 자동 주입하여 필터 상태에서도 새 행이 즉시 보이도록 한다. 배열로 시드해야 하는 타입은 `helpers.ts` 의 `ARRAY_VALUED_COLUMN_TYPES`(이제 `COLUMN_TYPE_META.arrayValued` 에서 파생) 기준.
 - `importRowsBatch`는 단일 `pageStore.setState`로 일괄 반영해 렌더 flicker를 최소화한다.
 - `migrationQuarantine` 배열은 자동 복구 실패 데이터 보존용이므로 절대 삭제하지 않는다.
-- 컬럼 액션 4개(`addColumn`, `updateColumn`, `removeColumn`, `moveColumn`)는 `createColumnActions`로, 행·셀 액션 9개는 `createRowActions`로 슬라이스 분리됨. 나머지(createDatabase/preset/template/collab 등)는 여전히 store 본문 인라인. 두 슬라이스 모두 동작 보존(behavior-preserving) 추출이며 외부 인터페이스 변경 없음.
+- 컬럼 액션 4개(`addColumn`, `updateColumn`, `removeColumn`, `moveColumn`)는 `createColumnActions`로, 행·셀 액션 9개는 `createRowActions`로 슬라이스 분리됨. 나머지(createDatabase/preset/template 등)는 여전히 store 본문 인라인. 두 슬라이스 모두 동작 보존(behavior-preserving) 추출이며 외부 인터페이스 변경 없음.
 - `pageLinkAutoFill`, `pageLinkAutoReverse`, `pageLinkReverseColumnName`은 제거된 legacy config다. normalize/migration에서 제거하며, pageLink는 참조 해석만 담당한다.
 - LC Scheduler/Feature 보호 DB의 기존 참조 컬럼은 persist v5에서 `sourceFromDb`/`itemFetch` 구조로 보정된다.

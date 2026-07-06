@@ -36,7 +36,7 @@ Editor.tsx
 
 ## 내보내기 (`src/lib/export/`)
 
-페이지 doc → HTML/Markdown 직렬화. 노션 export 형식과 호환되도록 출력해 QN 노션 import 파서(`notionImport/htmlToDoc*`)로 **라운드트립**을 보장한다.
+페이지 doc → HTML/Markdown 직렬화. Markdown 은 GFM 형식으로 내보내 붙여넣기 파서(`lib/editor/markdownToDoc.ts`)로 **라운드트립**을 보장한다. (과거 노션 import 파서와의 호환은 노션 임포트 기능 제거로 더 이상 대상 아님.)
 
 | 파일 | 역할 |
 |------|------|

@@ -159,9 +159,8 @@ persist 스키마 bump 복구 경로도 이 헬퍼를 거친다([store/schema-ve
 ### PWA Service Worker 캐시 정책 (불변식)
 SW(vite-plugin-pwa)는 **정적 셸·해시 청크만 precache** 한다. **API/Cognito/동적 데이터는 절대
 가로채지 않는다**(`navigateFallbackDenylist`로 `/api/`·`/auth/` 제외) — SW 가 GraphQL 응답을
-캐시하면 delta/watermark 정합이 깨지므로 영구 금지. 위험은 stale 셸(옛 번들→옛 청크/옛 epoch)
+캐시하면 delta/watermark 정합이 깨지므로 영구 금지. 위험은 stale 셸(옛 번들→옛 청크)
 간접 경로뿐이며, `swController` 주기 업데이트 + `chunkReload` SW 강제 교체로 신선도를 상한한다.
-협업 epoch 과의 배포 정합은 [collab-live-deploy-checklist §1.8](../infra/collab-live-deploy-checklist.md).
 
 ## 동기화 엔티티 추가 시 등록점 (단일화)
 
@@ -204,25 +203,13 @@ SW(vite-plugin-pwa)는 **정적 셸·해시 청크만 precache** 한다. **API/C
 | `src/lib/sync/schemas/index.ts` | `DocEnvelopeSchema`/`DbCellsSchema` 등 수신 검증 스키마 |
 | `src/lib/sync/workspaceFetchMode.ts` | delta/full 모드 결정 로직 |
 | `src/lib/sync/workspaceSnapshotBootstrap.ts` | 메타·전체 스냅샷 페치 및 적용 |
-| `src/lib/sync/lcSchedulerWorkspaceRepair.ts` | LC 스케줄러 루트 DB 페이지 결손 감지 및 repair gate |
 | `src/lib/sync/pageContentLoad.ts` | 페이지 본문 지연 로드 |
-| `src/lib/sync/externalProtectedDatabaseLoad.ts` | 외부 보호 DB 행 배치·페이지네이션 로드 |
 | `src/store/pageContentLoadStore.ts` | metaOnly 상태 추적 (persist) |
 | `src/store/databaseRowRemoteStore.ts` | DB 행 nextToken·로딩 상태 (persist) |
 | `src/Bootstrap.tsx` | 초기 로드 및 동기화 시작 |
 
-## 실시간 협업(Yjs)과의 관계
-
-협업 ON 페이지/DB 는 본문·구조 권위가 Y.Doc 으로 넘어가고, Y→store 반영(materialize)이
-기존 sync 큐(`deferSync`)에 실려 서버로 전파된다. 즉 협업은 이 동기화 아키텍처 위에 얹힌
-레이어다 — 시드·바인딩 순서, epoch 격리, materialize 방어선은
-[collab/overview.md](../collab/overview.md) 가 권위 문서.
-
 ## 관련 위키
-- [collab/overview.md](../collab/overview.md) — 실시간 협업 구조·안전장치·운영
 - [incremental-sync.md](incremental-sync.md) — delta/watermark 상세
-- [lc-scheduler-workspace-repair.md](lc-scheduler-workspace-repair.md) — LC 스케줄러 루트 DB 페이지 결손 복구
 - [page-content-load.md](page-content-load.md) — 페이지 본문 지연 로드
-- [external-protected-database-load.md](external-protected-database-load.md) — 외부 DB 행 배치 로드
 - [outbox.md](outbox.md)
 - [conflict-resolution.md](conflict-resolution.md)

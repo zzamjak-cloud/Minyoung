@@ -85,7 +85,7 @@ persist 된 탭이 { databaseId: X } (풀페이지 DB 탭)
 
 라이브에서 같은 DB("아트 직군 살롱 지식 DB", `c5ce2a99`)의 풀페이지 홈이 날짜별로 미태깅 중복 생성되어 유령으로 반복 노출됐다.
 
-원인: **Notion CSV 폴더 임포트**(`src/components/settings/NotionCsvFolderSection.tsx`)가 DB 홈 페이지를 `createPage` + `updateDoc(databaseBlock)` 로 만들면서 페이지 레벨 `fullPageDatabaseId`(및 명시 `layout: "fullPage"`)를 설정하지 않았다. 서버 `upsertPage` 는 input 을 그대로 저장하므로(필드를 버리지 않음) 클라이언트가 안 보낸 것이 원인. 미태깅 홈은 메타 베이스라인에서 doc 폴백이 안 돼 사이드바에 노출되고, 델타 부트라 페이지 prune(`reconcileWorkspacePagesFullSnapshot`)도 안 돼 삭제해도 재동기화로 부활한다.
+원인(역사적 재발 경로 — **Notion CSV 폴더 임포트**는 노션 임포트 기능 제거로 이후 삭제됨): 당시 임포트(`NotionCsvFolderSection.tsx`)가 DB 홈 페이지를 `createPage` + `updateDoc(databaseBlock)` 로 만들면서 페이지 레벨 `fullPageDatabaseId`(및 명시 `layout: "fullPage"`)를 설정하지 않았다. 서버 `upsertPage` 는 input 을 그대로 저장하므로(필드를 버리지 않음) 클라이언트가 안 보낸 것이 원인. 미태깅 홈은 메타 베이스라인에서 doc 폴백이 안 돼 사이드바에 노출되고, 델타 부트라 페이지 prune(`reconcileWorkspacePagesFullSnapshot`)도 안 돼 삭제해도 재동기화로 부활한다.
 
 수정:
 - 임포트가 홈 생성 시 `layout: "fullPage"` 를 명시하고 `pageStore.markFullPageDatabaseHome(pageId, dbId)` 로 태깅한다.

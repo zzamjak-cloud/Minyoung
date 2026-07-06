@@ -92,7 +92,7 @@ Minyoung 에디터에 등록되는 커스텀 TipTap extension 모음. 블록 노
 - **`createBlockCommentDecorations`**: 팩토리 함수로 extension을 생성. `effectivePageId`와 `myMemberId`가 변경되면 `useEditorExtensions`의 `useMemo` deps 재실행으로 extension이 교체된다.
 - **`mediaCaption`**: imageBlock, fileBlock 양쪽에서 공유하는 캡션 관련 유틸. 새 미디어 블록 추가 시 이 파일을 재사용한다.
 - **`blockBackground` 텍스트 색**: `blockTextColor` 는 `listItem`/`taskItem` 등 **항목 단위**에만 부여. `bulletList`/`orderedList`/`taskList` ul·ol 에 두면 CSS 상속으로 부모·자식 항목이 함께 변색되는 회귀가 있었음 — 목록 컨테이너에는 `backgroundColor` 만 허용.
-- **마크다운 붙여넣기**: `Ctrl/Cmd+Shift+V` → `useEditorProps` → `pasteMarkdownAsDocContent` (`lib/editor/pasteMarkdownAsDoc.ts`) — 클립보드 **GFM 마크다운**을 `notionMarkdownToDoc` 으로 변환해 본문 블록으로 삽입(코드블록 아님). 페이지 **내용 복사**(`pageDocToMarkdown`)는 표를 `| col |` GFM 형식으로 내보내야 이 경로에서 table 블록으로 복원된다 — `lib/export/pageToMarkdown.ts`.
+- **마크다운 붙여넣기**: `Ctrl/Cmd+Shift+V` → `useEditorProps` → `pasteMarkdownAsDocContent` (`lib/editor/pasteMarkdownAsDoc.ts`) — 클립보드 **GFM 마크다운**을 `markdownToDoc`(`lib/editor/markdownToDoc.ts`, 노션 임포트 제거 후 파서가 이리로 이전됨)으로 변환해 본문 블록으로 삽입(코드블록 아님). 페이지 **내용 복사**(`pageDocToMarkdown`)는 표를 `| col |` GFM 형식으로 내보내야 이 경로에서 table 블록으로 복원된다 — `lib/export/pageToMarkdown.ts`.
 
 ## 멘션 prefix 단일진실원 (`mentionKind.ts`)
 
@@ -101,7 +101,7 @@ Minyoung 에디터에 등록되는 커스텀 TipTap extension 모음. 블록 노
 - prefix 상수: `MENTION_PAGE_PREFIX="p:"`, `MENTION_DATABASE_PREFIX="d:"`, `MENTION_MEMBER_PREFIX="m:"`.
 - kind 판정: `isPageMention(id, kindAttr)` / `isDatabaseMention` / `isMemberMention` — `kindAttr` 우선, 없으면 prefix 로 도출. precedence(판정 순서·구성)는 각 호출부 기존 동작을 그대로 보존.
 - prefix 제거: `stripPagePrefix` / `stripMemberPrefix`. attr 도출: `resolveMentionKindAttr(id, attr)`(미지정 시 prefix → 없으면 `"page"`).
-- 흡수된 호출부(2c535655): `MentionSearchModal.tsx`, `NotionImportTab.tsx`, `comments/mentionItems.ts`, `comments/mentionMemberIds.ts`, `editor/editorHandleDrop.ts`, `notionImport/htmlToDoc.ts`, `notionImport/htmlToDoc/pageMentions.ts`, `slashMenu/menuEntries.ts`.
+- 흡수된 호출부(2c535655): `MentionSearchModal.tsx`, `comments/mentionItems.ts`, `comments/mentionMemberIds.ts`, `editor/editorHandleDrop.ts`, `slashMenu/menuEntries.ts`. (당시 목록의 `NotionImportTab.tsx`·`notionImport/htmlToDoc*` 는 노션 임포트 기능 제거로 이후 삭제됨.)
 
 > **회귀 가드 — bare prefix 리터럴 재도입 금지**
 > 새 코드에서 멘션 id 를 `id.startsWith("p:")` / `"d:"` / `"m:"` 또는 `id.slice(2)` 로 직접 판정/절단하지 말 것. 반드시 `mentionKind.ts` 헬퍼를 import 해서 쓴다. bare 리터럴이 다시 흩어지면 이중진실원이 부활한다.

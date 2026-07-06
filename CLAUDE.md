@@ -34,16 +34,14 @@
 | 멘션·링크 클릭 이동/Ctrl+클릭/뒤로가기/탭 닫기 | `wiki/navigation/overview.md` |
 | 즐겨찾기 이동·제목(워크스페이스별 옛 제목)·목차 스크롤 | `wiki/navigation/overview.md` |
 | 이미지 리사이즈 버그 | `wiki/editor/image-resize.md` |
+| 네이버 도서 검색(슬래시·도서 카드·API 프록시·env) | `wiki/editor/naver-book-search.md` |
 | DB 뷰/셀/필터 수정 | `wiki/database/` |
 | DB 그룹화(표시설정) | `wiki/database/grouping.md` |
 | 자산 관리 탭·캐싱 | `wiki/settings/assets.md` |
-| 노션 가져오기(이미지 누락·인코딩·진행률) | `wiki/settings/notion-import.md` |
 | 플로우차트(도형·화살표·공유 동기화·링크·히스토리·전체보기) | `wiki/flowchart/overview.md` |
 | PWA 설치·Service Worker·업데이트·오프라인 정합 | `wiki/pwa/overview.md` |
 | 모바일 반응형(셸·z-index·터치 click·DB 카드·블록 액션 시트·컬럼 스택·인라인 DB 표시설정) | `wiki/mobile/overview.md` |
 | 동기화 버그 | `wiki/sync/architecture.md` |
-| 실시간 협업(Yjs)·빈 화면·본문 불일치·epoch | `wiki/collab/overview.md` |
-| 협업 라이브 배포·재활성화(epoch bump) | `wiki/infra/collab-live-deploy-checklist.md` |
 | Ghost 페이지(풀페이지 DB 사이드바 중복)·진입 시 재생성 | `wiki/pages/ghost-page-prevention.md` |
 | 영구삭제 페이지가 다른 PC 에 잔존(유령·WS 거절)·자기치유·좀비 대사 | `wiki/sync/page-content-load.md`, `wiki/sync/incremental-sync.md` |
 | 워크스페이스 진입 화면/첫 인덱스 리셋 | `wiki/workspace/overview.md` |

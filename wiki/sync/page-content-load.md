@@ -45,18 +45,18 @@ ensurePageContentLoaded(pageId)
 ## 서버 "페이지 없음" 자기치유 (2026-07-03)
 
 **배경**: 휴지통 영구삭제(hard delete)는 델타 싱크에 tombstone 이 없다. soft delete tombstone 을
-받기 전에 영구삭제가 일어나면 다른 PC 캐시에 페이지가 유령으로 남고, 진입 시 collab connect 가
-거절되어 `WebSocket connection failed` 만 반복된다(실사례: 2026-07-02 CAT 복제 후 삭제).
+받기 전에 영구삭제가 일어나면 다른 PC 캐시에 페이지가 유령으로 남고, 진입 시 본문 fetch 가
+반복 실패한다(실사례: 2026-07-02 CAT 복제 후 삭제. 당시엔 협업 WS 거절로 나타났으나 협업은 현재 제거됨).
 
 **동작**: GET_PAGE 계열은 오류 시 throw, 서버가 확정적으로 없다고 하면 `null` 을 반환한다 —
 이 구분이 안전장치의 핵심. `null` 일 때만 `pruneServerMissingPageFromCache`(storeApply/pageApply.ts)가
 합성 tombstone 으로 삭제 경로(스토어·activePageId·rowOrder·row-index·스냅샷 갱신)를 재사용해 정리한다.
 
-**호출 지점** (3중 트리거 — 아래 "회귀 교훈" 참고):
-1. Editor 협업 시드 fetch(`fetchPageById` null — 이전엔 1.5s 무한 재시도했음)
-2. `ensurePageContentLoaded` fetch null
-3. **useCollabSession — collab WS 단절(disconnected) 시 세션당 1회 존재 확인** → null 이면
-   y-indexeddb 잔재(`idb.clearData()`)까지 제거 후 prune
+**호출 지점** (아래 "회귀 교훈" 참고):
+1. `ensurePageContentLoaded` fetch null
+
+> (역사적) 협업(Yjs) 시절엔 Editor 협업 시드 fetch null, useCollabSession WS 단절 시 존재 확인 트리거도
+> 있었으나 협업 기능 제거로 지금은 위 경로만 유효하다.
 
 **⚠ 회귀 교훈 (2026-07-03 실사례, v5.6.5→v5.6.7 로 순차 해결)**: 본문이 y-indexeddb 에 영속된
 유령은 `contentLoaded=true` + "렌더 가능한 Y.Doc 있음"이라 트리거 1·2(fetch 경로)에 **아예 닿지

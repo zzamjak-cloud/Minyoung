@@ -43,7 +43,7 @@ FlowchartNodeLink = { type:"url", url } | { type:"page", pageId, label? }
 FlowchartRecord = { id, workspaceId, title, data, updatedAt(epoch ms), deletedAt? }  // 공유 저장소·서버 레코드
 ```
 
-- attrs 의 `data` 는 **항상 JSON 1회 인코딩 문자열**(databaseBlock.panelState 와 동일, Yjs 통짜 교체 안전).
+- attrs 의 `data` 는 **항상 JSON 1회 인코딩 문자열**(databaseBlock.panelState 와 동일, 통짜 교체 안전).
 - `parseFlowchart` 는 throw 하지 않음 — 이중 인코딩 1회 더 디코딩, 알 수 없는 shape→rectangle, id 없는 노드·끊긴 엣지(없는 노드 참조) 제거, 깨진 입력→빈 차트.
 
 ## 공유·동기화 (핵심)

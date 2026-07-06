@@ -1,6 +1,6 @@
 # PWA (설치·Service Worker·오프라인 정합)
 
-웹(Vercel) 전용 PWA. **Tauri 데스크톱 빌드에는 적용하지 않는다.** 상세 설계: `docs/pwa-plan.md`, `docs/pwa-phase3-offline-design.md`(gitignore, 로컬).
+웹(Vercel) 전용 PWA. 상세 설계: `docs/pwa-plan.md`, `docs/pwa-phase3-offline-design.md`(gitignore, 로컬).
 
 ---
 
@@ -8,7 +8,7 @@
 
 | 파일 | 역할 |
 |------|------|
-| `vite.config.ts` | `VitePWA` 플러그인(웹 빌드만, `!isTauri`). manifest·Workbox precache 설정. Tauri 빌드는 `virtual:pwa-register` 를 `src/lib/pwa/registerStub.ts` 로 alias |
+| `vite.config.ts` | `VitePWA` 플러그인. manifest·Workbox precache 설정 |
 | `src/lib/pwa/swController.ts` | SW 등록 싱글턴(`initPwa`). 주기 업데이트 점검·`forcePwaUpdate`·업데이트 상태 구독 |
 | `src/lib/pwa/installPrompt.ts` | `beforeinstallprompt` 부팅 캡처 싱글턴(`initInstallPrompt`) |
 | `src/lib/pwa/displayMode.ts` | `isStandalonePwa()`·`isIos()` |
@@ -29,8 +29,7 @@
 1. **SW 는 API/Cognito 를 절대 캐시하지 않는다.** Workbox precache 는 정적 셸·해시 청크만. `navigateFallback: /index.html` + `navigateFallbackDenylist: [/^\/api\//, /^\/auth\//]`. GraphQL 응답 캐시는 delta/watermark 정합을 깬다 → 영구 금지.
 2. **SW 등록은 부팅 시점(`main.tsx` `initPwa()`)에서 — AuthGate 안이 아니다.** AuthGate 안에 두면 로그인 전(LoginScreen)엔 children 미렌더라 SW 가 등록 안 돼 **설치 불가**해진다.
 3. **자동 reload 금지(`registerType: "prompt"`).** 편집 중 손실 방지. 새 SW 는 사용자가 배너로 확인 후 `applyPwaUpdate()` 로만 활성화. 예외: 청크404 루프 등 "이미 깨진 상태"에서 `forcePwaUpdate()`.
-4. **캐시 비움과 워터마크 리셋은 항상 짝** — `resetWorkspaceLocalCaches(workspaceId)` 단일 진입점. 어긋나면 delta 페치가 비워진 데이터를 건너뛰어 영구 유실(댓글 사라짐·유령페이지 회귀 패밀리).
-5. **epoch bump ↔ SW precache 교체는 동시 배포.** epoch 은 빌드타임에 박히므로 stale SW = stale epoch([collab-live-deploy-checklist §1.8](../infra/collab-live-deploy-checklist.md)).
+4. **캐시 비움과 워터마크 리셋은 항상 짝** — `resetWorkspaceLocalCaches(workspaceId)` 단일 진입점. 어긋나면 delta 페치가 비워진 데이터를 건너뛰어 영구 유실(유령페이지 회귀 패밀리).
 
 ---
 
@@ -66,5 +65,4 @@
 
 ## 관련 위키
 - [sync/architecture.md](../sync/architecture.md) — SW↔sync 캐시 정합·fetchMode·핸드셰이크
-- [infra/collab-live-deploy-checklist.md](../infra/collab-live-deploy-checklist.md) §1.8 — epoch↔SW
 - [mobile/overview.md](../mobile/overview.md) — 모바일 반응형

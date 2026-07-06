@@ -35,7 +35,7 @@
 - **피크 내부 이동(`peekNavigateToPage`)**: 타 워크스페이스 페이지를 피크로 연 뒤 그 안의 멘션·페이지링크·하위 페이지 트리를 클릭하면, 대상도 같은 타 워크스페이스 소속이라 로컬 store 에 없다. `peekNavigate` 를 그대로 부르면 `DatabaseRowPeek` 가 `pages[id]` 를 못 찾아 **피크가 즉시 닫히고 무반응**이 된다. 따라서 로컬에 없으면 현재 피크 중인 페이지의 workspaceId 로 `ensurePageContentLoaded` 한 뒤 이동한다. (회귀 주의: 피크 내부 네비게이션은 `peekNavigate` 직접 호출이 아니라 `peekNavigateToPage` 를 거쳐야 한다 — `pageMentionClick.ts`/`pageLink.tsx`/`DatabaseRowPeek` 하위 트리.)
 - 타 워크스페이스 본문 적재는 storeApply 워크스페이스 가드를 우회해 직접 `pageStore` 에 넣는다(`applyRemotePageToStoreCrossWorkspaceAware` / `ensurePageContentLoaded`). 가드는 `page.workspaceId` 기준 판정이므로 **우회 판정도 가져온 페이지의 실제 workspaceId 기준**으로 한다(요청 workspaceId 가 어긋나도 안전). workspaceId 가 달라 사이드바·동기화 대상에선 자동 제외된다.
   - DB 행을 `useOpenDatabaseRow` 로 열 때 workspaceId 폴백 순서: `page.workspaceId` → rowIndex → **DB 번들 `meta.workspaceId`** → currentWorkspaceId.
-- **타 워크스페이스 페이지·인라인 DB 는 협업(Yjs)을 비활성화한다.** `useCollabSession`/`useDatabaseCollabSession` 이 `page.workspaceId`(또는 DB 번들 `meta.workspaceId`) ≠ 현재 워크스페이스면 `enabled=false` 로 게이트한다. 안 그러면 빈 Y.Doc 바인딩이 우회 적재한 본문을 덮어써(**잠깐 보였다 사라짐**) 타 워크스페이스 룸 WebSocket 연결이 404 로 실패한다(라이브 회귀). 같은 워크스페이스 협업엔 영향 없음.
+- (역사적) 과거 실시간 협업(Yjs)이 있던 시절엔 타 워크스페이스 페이지·인라인 DB 의 협업 세션을 `enabled=false` 로 게이트해 빈 Y.Doc 바인딩이 우회 적재한 본문을 덮어쓰지 못하게 했다. 협업 기능 제거로 이 게이트는 더 이상 필요 없다.
 
 **자기설명적 링크 (`minyoungLinks.ts`)**
 - `buildMinyoungPageUrl` 은 `ws`(원본 워크스페이스, 기본값=현재 워크스페이스) 파라미터를 싣는다. 타 워크스페이스에 붙여넣어 만든 버튼(`buttonBlock`)을 클릭하면 이 `ws` 로 어느 워크스페이스 페이지인지 식별한다. ⚠️ 기존(ws 없이) 복사된 링크는 다시 복사해야 한다.

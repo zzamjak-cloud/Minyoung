@@ -27,7 +27,6 @@ entries 가 있으면 → 뮤테이션이 서버에 전달되지 않은 것 (CDK
 | 어댑터 | 구현 방식 |
 |--------|-----------|
 | `adapter.web.ts` | Dexie `db.entries.count()` |
-| `adapter.tauri.ts` | `SELECT COUNT(*) AS c FROM outbox_entries` |
 | `adapter.memory.ts` | `byId.size` |
 
 `count()`가 없는 어댑터는 `list(OUTBOX_SOFT_CAP + 1).length`로 폴백한다.

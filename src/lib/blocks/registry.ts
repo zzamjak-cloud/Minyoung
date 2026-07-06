@@ -208,6 +208,15 @@ export const blockDefinitions: BlockDefinition[] = [
     slashTitles: [],
   }),
   defineBlock({
+    id: "bookCard",
+    title: "도서 카드",
+    nodeTypes: ["bookCard"],
+    group: "embed",
+    dnd: movableLeafDnd,
+    toolbar: { kind: "media" },
+    slashTitles: [],
+  }),
+  defineBlock({
     id: "callout",
     title: "콜아웃",
     nodeTypes: ["callout"],

@@ -1,5 +1,6 @@
 import {
   AtSign,
+  BookOpen,
   CalendarDays,
   CheckSquare,
   ChevronRight,
@@ -250,6 +251,30 @@ export const slashMenuEntries: SlashMenuEntry[] = [
       setTimeout(() => {
         window.dispatchEvent(
           new CustomEvent("minyoung:open-server-video-picker"),
+        );
+      }, 0);
+    },
+  }),
+  slashLeaf({
+    id: "naverBookSearch",
+    title: "네이버 도서 검색",
+    description: "네이버 도서를 검색해 카드로 삽입",
+    icon: BookOpen,
+    keywords: [
+      "book",
+      "도서",
+      "책",
+      "네이버",
+      "naver",
+      "검색",
+      "isbn",
+      "bookmark",
+    ],
+    command: (ctx) => {
+      clearSlashRange(ctx);
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent("minyoung:open-naver-book-search"),
         );
       }, 0);
     },

@@ -140,6 +140,38 @@ function nodeToHtml(node: JSONContent, depth = 0, options?: PageHtmlExportOption
       if (imageUrl) parts.push(`<img class="bookmark-image" src="${escapeHtml(imageUrl)}" alt="" />`);
       return `<figure class="bookmark"><a href="${href}">${parts.join("")}</a></figure>`;
     }
+    case "bookCard": {
+      // 네이버 도서 카드 — data-* 속성으로 라운드트립 보존(bookCardBlock parseHTML 이 복원).
+      const attrs = node.attrs ?? {};
+      const link = escapeHtml((attrs.link as string) ?? "");
+      const title = escapeHtml((attrs.title as string) ?? "");
+      const image = escapeHtml((attrs.image as string) ?? "");
+      const author = escapeHtml((attrs.author as string) ?? "");
+      const publisher = escapeHtml((attrs.publisher as string) ?? "");
+      const dataAttrs = ([
+        ["data-title", (attrs.title as string) ?? ""],
+        ["data-author", (attrs.author as string) ?? ""],
+        ["data-publisher", (attrs.publisher as string) ?? ""],
+        ["data-pubdate", (attrs.pubdate as string) ?? ""],
+        ["data-isbn", (attrs.isbn as string) ?? ""],
+        ["data-image", (attrs.image as string) ?? ""],
+        ["data-link", (attrs.link as string) ?? ""],
+        ["data-description", (attrs.description as string) ?? ""],
+        ["data-price", (attrs.price as string) ?? ""],
+      ] as Array<[string, string]>)
+        .filter(([, v]) => v)
+        .map(([k, v]) => `${k}="${escapeHtml(v)}"`)
+        .join(" ");
+      // 단독 HTML 내보내기 시 시각적 표현(북마크 export 와 동일하게 표지 이미지 포함).
+      // data-* 속성이 라운드트립을 담당하므로 이 마크업은 표시용일 뿐이다.
+      const meta = [author, publisher].filter(Boolean).join(" · ");
+      const parts = [`<div class="book-card-title">${title}</div>`];
+      if (meta) parts.push(`<div class="book-card-meta">${meta}</div>`);
+      if (image) parts.push(`<img class="book-card-image" src="${image}" alt="" referrerpolicy="no-referrer" />`);
+      const body = parts.join("");
+      const inner = link ? `<a href="${link}">${body}</a>` : `<span>${body}</span>`;
+      return `<div data-book-card ${dataAttrs}>${inner}</div>`;
+    }
     case "youtube": {
       // <figure><iframe src="embed url"> — 파서 youtubeNodeFromElement 가 videoId 를 복원.
       const src = (node.attrs?.src as string) ?? "";

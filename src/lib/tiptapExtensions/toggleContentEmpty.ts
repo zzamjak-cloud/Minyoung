@@ -7,6 +7,7 @@ const NON_EMPTY_LEAF_TYPES = new Set([
   "youtube",
   "databaseBlock",
   "bookmarkBlock",
+  "bookCard",
   "fileBlock",
   "buttonBlock",
   "tabBlock",

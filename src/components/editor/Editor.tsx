@@ -42,6 +42,7 @@ import { syncInsertBeforeBlockSelection } from "../../lib/tiptapExtensions/inser
 import { isDefaultNewPageTitle, PAGE_TITLE_DUPLICATE_MESSAGE, preparePageTitleInput } from "../../store/pageStore/helpers";
 import { ImageUpload } from "./ImageUpload";
 import { ServerImagePicker } from "./ServerImagePicker";
+import { NaverBookSearch } from "./NaverBookSearch";
 import { useCustomIconUpload } from "../common/useCustomIconUpload";
 import { FileText, Database, Loader2, ImagePlus } from "lucide-react";
 import { PageTitleBar } from "../page/PageTitleBar";
@@ -207,6 +208,7 @@ function EditorInner({
   const [imageOpen, setImageOpen] = useState(false);
   const [serverImageOpen, setServerImageOpen] = useState(false);
   const [serverVideoOpen, setServerVideoOpen] = useState(false);
+  const [naverBookOpen, setNaverBookOpen] = useState(false);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [emojiAnchor, setEmojiAnchor] = useState<EmojiAnchor | null>(null);
   const [pasteUrlChoice, setPasteUrlChoice] = useState<PasteUrlChoice | null>(null);
@@ -687,6 +689,18 @@ function EditorInner({
     window.addEventListener("minyoung:open-server-video-picker", open);
     return () =>
       window.removeEventListener("minyoung:open-server-video-picker", open);
+  }, [editor]);
+
+  // 네이버 도서 검색 모달 트리거 (/네이버 도서 검색)
+  // 포커스된 Editor 인스턴스에서만 열도록 가드 (피크 + 메인 동시 마운트 시 중복 노출 방지).
+  useEffect(() => {
+    const open = () => {
+      if (!editor?.isFocused) return;
+      setNaverBookOpen(true);
+    };
+    window.addEventListener("minyoung:open-naver-book-search", open);
+    return () =>
+      window.removeEventListener("minyoung:open-naver-book-search", open);
   }, [editor]);
 
   // 이모지 피커 모달 트리거
@@ -1191,6 +1205,11 @@ function EditorInner({
         onClose={() => setServerVideoOpen(false)}
         editor={editor}
         mode="video"
+      />
+      <NaverBookSearch
+        open={naverBookOpen}
+        onClose={() => setNaverBookOpen(false)}
+        editor={editor}
       />
       {pasteUrlChoice && (
         <div

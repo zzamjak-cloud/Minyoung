@@ -105,6 +105,12 @@ function nodeToMd(node: JSONContent, depth = 0): string {
       return "---\n";
     case "image":
       return `![${node.attrs?.alt ?? ""}](${node.attrs?.src ?? ""})\n`;
+    case "bookCard": {
+      // 도서 카드는 마크다운에 별도 표현이 없어 제목 + 네이버 상세 링크로 직렬화한다.
+      const title = (node.attrs?.title as string) ?? "";
+      const link = (node.attrs?.link as string) ?? "";
+      return link ? `[${title}](${link})\n` : `${title}\n`;
+    }
     default:
       return (node.content ?? []).map((n) => nodeToMd(n, depth)).join("");
   }

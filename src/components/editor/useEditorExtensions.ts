@@ -55,6 +55,7 @@ import { FlowchartBlock } from "../../lib/tiptapExtensions/flowchartBlock";
 import { PageLink } from "../../lib/tiptapExtensions/pageLink";
 import { ButtonBlock } from "../../lib/tiptapExtensions/buttonBlock";
 import { BookmarkBlock } from "../../lib/tiptapExtensions/bookmarkBlock";
+import { BookCardBlock } from "../../lib/tiptapExtensions/bookCardBlock";
 import { LucideInlineIcon } from "../../lib/tiptapExtensions/lucideInlineIcon";
 import { ImageInlineIcon } from "../../lib/tiptapExtensions/imageInlineIcon";
 import { DateInline } from "../../lib/tiptapExtensions/dateInline";
@@ -174,6 +175,7 @@ export function useEditorExtensions({
       PageLink,
       ButtonBlock,
       BookmarkBlock,
+      BookCardBlock,
       InsertBeforeBlock,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       LucideInlineIcon,

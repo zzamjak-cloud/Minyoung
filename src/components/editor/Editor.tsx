@@ -467,6 +467,21 @@ function EditorInner({
   const lastNormalizedDocRef = useRef<unknown>(null);
   useLayoutEffect(() => {
     if (!editor || !pageDoc || !safePageDoc || !effectivePageId) return;
+    // 버전 스큐 방어: 현재 번들 스키마가 서버 doc 을 표현하지 못하면
+    // (구/부분 구버전 번들이 bookCard 등 새 노드타입을 모름) 하이드레이션·autosave 를 중단한다.
+    // 억지로 반영하면 미지 노드가 유실된 lossy doc 이 되고, 곧이어 편집 시 서버의 온전한 본문을
+    // 그 lossy 본문으로 덮어써(LWW) 데이터가 사라진다(빈 화면 → "/" 입력 → 전체 유실).
+    // storeDocHydratedRef 를 false 로 두면 autosave 게이트가 닫혀 클로버링이 원천 차단된다.
+    try {
+      editor.schema.nodeFromJSON(safePageDoc);
+    } catch (err) {
+      storeDocHydratedRef.current = false;
+      reportNonFatal(err, "editor:page-doc-schema-outdated");
+      setSimpleAlert(
+        "이 페이지는 더 최신 버전에서 작성됐어요. 새로고침해 앱을 업데이트한 뒤 다시 열어 주세요.",
+      );
+      return;
+    }
     if (
       lastNormalizedDocRef.current !== pageDoc &&
       !tipTapJsonDocEquals(editor.schema, safePageDoc, pageDoc)

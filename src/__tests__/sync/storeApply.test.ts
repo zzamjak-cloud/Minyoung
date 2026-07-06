@@ -151,6 +151,47 @@ describe("storeApply 워크스페이스 가드", () => {
     expect(usePageContentLoadStore.getState().metaOnlyByPageId["pg-1"]).toBeUndefined();
   });
 
+  it("로드된 페이지에 더 최신 메타가 오면 본문을 무효화해 재fetch를 유도한다(실시간 본문 동기화)", () => {
+    // 구독 onPageChanged 는 메타만 전달하므로(doc 미포함), 다른 기기의 본문 편집이
+    // 더 최신 updatedAt 메타로 도착하면 contentLoaded 를 false 로 되돌려 재fetch 되게 한다.
+    useWorkspaceStore.setState({ currentWorkspaceId: "ws-a" });
+    applyRemotePageToStore({
+      ...gqlPage("ws-a", "pg-1"),
+      updatedAt: "2026-01-03T00:00:00.000Z",
+      doc: JSON.stringify({
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "old" }] }],
+      }),
+    });
+    expect(usePageStore.getState().pages["pg-1"]?.contentLoaded).toBe(true);
+
+    // 다른 기기의 본문 편집 → 더 최신 updatedAt 메타 수신
+    applyRemotePageMetasToStore([
+      gqlPageMeta("ws-a", "pg-1", "2026-01-03T00:00:05.000Z"),
+    ]);
+
+    expect(usePageStore.getState().pages["pg-1"]?.contentLoaded).toBe(false);
+    expect(usePageContentLoadStore.getState().metaOnlyByPageId["pg-1"]).toBe(true);
+  });
+
+  it("자기 echo(동일 updatedAt) 메타는 로드된 페이지를 무효화하지 않는다", () => {
+    useWorkspaceStore.setState({ currentWorkspaceId: "ws-a" });
+    const updatedAt = "2026-01-04T00:00:00.000Z";
+    applyRemotePageToStore({
+      ...gqlPage("ws-a", "pg-1"),
+      updatedAt,
+      doc: JSON.stringify({
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "mine" }] }],
+      }),
+    });
+
+    applyRemotePageMetasToStore([gqlPageMeta("ws-a", "pg-1", updatedAt)]);
+
+    expect(usePageStore.getState().pages["pg-1"]?.contentLoaded).toBe(true);
+    expect(JSON.stringify(usePageStore.getState().pages["pg-1"]?.doc)).toContain("mine");
+  });
+
   it("더 최신 updatedAt 의 원격 본문은 로컬 본문을 LWW 로 덮는다", () => {
     useWorkspaceStore.setState({ currentWorkspaceId: "ws-a" });
     applyRemotePageToStore({

@@ -329,7 +329,15 @@ export function applyRemotePageMetasToStore(
         if (local.contentLoaded === true && metaOnlyByPageId[p.id]) loadedIds.push(p.id);
         continue;
       }
+      // 실시간 본문 동기화: 구독 onPageChanged 는 메타(PAGE_META_FIELDS)만 전달하고 doc 은 싣지 않는다
+      // (실시간 본문 전파를 담당하던 Yjs 협업 계층이 제거됨). gqlPageMetaToLocalPage 는 stale 로컬 doc 을
+      // 유지하므로, 이미 본문을 로드한 페이지에 더 새로운 원격 버전(다른 기기의 본문 편집)이 도착하면
+      // contentLoaded 를 무효화해 기존 재fetch 체인(ensurePageContentLoaded)이 최신 doc 을 가져오게 한다.
+      // 자기 echo(updatedAt 동일)는 remoteMs>local 이 아니므로 제외, 메타만 변경도 안전(동일 doc 재fetch).
+      const remoteBodyMaybeNewer =
+        local?.contentLoaded === true && isoToMs(p.updatedAt) > local.updatedAt;
       const merged = gqlPageMetaToLocalPage(p, local);
+      if (remoteBodyMaybeNewer) merged.contentLoaded = false;
       ensurePagesCopy();
       nextPages[p.id] = merged;
       if (merged.contentLoaded === false) metaOnlyIds.push(p.id);
